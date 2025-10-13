@@ -6,13 +6,14 @@ A real-time collaborative design canvas built with Nuxt 4, Supabase, and Konva.j
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - pnpm (recommended) or npm
 - Supabase account
 
 ### Installation
 
 1. **Clone and install dependencies:**
+
    ```bash
    git clone <repository-url>
    cd collab-canvas
@@ -20,12 +21,14 @@ A real-time collaborative design canvas built with Nuxt 4, Supabase, and Konva.j
    ```
 
 2. **Setup environment variables:**
+
    ```bash
    cp .env.example .env
    # Edit .env with your Supabase credentials
    ```
 
 3. **Start development server:**
+
    ```bash
    pnpm dev
    ```

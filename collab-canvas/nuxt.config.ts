@@ -9,5 +9,12 @@ export default defineNuxtConfig({
     '@nuxt/scripts',
     '@nuxt/test-utils',
     '@nuxt/ui',
+    'nuxt-mcp',
   ],
+
+  experimental: {
+    componentIslands: {
+      selectiveClient: true
+    }
+  }
 });

@@ -15,6 +15,9 @@
         <UButton @click="clearCanvas" color="red" variant="outline" size="sm">
           Clear
         </UButton>
+        <UButton @click="resetView" color="gray" variant="outline" size="sm">
+          Reset View
+        </UButton>
       </div>
     </div>
 
@@ -26,6 +29,7 @@
         :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
       >
         <CanvasKonva
+          ref="canvasRef"
           :stage-config="stageConfig"
           :rectangles="rectangles"
           :circles="circles"
@@ -77,13 +81,14 @@ const texts = ref([])
 const selectedShapeId = ref(null)
 const isDragging = ref(false)
 const lastPointerPosition = ref({ x: 0, y: 0 })
+const canvasRef = ref(null)
 
 // Computed properties
 const totalShapes = computed(() => 
   rectangles.value.length + circles.value.length + texts.value.length
 )
 
-const zoom = computed(() => stageConfig.value.scaleX)
+const zoom = computed(() => stageConfig.value.scaleX || 1)
 
 // Shape creation methods
 const addRectangle = () => {
@@ -133,6 +138,24 @@ const clearCanvas = () => {
   circles.value = []
   texts.value = []
   selectedShapeId.value = null
+}
+
+const resetView = () => {
+  // Reset stage configuration to default
+  stageConfig.value = {
+    width: canvasWidth,
+    height: canvasHeight,
+    draggable: true,
+    scaleX: 1,
+    scaleY: 1,
+    x: 0,
+    y: 0
+  }
+  
+  // Also call the component's reset method
+  if (canvasRef.value) {
+    canvasRef.value.resetView()
+  }
 }
 
 // Utility functions

@@ -1,6 +1,6 @@
 <template>
   <div v-if="isClient">
-    <div ref="konvaContainer" class="w-full h-full"></div>
+    <div ref="konvaContainer" class="w-full h-full konva-container"></div>
   </div>
   <div v-else class="flex items-center justify-center h-full bg-gray-100 rounded">
     <div class="text-gray-500">Loading canvas...</div>
@@ -48,6 +48,10 @@ const emit = defineEmits([
 
 // Stage interaction handlers
 const handleStageMouseDown = (e) => {
+  // Only pan if clicking on empty space (not on shapes)
+  if (e.target === stage) {
+    stage.draggable(true)
+  }
   emit('stage-mousedown', e)
 }
 
@@ -56,7 +60,39 @@ const handleStageMouseMove = (e) => {
 }
 
 const handleStageMouseUp = (e) => {
+  stage.draggable(false)
   emit('stage-mouseup', e)
+}
+
+// Zoom functionality
+const handleWheel = (e) => {
+  e.evt.preventDefault()
+  
+  const scaleBy = 0.95
+  const oldScale = stage.scaleX()
+  const pointer = stage.getPointerPosition()
+  
+  const mousePointTo = {
+    x: (pointer.x - stage.x()) / oldScale,
+    y: (pointer.y - stage.y()) / oldScale,
+  }
+  
+  const newScale = e.evt.deltaY > 0 ? oldScale * scaleBy : oldScale / scaleBy
+  
+  // Limit zoom levels
+  const minScale = 0.1
+  const maxScale = 5
+  const clampedScale = Math.max(minScale, Math.min(maxScale, newScale))
+  
+  stage.scale({ x: clampedScale, y: clampedScale })
+  
+  const newPos = {
+    x: pointer.x - mousePointTo.x * clampedScale,
+    y: pointer.y - mousePointTo.y * clampedScale,
+  }
+  
+  stage.position(newPos)
+  stage.batchDraw()
 }
 
 const selectShape = (shapeId) => {
@@ -110,7 +146,7 @@ onMounted(async () => {
     container: konvaContainer.value,
     width: props.stageConfig.width,
     height: props.stageConfig.height,
-    draggable: props.stageConfig.draggable
+    draggable: false // We'll handle dragging manually for better control
   })
   
   // Create layer
@@ -124,6 +160,9 @@ onMounted(async () => {
   stage.on('mousedown', handleStageMouseDown)
   stage.on('mousemove', handleStageMouseMove)
   stage.on('mouseup', handleStageMouseUp)
+  
+  // Add pan functionality
+  stage.on('wheel', handleWheel)
   
   window.addEventListener('keydown', handleKeyDown)
 })
@@ -204,4 +243,35 @@ const addShapesToLayer = () => {
 watch(() => [props.rectangles, props.circles, props.texts], () => {
   addShapesToLayer()
 }, { deep: true })
+
+// Watch for stage config changes
+watch(() => props.stageConfig, (newConfig) => {
+  if (stage && newConfig) {
+    stage.scale({ x: newConfig.scaleX, y: newConfig.scaleY })
+    stage.position({ x: newConfig.x, y: newConfig.y })
+    stage.batchDraw()
+  }
+}, { deep: true })
+
+// Expose methods to parent
+defineExpose({
+  resetView: () => {
+    if (stage) {
+      stage.scale({ x: 1, y: 1 })
+      stage.position({ x: 0, y: 0 })
+      stage.batchDraw()
+    }
+  }
+})
 </script>
+
+<style scoped>
+/* Canvas container styling */
+.konva-container {
+  cursor: grab;
+}
+
+.konva-container:active {
+  cursor: grabbing;
+}
+</style>

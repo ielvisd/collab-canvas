@@ -1,0 +1,121 @@
+graph TB
+    subgraph "Client Browser"
+        subgraph "Nuxt 4 Application"
+            Pages[Pages Layer<br/>login.vue, canvas.vue]
+            Components[Components Layer<br/>Toolbar, CursorOverlay,<br/>UserList]
+            Composables[Composables Layer<br/>useAuth, useShapes,<br/>useSupabase, usePresence]
+            
+            subgraph "UI Layer"
+                NuxtUI[Nuxt UI Components<br/>Buttons, Cards, Inputs]
+                Tailwind[Tailwind CSS]
+            end
+            
+            subgraph "Canvas Engine"
+                Konva[Konva.js Stage & Layer]
+                VueKonva[Vue-Konva Wrapper]
+                Shapes[Shape Objects<br/>Rect, Circle, Text]
+            end
+            
+            SupabaseClient[Supabase Client SDK<br/>@supabase/supabase-js]
+        end
+        
+        LocalState[In-Memory State<br/>Canvas Objects, User Session]
+    end
+    
+    subgraph "Supabase Backend"
+        subgraph "Authentication"
+            Auth[Supabase Auth<br/>Email Auth + Sessions]
+            AuthDB[(auth.users)]
+        end
+        
+        subgraph "Database"
+            Postgres[(PostgreSQL)]
+            CanvasTable[(canvas_objects table)]
+            RLS[Row Level Security<br/>Policies]
+        end
+        
+        subgraph "Realtime Engine"
+            RealtimeServer[Supabase Realtime Server]
+            PostgresChanges[postgres_changes<br/>Subscription]
+            PresenceAPI[Presence API<br/>Ephemeral Channel]
+        end
+    end
+    
+    subgraph "Deployment & CI/CD"
+        GitHub[GitHub Repository<br/>Source Code]
+        GitHubActions[GitHub Actions<br/>ESLint, Prettier,<br/>Vitest, Playwright]
+        Vercel[Vercel<br/>Production Hosting]
+    end
+    
+    subgraph "Testing Infrastructure"
+        Vitest[Vitest<br/>Unit Tests]
+        Playwright[Playwright<br/>E2E Tests]
+        ESLint[ESLint + Prettier<br/>Code Quality]
+    end
+    
+    %% Page to Components
+    Pages --> Components
+    Pages --> Composables
+    
+    %% Components connections
+    Components --> NuxtUI
+    Components --> Konva
+    Components --> Composables
+    
+    %% UI Layer
+    NuxtUI --> Tailwind
+    
+    %% Canvas Engine
+    VueKonva --> Konva
+    Konva --> Shapes
+    Shapes --> LocalState
+    
+    %% Composables to Client
+    Composables --> SupabaseClient
+    Composables --> LocalState
+    
+    %% Client to Supabase - Authentication
+    SupabaseClient -->|Sign Up/Login| Auth
+    Auth --> AuthDB
+    Auth -->|Session Token| SupabaseClient
+    
+    %% Client to Supabase - Database Operations
+    SupabaseClient -->|CRUD Operations| Postgres
+    Postgres --> CanvasTable
+    RLS -->|Enforce Policies| CanvasTable
+    
+    %% Real-time Connections
+    SupabaseClient -->|Subscribe| RealtimeServer
+    CanvasTable -->|Table Changes| PostgresChanges
+    PostgresChanges -->|Broadcast INSERT/UPDATE/DELETE| RealtimeServer
+    RealtimeServer -->|Shape Events<br/>50-150ms| SupabaseClient
+    
+    %% Presence System
+    SupabaseClient -->|Track Cursor Position| PresenceAPI
+    PresenceAPI -->|Broadcast Presence<br/><50ms| RealtimeServer
+    RealtimeServer -->|Cursor Updates| SupabaseClient
+    
+    %% State Updates
+    SupabaseClient -->|Update Canvas State| LocalState
+    LocalState -->|Render| Konva
+    
+    %% CI/CD Pipeline
+    GitHub -->|Push/PR| GitHubActions
+    GitHubActions --> ESLint
+    GitHubActions --> Vitest
+    GitHubActions --> Playwright
+    GitHubActions -->|Deploy on Success| Vercel
+    Vercel -->|Hosts| Pages
+    
+    %% Styling
+    classDef client fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef supabase fill:#fff4e1,stroke:#e65100,stroke-width:2px
+    classDef deployment fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef testing fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef canvas fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    
+    class Pages,Components,Composables,NuxtUI,Tailwind,SupabaseClient,LocalState client
+    class Konva,VueKonva,Shapes canvas
+    class Auth,AuthDB,Postgres,CanvasTable,RLS,RealtimeServer,PostgresChanges,PresenceAPI supabase
+    class GitHub,GitHubActions,Vercel deployment
+    class Vitest,Playwright,ESLint testing

@@ -8,11 +8,11 @@ export default defineNuxtPlugin(() => {
   const supabaseKey = config.public.supabasePublishableKey || config.public.supabaseAnonKey
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase environment variables. Please set SUPABASE_URL and either SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY')
+    console.error('Missing Supabase environment variables. Please set NUXT_PUBLIC_SUPABASE_URL and NUXT_PUBLIC_SUPABASE_ANON_KEY')
     return
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  const supabase = createClient(supabaseUrl as string, supabaseKey as string, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,

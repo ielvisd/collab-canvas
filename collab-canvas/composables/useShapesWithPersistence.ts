@@ -60,30 +60,23 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
   const autoSave = ref(true)
   
   // Real-time sync
-  // Real-time sync integration - TEMPORARILY DISABLED
-  // const {
-  //   isConnected: isRealtimeConnected,
-  //   lastSyncTime,
-  //   error: realtimeError,
-  //   startSync: startRealtimeSync,
-  //   stopSync: stopRealtimeSync,
-  //   markOurChange
-  // } = useRealtimeSync(rectangles, circles, texts, (type, shape) => {
-  //   console.log('Real-time shape change:', type, shape)
-  //   isUpdatingFromRealtime.value = true
-  //   nextTick(() => {
-  //     isUpdatingFromRealtime.value = false
-  //   })
-  // })
+  const {
+    isConnected: isRealtimeConnected,
+    lastSyncTime,
+    error: _realtimeError,
+    startSync: startRealtimeSync,
+    stopSync: stopRealtimeSync,
+    markOurChange
+  } = useRealtimeSync(rectangles, circles, texts, (_type, shape) => {
+    console.log('Real-time shape change:', _type, shape)
+    isUpdatingFromRealtime.value = true
+    nextTick(() => {
+      isUpdatingFromRealtime.value = false
+    })
+  })
 
-  // Flag to prevent update loops during real-time sync - DISABLED
+  // Flag to prevent update loops during real-time sync
   const isUpdatingFromRealtime = ref(false)
-  
-  // Dummy functions for compatibility
-  const isRealtimeConnected = ref(false)
-  const lastSyncTime = ref(null)
-  const startRealtimeSync = () => Promise.resolve()
-  const stopRealtimeSync = () => {}
 
   // Computed
   const totalShapes = computed(() => 
@@ -143,9 +136,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     console.log('Added rectangle to local state:', rectangle)
     console.log('Total rectangles now:', rectangles.value.length)
     
-    // Mark as our change to prevent echo - DISABLED
-    // markOurChange(rectangle.id)
-    
     // Auto-save to database
     await autoSaveShape(rectangle)
     
@@ -171,9 +161,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     circles.value.push(circle)
     console.log('Added circle to local state:', circle)
     console.log('Total circles now:', circles.value.length)
-    
-    // Mark as our change to prevent echo - DISABLED
-    // markOurChange(circle.id)
     
     // Auto-save to database
     await autoSaveShape(circle)
@@ -201,9 +188,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     texts.value.push(text)
     console.log('Added text to local state:', text)
     console.log('Total texts now:', texts.value.length)
-    
-    // Mark as our change to prevent echo - DISABLED
-    // markOurChange(text.id)
     
     // Auto-save to database
     await autoSaveShape(text)
@@ -233,8 +217,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         rectangles.value[rectIndex] = { ...rectangles.value[rectIndex], ...updates } as Rectangle
         console.log('Updated rectangle:', { old: oldRect, new: rectangles.value[rectIndex] })
         
-        // Mark as our change to prevent echo - DISABLED
-        // markOurChange(shapeId)
         
         // Pass the complete updated shape data instead of just updates
         const updateResult = await updateShapeInDatabase(shapeId, rectangles.value[rectIndex] as Partial<Shape>)
@@ -248,8 +230,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         circles.value[circleIndex] = { ...circles.value[circleIndex], ...updates } as Circle
         console.log('Updated circle:', { old: oldCircle, new: circles.value[circleIndex] })
         
-        // Mark as our change to prevent echo - DISABLED
-        // markOurChange(shapeId)
         
         // Pass the complete updated shape data instead of just updates
         const updateResult = await updateShapeInDatabase(shapeId, circles.value[circleIndex] as Partial<Shape>)
@@ -263,8 +243,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         texts.value[textIndex] = { ...texts.value[textIndex], ...updates } as Text
         console.log('Updated text:', { old: oldText, new: texts.value[textIndex] })
         
-        // Mark as our change to prevent echo - DISABLED
-        // markOurChange(shapeId)
         
         // Pass the complete updated shape data instead of just updates
         const updateResult = await updateShapeInDatabase(shapeId, texts.value[textIndex] as Partial<Shape>)
@@ -298,8 +276,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
           selectedShapeId.value = null
         }
         
-        // Mark as our change to prevent echo - DISABLED
-        // markOurChange(shapeId)
         
         await deleteShapeFromDatabase(shapeId)
         console.log('Rectangle deleted successfully')
@@ -314,8 +290,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
           selectedShapeId.value = null
         }
         
-        // Mark as our change to prevent echo - DISABLED
-        // markOurChange(shapeId)
         
         await deleteShapeFromDatabase(shapeId)
         console.log('Circle deleted successfully')
@@ -330,8 +304,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
           selectedShapeId.value = null
         }
         
-        // Mark as our change to prevent echo - DISABLED
-        // markOurChange(shapeId)
         
         await deleteShapeFromDatabase(shapeId)
         console.log('Text deleted successfully')

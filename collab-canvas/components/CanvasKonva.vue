@@ -541,11 +541,17 @@ const updateExistingShapes = () => {
   // Update rectangles
   props.rectangles.forEach(rect => {
     const konvaRect = layer.findOne(`#${rect.id}`)
+    console.log('Updating rectangle:', rect.id, 'Found Konva shape:', !!konvaRect, 'New position:', { x: rect.x, y: rect.y })
     if (konvaRect) {
       // Only update position if the shape is not currently being dragged
       if (!konvaRect.isDragging()) {
+        console.log('Setting rectangle position:', { x: rect.x, y: rect.y })
+        console.log('Current Konva position before update:', { x: konvaRect.x(), y: konvaRect.y() })
         konvaRect.x(rect.x)
         konvaRect.y(rect.y)
+        console.log('Current Konva position after update:', { x: konvaRect.x(), y: konvaRect.y() })
+      } else {
+        console.log('Rectangle is being dragged, skipping position update')
       }
       konvaRect.width(rect.width)
       konvaRect.height(rect.height)
@@ -553,8 +559,13 @@ const updateExistingShapes = () => {
       konvaRect.stroke(rect.stroke)
       konvaRect.strokeWidth(rect.strokeWidth)
       konvaRect.rotation(rect.rotation || 0)
+    } else {
+      console.log('Rectangle not found in Konva layer:', rect.id)
     }
   })
+  
+  // Force redraw after updating all rectangles
+  layer.draw()
   
   // Update circles
   props.circles.forEach(circle => {
@@ -572,6 +583,9 @@ const updateExistingShapes = () => {
       konvaCircle.rotation(circle.rotation || 0)
     }
   })
+  
+  // Force redraw after updating all circles
+  layer.draw()
   
   // Update texts
   props.texts.forEach(text => {
@@ -591,7 +605,7 @@ const updateExistingShapes = () => {
     }
   })
   
-  // Redraw layer
+  // Force redraw after updating all texts
   layer.draw()
 }
 
@@ -609,12 +623,29 @@ watch(() => [props.rectangles, props.circles, props.texts], (newProps, oldProps)
     hasNewShapes
   })
   
+  // Debug: Log the actual shape data
+  console.log('Current shapes data:', {
+    rectangles: newProps[0].map(r => ({ id: r.id, type: r.type })),
+    circles: newProps[1].map(c => ({ id: c.id, type: c.type })),
+    texts: newProps[2].map(t => ({ id: t.id, type: t.type }))
+  })
+  
   if (hasNewShapes) {
     console.log('Recreating shapes due to array length change')
+    console.log('Current shape counts:', {
+      rectangles: newProps[0].length,
+      circles: newProps[1].length,
+      texts: newProps[2].length
+    })
     addShapesToLayer()
   } else if (oldProps && (oldProps[0]?.length > 0 || oldProps[1]?.length > 0 || oldProps[2]?.length > 0)) {
     // Only update existing shapes if we had shapes before (not on initial load)
     console.log('Updating existing shapes without recreation')
+    console.log('Current shape counts:', {
+      rectangles: newProps[0].length,
+      circles: newProps[1].length,
+      texts: newProps[2].length
+    })
     updateExistingShapes()
   }
 }, { deep: true, immediate: true })

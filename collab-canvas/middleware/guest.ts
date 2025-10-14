@@ -4,15 +4,18 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  const { isAuthenticated, loading } = useAuth()
-
-  // Wait for auth to initialize
-  if (loading.value) {
-    return
-  }
-
-  // If authenticated, redirect to canvas
-  if (isAuthenticated.value) {
-    return navigateTo('/canvas')
-  }
+  // Use nextTick to ensure the composable is available
+  nextTick(() => {
+    const { isAuthenticated, loading } = useAuth()
+    
+    // Check auth state after a short delay to ensure it's initialized
+    setTimeout(() => {
+      if (!loading.value && isAuthenticated.value) {
+        // Only redirect if we're on the login page
+        if (to.path === '/login') {
+          navigateTo('/canvas')
+        }
+      }
+    }, 100)
+  })
 })

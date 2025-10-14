@@ -1,6 +1,11 @@
 <template>
   <AppLayout>
-    <div class="h-screen w-screen bg-gray-100">
+    <div class="h-screen w-screen bg-gray-100 flex">
+      <!-- Presence Sidebar -->
+      <PresenceSidebar />
+      
+      <!-- Main Canvas Area -->
+      <div class="flex-1 flex flex-col">
     <!-- Toolbar -->
     <div data-testid="canvas-toolbar" class="absolute left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-lg shadow-lg p-4" style="top: calc(var(--ui-header-height, 4rem) + 1rem);">
       <div class="flex flex-wrap gap-2 items-center justify-center">
@@ -8,31 +13,31 @@
         <div class="flex gap-2">
           <UButton 
             data-testid="add-rectangle-btn" 
-            @click="addRectangle" 
             color="primary" 
-            size="sm"
+            size="sm" 
             :loading="saving"
             :disabled="loading || saving"
+            @click="addRectangle"
           >
             Add Rectangle
           </UButton>
           <UButton 
             data-testid="add-circle-btn" 
-            @click="addCircle" 
             color="primary" 
-            size="sm"
+            size="sm" 
             :loading="saving"
             :disabled="loading || saving"
+            @click="addCircle"
           >
             Add Circle
           </UButton>
           <UButton 
             data-testid="add-text-btn" 
-            @click="addText" 
             color="primary" 
-            size="sm"
+            size="sm" 
             :loading="saving"
             :disabled="loading || saving"
+            @click="addText"
           >
             Add Text
           </UButton>
@@ -42,14 +47,14 @@
         <div class="flex items-center gap-2 border-l border-gray-200 pl-2">
           <label class="text-sm font-medium text-gray-700">Color:</label>
           <input 
-            data-testid="color-picker"
-            v-model="selectedColor" 
-            @input="applyColorToSelected"
-            type="color" 
-            class="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+            v-model="selectedColor"
+            data-testid="color-picker" 
+            type="color"
+            class="w-8 h-8 rounded border border-gray-300 cursor-pointer" 
             title="Select shape color"
             :disabled="!selectedShapeId"
-          />
+            @input="applyColorToSelected"
+          >
         </div>
         
         <!-- Rotation Controls -->
@@ -57,19 +62,19 @@
           <label class="text-sm font-medium text-gray-700">Rotate:</label>
           <UButton 
             data-testid="rotate-left-btn"
-            @click="rotateSelected(-45)" 
             size="xs" 
-            variant="outline"
+            variant="outline" 
             :disabled="!selectedShapeId"
+            @click="rotateSelected(-45)"
           >
             ↶ -45°
           </UButton>
           <UButton 
             data-testid="rotate-right-btn"
-            @click="rotateSelected(45)" 
             size="xs" 
-            variant="outline"
+            variant="outline" 
             :disabled="!selectedShapeId"
+            @click="rotateSelected(45)"
           >
             ↷ +45°
           </UButton>
@@ -79,9 +84,9 @@
         <div class="flex items-center gap-2 border-l border-gray-200 pl-2">
           <USwitch 
             v-model="autoSave" 
-            @update:model-value="setAutoSave"
             size="sm"
             label="Auto-save"
+            @update:model-value="setAutoSave"
           />
         </div>
         
@@ -89,40 +94,40 @@
         <div class="flex gap-2 border-l border-gray-200 pl-2">
           <UButton 
             data-testid="delete-selected-btn"
-            @click="handleDeleteSelected" 
             color="red" 
             variant="outline" 
-            size="sm"
+            size="sm" 
             :disabled="!selectedShapeId || loading || saving"
             :loading="saving"
             class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
+            @click="handleDeleteSelected"
           >
             <UIcon name="i-heroicons-trash" class="w-4 h-4 mr-1" />
             Delete Selected
           </UButton>
           <UButton 
             data-testid="clear-all-btn" 
-            @click="clearCanvas" 
             color="red" 
             variant="outline" 
-            size="sm"
+            size="sm" 
             :disabled="loading || saving"
             :loading="saving"
             class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
+            @click="clearCanvas"
           >
             Clear All
           </UButton>
         <UButton 
           data-testid="reset-view-btn" 
-          @click="resetView" 
           color="gray" 
           variant="outline" 
-          size="sm"
+          size="sm" 
           class="font-semibold text-gray-700 border-gray-700 hover:bg-gray-50"
+          @click="resetView"
         >
           Reset View
         </UButton>
-        <UButton data-testid="add-many-shapes-btn" @click="addManyShapes" color="blue" variant="outline" size="sm">
+        <UButton data-testid="add-many-shapes-btn" color="blue" variant="outline" size="sm" @click="addManyShapes">
           Add 50 Shapes
         </UButton>
         </div>
@@ -130,11 +135,11 @@
     </div>
 
     <!-- Canvas Container -->
-    <div class="w-full h-full flex items-center justify-center">
+    <div class="w-full h-full flex items-center justify-center relative">
       <div 
-        data-testid="canvas-container"
-        ref="canvasContainer" 
-        class="border-2 border-gray-300 rounded-lg shadow-lg bg-white"
+        ref="canvasContainer"
+        data-testid="canvas-container" 
+        class="border-2 border-gray-300 rounded-lg shadow-lg bg-white relative"
         :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
       >
         <CanvasKonva
@@ -149,6 +154,9 @@
           @select-shape="selectShape"
           @update-shape="handleShapeUpdate"
         />
+        
+        <!-- Cursor Overlay -->
+        <CursorOverlay />
       </div>
     </div>
 
@@ -161,14 +169,13 @@
         <div>Position: ({{ Math.round(stageConfig.x) }}, {{ Math.round(stageConfig.y) }})</div>
         <div>Bounds: X:[-2000,2000] Y:[-2000,2000]</div>
         <div>Auto-save: {{ autoSave ? 'ON' : 'OFF' }}</div>
-        <!-- Real-time status temporarily disabled -->
-        <!-- <div class="flex items-center gap-1">
-          <div class="w-2 h-2 rounded-full" :class="isRealtimeConnected ? 'bg-green-500' : 'bg-red-500'"></div>
+        <div class="flex items-center gap-1">
+          <div class="w-2 h-2 rounded-full" :class="isRealtimeConnected ? 'bg-green-500' : 'bg-red-500'"/>
           <span>Real-time: {{ isRealtimeConnected ? 'Connected' : 'Disconnected' }}</span>
         </div>
         <div v-if="lastSyncTime" class="text-xs text-gray-500">
           Last sync: {{ lastSyncTime.toLocaleTimeString() }}
-        </div> -->
+        </div>
         <div v-if="loading" class="text-blue-600 font-semibold">Loading...</div>
         <div v-if="saving" class="text-yellow-600 font-semibold">Saving...</div>
         <div v-if="error" class="text-red-600 font-semibold">Error: {{ error }}</div>
@@ -176,7 +183,8 @@
     </div>
 
     <!-- Error Toast handled by UApp -->
-  </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -189,17 +197,14 @@ definePageMeta({
   middleware: 'auth'
 })
 
-// Auth check
-const { isAuthenticated, loading: authLoading } = useAuth()
+// Auth composable for user info
+const { userDisplayName, userAvatarUrl } = useAuth()
 
-// Redirect to login if not authenticated
-onMounted(() => {
-  watchEffect(() => {
-    if (!authLoading.value && !isAuthenticated.value) {
-      navigateTo('/login')
-    }
-  })
-})
+// Presence composable
+const { startPresence, stopPresence } = usePresence()
+
+// Cursor tracking composable
+const { startTracking: startCursorTracking, stopTracking: stopCursorTracking } = useCursorTracking()
 
 // Canvas dimensions
 const canvasWidth = 800
@@ -395,7 +400,9 @@ const resetView = () => {
 // Shape update handler
 const handleShapeUpdate = (shapeId, updates) => {
   // updates is already an object with x, y, etc.
+  console.log('Canvas handleShapeUpdate called for:', shapeId, 'with updates:', updates)
   updateShape(shapeId, updates)
+  console.log('Canvas updateShape called')
 }
 
 // Stage interaction handlers
@@ -461,19 +468,32 @@ onMounted(async () => {
     })
   }
   
-  // Start real-time sync - TEMPORARILY DISABLED
-  // try {
-  //   await startRealtimeSync()
-  //   console.log('Real-time sync started')
-  // } catch (error) {
-  //   console.error('Failed to start real-time sync:', error)
-  // }
+  // Start real-time sync
+  try {
+    await startRealtimeSync()
+    console.log('Real-time sync started')
+  } catch (error) {
+    console.error('Failed to start real-time sync:', error)
+  }
+  
+  // Presence tracking will auto-start when user is authenticated
+  console.log('Presence tracking will auto-start when user is authenticated')
+  
+  // Start cursor tracking
+  try {
+    startCursorTracking()
+    console.log('Cursor tracking started')
+  } catch (error) {
+    console.error('Failed to start cursor tracking:', error)
+  }
 })
 
 // Cleanup
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
-  // stopRealtimeSync() - TEMPORARILY DISABLED
+  stopRealtimeSync()
+  stopPresence()
+  stopCursorTracking()
 })
 </script>
 

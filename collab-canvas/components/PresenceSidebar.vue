@@ -1,0 +1,119 @@
+<template>
+  <UCard class="presence-sidebar" style="width: 16rem; height: 100vh;">
+    <template #header>
+      <div class="presence-header">
+        <h3 class="text-lg font-semibold text-gray-800">Online Users</h3>
+        <div class="flex items-center gap-2">
+          <div 
+            class="w-2 h-2 rounded-full"
+            :class="isConnected ? 'bg-green-500' : 'bg-red-500'"
+          ></div>
+          <span class="text-sm text-gray-600">
+            {{ isConnected ? 'Connected' : 'Disconnected' }}
+          </span>
+          <UButton 
+            @click="refreshPresence" 
+            size="xs" 
+            variant="outline"
+            :disabled="!isConnected"
+            title="Refresh presence"
+          >
+            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
+          </UButton>
+          <UButton 
+            @click="retryPresence" 
+            size="xs" 
+            variant="outline"
+            :disabled="isConnected"
+            title="Retry presence connection"
+            class="text-orange-600 border-orange-600 hover:bg-orange-50"
+          >
+            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
+          </UButton>
+          <UButton 
+            @click="debugPresence" 
+            size="xs" 
+            variant="outline"
+            title="Debug presence state"
+            class="text-blue-600 border-blue-600 hover:bg-blue-50"
+          >
+            <UIcon name="i-heroicons-bug-ant" class="w-3 h-3" />
+          </UButton>
+        </div>
+      </div>
+    </template>
+    
+    <div class="presence-users">
+      <div v-if="onlineUsers.length === 0" class="text-gray-500 text-sm py-4">
+        No other users online
+        <div class="mt-2 text-xs text-gray-400">
+          Debug: {{ onlineUsers.length }} users in array
+        </div>
+      </div>
+      
+      <div v-else class="space-y-2">
+        <div 
+          v-for="user in onlineUsers" 
+          :key="user.id"
+          class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <!-- User Avatar -->
+          <div 
+            class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
+            :style="{ backgroundColor: user.color }"
+          >
+            {{ user.name.charAt(0).toUpperCase() }}
+          </div>
+          
+          <!-- User Info -->
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-gray-900 truncate">
+              {{ user.name }}
+            </div>
+            <div class="text-xs text-gray-500">
+              Online now
+            </div>
+          </div>
+          
+          <!-- Online Indicator -->
+          <div 
+            class="w-2 h-2 rounded-full bg-green-500"
+            title="Online"
+          ></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Error State -->
+    <div v-if="error" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-red-500" />
+        <span class="text-sm text-red-700">{{ error }}</span>
+      </div>
+    </div>
+  </UCard>
+</template>
+
+<script setup lang="ts">
+const { onlineUsers, isConnected, error, refreshPresence, retryPresence, debugPresence } = usePresence()
+</script>
+
+<style scoped>
+.presence-sidebar {
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+}
+
+.presence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.presence-users {
+  flex: 1;
+}
+</style>

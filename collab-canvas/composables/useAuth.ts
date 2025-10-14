@@ -50,11 +50,17 @@ export const useAuth = () => {
           user.value = newSession?.user ?? null
           loading.value = false
 
-          // Handle different auth events
+          // Handle different auth events - only redirect on explicit sign in/out actions
           if (event === 'SIGNED_OUT') {
-            await navigateTo('/login')
+            // Only redirect if we're not already on the login page
+            if (window.location.pathname !== '/login') {
+              await navigateTo('/login')
+            }
           } else if (event === 'SIGNED_IN' && newSession) {
-            await navigateTo('/canvas')
+            // Only redirect if we're on the login page
+            if (window.location.pathname === '/login') {
+              await navigateTo('/canvas')
+            }
           }
         }
       )
@@ -165,21 +171,49 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      const { error: signOutError } = await supabase.auth.signOut()
-
-      if (signOutError) {
-        throw signOutError
-      }
-
-      // Clear local state
+      // Clear local state first to prevent any race conditions
       user.value = null
       session.value = null
+
+      // Clear any local storage that might contain auth data
+      if (process.client) {
+        localStorage.removeItem('sb-auth-token')
+        localStorage.removeItem('supabase.auth.token')
+        // Clear any other potential auth-related storage
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('supabase') || key.includes('auth')) {
+            localStorage.removeItem(key)
+          }
+        })
+      }
+
+      // Try to sign out from Supabase, but don't fail if session is invalid
+      try {
+        const { error: signOutError } = await supabase.auth.signOut()
+        
+        // If there's a session error, we can ignore it since we've already cleared local state
+        if (signOutError && signOutError.message !== 'session_not_found') {
+          console.warn('Sign out error (non-critical):', signOutError.message)
+        }
+      } catch (supabaseError) {
+        // Ignore Supabase errors - we've already cleared local state
+        console.warn('Supabase sign out error (ignored):', supabaseError)
+      }
+
+      // Force redirect to login page regardless of Supabase response
+      await navigateTo('/login')
 
       return { error: null }
     } catch (err) {
       const authError = err as AuthError
-      error.value = authError.message
-      return { error: authError }
+      console.warn('Sign out error (non-critical):', authError.message)
+      
+      // Even if there's an error, clear local state and redirect
+      user.value = null
+      session.value = null
+      await navigateTo('/login')
+      
+      return { error: null }
     } finally {
       loading.value = false
     }
@@ -224,8 +258,10 @@ export const useAuth = () => {
     return user.value.user_metadata?.avatar_url || null
   })
 
-  // Initialize auth on composable creation
-  initAuth()
+  // Initialize auth on composable creation (only on client side)
+  if (process.client) {
+    initAuth()
+  }
 
   return {
     // State

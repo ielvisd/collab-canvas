@@ -33,3 +33,8 @@ node_modules
 
 # OS generated files
 Thumbs.db
+
+# Test results and coverage
+test-results/
+coverage/
+playwright-report/

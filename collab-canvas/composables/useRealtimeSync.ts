@@ -42,7 +42,7 @@ export const useRealtimeSync = (
   // Convert database shape to local format
   const dbShapeToLocal = (dbShape: any): Rectangle | Circle | Text | null => {
     try {
-      if (dbShape.type === 'rect') {
+      if (dbShape.type === 'rect' || dbShape.type === 'rectangle') {
         return {
           id: dbShape.id,
           type: 'rectangle',
@@ -100,10 +100,10 @@ export const useRealtimeSync = (
       texts: texts.value.length
     })
     
-    // Check if this is our own change
-    if (ourChanges.has(shape.id)) {
-      console.log('Ignoring own INSERT change:', shape.id)
-      ourChanges.delete(shape.id)
+    // Re-enable echo prevention to prevent duplicate shapes
+    console.log('Comparing user IDs - Current user:', user.value?.id, 'Shape user:', shape.user_id)
+    if (user.value && shape.user_id === user.value.id) {
+      console.log('Ignoring own INSERT change:', shape.id, 'user_id:', shape.user_id)
       return
     }
     
@@ -125,15 +125,15 @@ export const useRealtimeSync = (
     
     console.log('Converted shape to local format:', localShape)
     
-    // Add to appropriate array
+    // Add to appropriate array - create new array to ensure reactivity
     if (localShape.type === 'rectangle') {
-      rectangles.value.push(localShape as Rectangle)
+      rectangles.value = [...rectangles.value, localShape as Rectangle]
       console.log('Added rectangle to array. New count:', rectangles.value.length)
     } else if (localShape.type === 'circle') {
-      circles.value.push(localShape as Circle)
+      circles.value = [...circles.value, localShape as Circle]
       console.log('Added circle to array. New count:', circles.value.length)
     } else if (localShape.type === 'text') {
-      texts.value.push(localShape as Text)
+      texts.value = [...texts.value, localShape as Text]
       console.log('Added text to array. New count:', texts.value.length)
     }
     
@@ -151,13 +151,14 @@ export const useRealtimeSync = (
   // Handle shape update from other users
   const handleShapeUpdate = (shape: any) => {
     console.log('Real-time UPDATE event:', shape)
+    console.log('Current user object:', user.value)
+    console.log('Current user ID:', user.value?.id)
+    console.log('Shape object keys:', Object.keys(shape))
+    console.log('Shape user_id field:', shape.user_id)
     
-    // Check if this is our own change
-    if (ourChanges.has(shape.id)) {
-      console.log('Ignoring own UPDATE change:', shape.id)
-      ourChanges.delete(shape.id)
-      return
-    }
+    // For now, process all updates regardless of who owns the shape
+    // TODO: Implement proper echo prevention using timestamps or other mechanisms
+    console.log('Processing UPDATE for shape:', shape.id, 'user_id:', shape.user_id)
     
     const localShape = dbShapeToLocal(shape)
     if (!localShape) return
@@ -186,7 +187,7 @@ export const useRealtimeSync = (
   }
   
   // Handle shape delete from other users
-  const handleShapeDelete = (shapeId: string) => {
+  const handleShapeDelete = (shapeId: string, shapeUserId?: string) => {
     console.log('Real-time DELETE event:', shapeId)
     console.log('Current shapes before delete:', {
       rectangles: rectangles.value.length,
@@ -194,10 +195,9 @@ export const useRealtimeSync = (
       texts: texts.value.length
     })
     
-    // Check if this is our own change
-    if (ourChanges.has(shapeId)) {
-      console.log('Ignoring own DELETE change:', shapeId)
-      ourChanges.delete(shapeId)
+    // Re-enable echo prevention to prevent duplicate deletes
+    if (user.value && shapeUserId === user.value.id) {
+      console.log('Ignoring own DELETE change:', shapeId, 'user_id:', shapeUserId)
       return
     }
     
@@ -240,12 +240,15 @@ export const useRealtimeSync = (
   // Start real-time sync
   const startSync = async () => {
     try {
-      if (!user.value) {
-        console.warn('No user logged in, cannot start real-time sync')
-        return
-      }
+      // Temporarily disable user check for testing
+      // if (!user.value) {
+      //   console.warn('No user logged in, cannot start real-time sync')
+      //   return
+      // }
       
       console.log('Starting real-time sync...')
+      console.log('Current user ID:', user.value?.id)
+      console.log('Canvas ID:', getCanvasId())
       error.value = null
       
       const canvasId = getCanvasId()
@@ -278,6 +281,8 @@ export const useRealtimeSync = (
           },
           (payload) => {
             console.log('Received ANY event on canvas_objects:', payload)
+            console.log('ANY event type:', payload.eventType)
+            console.log('ANY event timestamp:', new Date().toISOString())
           }
         )
         .on(
@@ -290,6 +295,11 @@ export const useRealtimeSync = (
           },
           (payload) => {
             console.log('Received UPDATE event:', payload)
+            console.log('UPDATE payload.new:', payload.new)
+            console.log('UPDATE payload.old:', payload.old)
+            console.log('UPDATE payload.new.user_id:', payload.new?.user_id)
+            console.log('UPDATE payload.old.user_id:', payload.old?.user_id)
+            console.log('UPDATE event timestamp:', new Date().toISOString())
             handleShapeUpdate(payload.new)
           }
         )
@@ -307,8 +317,9 @@ export const useRealtimeSync = (
             console.log('DELETE payload.new:', payload.new)
             
             const shapeId = payload.old?.id
+            const shapeUserId = payload.old?.user_id
             if (shapeId) {
-              handleShapeDelete(shapeId)
+              handleShapeDelete(shapeId, shapeUserId)
             } else {
               console.error('No shape ID found in DELETE payload:', payload)
             }
@@ -317,12 +328,20 @@ export const useRealtimeSync = (
         .subscribe((status) => {
           console.log('Subscription status:', status)
           console.log('Canvas ID for subscription:', canvasId)
+          console.log('Current user ID:', user.value?.id)
+          console.log('Subscription timestamp:', new Date().toISOString())
           isConnected.value = status === 'SUBSCRIBED'
           if (status === 'CHANNEL_ERROR') {
             error.value = 'Failed to connect to real-time updates'
             console.error('Channel error - check RLS policies and Realtime configuration')
           } else if (status === 'SUBSCRIBED') {
             console.log('Successfully subscribed to real-time updates for canvas:', canvasId)
+          } else if (status === 'TIMED_OUT') {
+            console.error('Subscription timed out')
+            error.value = 'Real-time subscription timed out'
+          } else if (status === 'CLOSED') {
+            console.error('Subscription closed')
+            error.value = 'Real-time subscription closed'
           }
         })
       

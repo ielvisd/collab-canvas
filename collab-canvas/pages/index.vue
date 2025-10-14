@@ -72,9 +72,9 @@
             <h4 class="text-sm font-medium text-gray-700 mb-3">Button Variants</h4>
             <div class="flex flex-wrap gap-2">
               <UButton color="primary">Primary</UButton>
-              <UButton color="gray">Gray</UButton>
-              <UButton color="green">Green</UButton>
-              <UButton color="red">Red</UButton>
+              <UButton color="neutral">Gray</UButton>
+              <UButton color="success">Green</UButton>
+              <UButton color="error">Red</UButton>
               <UButton variant="outline">Outline</UButton>
               <UButton variant="ghost">Ghost</UButton>
             </div>
@@ -83,7 +83,7 @@
           <!-- Alert Demo -->
           <UAlert
             icon="i-heroicons-information-circle"
-            color="blue"
+            color="info"
             variant="soft"
             title="Getting Started"
             description="This is a demo of Nuxt UI components. The actual canvas functionality will be implemented in the next phases."
@@ -93,10 +93,10 @@
           <div>
             <h4 class="text-sm font-medium text-gray-700 mb-3">Status Badges</h4>
             <div class="flex flex-wrap gap-2">
-              <UBadge color="green">Online</UBadge>
-              <UBadge color="yellow">Away</UBadge>
-              <UBadge color="red">Busy</UBadge>
-              <UBadge color="gray">Offline</UBadge>
+              <UBadge color="success">Online</UBadge>
+              <UBadge color="warning">Away</UBadge>
+              <UBadge color="error">Busy</UBadge>
+              <UBadge color="neutral">Offline</UBadge>
             </div>
           </div>
         </div>

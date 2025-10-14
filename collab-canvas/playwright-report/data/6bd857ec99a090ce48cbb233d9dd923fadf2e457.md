@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "Welcome to CollabCanvas" [level=1] [ref=e6]
+    - paragraph [ref=e7]: Real-time collaborative design canvas built with modern web technologies
+    - generic [ref=e8]:
+      - link "Get Started" [ref=e9]:
+        - /url: /login
+        - text: Get Started
+      - link "Sign Up" [ref=e11]:
+        - /url: /signup
+        - text: Sign Up
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - heading "Real-time Collaboration" [level=3] [ref=e16]
+      - paragraph [ref=e18]: Work together with your team in real-time. See cursors, changes, and presence instantly.
+    - generic [ref=e19]:
+      - heading "Powerful Canvas" [level=3] [ref=e21]
+      - paragraph [ref=e23]: Create shapes, text, and designs with smooth pan, zoom, and manipulation tools.
+    - generic [ref=e24]:
+      - heading "Modern Tech Stack" [level=3] [ref=e26]
+      - paragraph [ref=e28]: Built with Nuxt 4, Supabase, and Konva.js for performance and reliability.
+  - generic [ref=e29]:
+    - heading "Try the Components" [level=3] [ref=e31]
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]: Your Name
+        - textbox "John Doe" [ref=e37]
+        - paragraph [ref=e38]: Enter your name to get started
+      - generic [ref=e39]:
+        - heading "Button Variants" [level=4] [ref=e40]
+        - generic [ref=e41]:
+          - button "Primary" [ref=e42]
+          - button "Gray" [ref=e43]
+          - button "Green" [ref=e44]
+          - button "Red" [ref=e45]
+          - button "Outline" [ref=e46]
+          - button "Ghost" [ref=e47]
+      - generic [ref=e50]:
+        - generic [ref=e51]: Getting Started
+        - generic [ref=e52]: This is a demo of Nuxt UI components. The actual canvas functionality will be implemented in the next phases.
+      - generic [ref=e53]:
+        - heading "Status Badges" [level=4] [ref=e54]
+        - generic [ref=e55]:
+          - generic [ref=e56]: Online
+          - generic [ref=e57]: Away
+          - generic [ref=e58]: Busy
+          - generic [ref=e59]: Offline
+```

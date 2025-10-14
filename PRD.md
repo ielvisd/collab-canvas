@@ -5,7 +5,7 @@
 
 ---
 
-## 🎯 Goal
+## 🎯 Goalc
 
 Build a **real-time collaborative design canvas** where multiple authenticated users can create, move, and edit simple shapes simultaneously with live cursor tracking.
 

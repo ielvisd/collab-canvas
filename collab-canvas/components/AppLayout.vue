@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Header -->
-    <UHeader>
+    <UHeader data-testid="app-header">
       <template #left>
         <div class="flex items-center space-x-4">
           <NuxtLink to="/canvas" class="text-xl font-bold text-gray-900 hover:text-primary-600">

@@ -14,6 +14,8 @@
 - **Implemented Complete Authentication System**: Created login/signup pages, auth composable, middleware, and session management
 - **Added Protected Routes**: Canvas page now requires authentication, with proper redirects
 - **Built Auth UI Components**: Professional login/signup forms with validation using Nuxt UI
+- **Completed PR-09: Shape Manipulation**: Added full drag, resize, rotation, and delete functionality with comprehensive testing
+- **Completed PR-10: Canvas State Persistence**: Implemented database service utilities with auto-save, loading states, and comprehensive error handling
 
 ---
 
@@ -101,7 +103,7 @@
   - [x] Add session persistence logic
   - [x] Create auth middleware for protected routes
   - [x] Add logout functionality
-  - [ ] Write unit tests for auth composable
+  - [x] Write unit tests for auth composable
 
 **Dependencies:** PR-05  
 **Estimated Time:** 2.5h
@@ -117,9 +119,9 @@
   - [x] Initialize Konva Stage and Layer
   - [x] Implement pan functionality
   - [x] Implement zoom functionality
-  - [ ] Add canvas bounds/limits
-  - [ ] Test 60 FPS performance
-  - [ ] Write unit tests for canvas utilities
+  - [x] Add canvas bounds/limits
+  - [x] Test 60 FPS performance
+  - [x] Write unit tests for canvas utilities
 
 **Dependencies:** PR-06  
 **Estimated Time:** 3h
@@ -133,9 +135,9 @@
   - [x] Implement rectangle creation
   - [x] Implement circle creation
   - [x] Implement text object creation
-  - [ ] Add color picker for shapes
-  - [ ] Create `useShapes` composable for shape state
-  - [ ] Write unit tests for shape creation logic
+  - [x] Add color picker for shapes
+  - [x] Create `useShapes` composable for shape state
+  - [x] Write unit tests for shape creation logic
 
 **Dependencies:** PR-07  
 **Estimated Time:** 2.5h
@@ -143,15 +145,15 @@
 ---
 
 ### PR-09: Shape Manipulation
-- [ ] **Add drag, resize, and delete functionality**
-  - [ ] Implement drag functionality for shapes
-  - [ ] Add resize handles using Konva Transformer
-  - [ ] Implement rotation support
-  - [ ] Add delete functionality (keyboard + UI button)
-  - [ ] Implement shape selection
-  - [ ] Add visual feedback for selected shapes
-  - [ ] Write unit tests for manipulation utilities
-  - [ ] Write E2E test for basic shape workflow
+- [x] **Add drag, resize, and delete functionality**
+  - [x] Implement drag functionality for shapes
+  - [x] Add resize handles using Konva Transformer
+  - [x] Implement rotation support
+  - [x] Add delete functionality (keyboard + UI button)
+  - [x] Implement shape selection
+  - [x] Add visual feedback for selected shapes
+  - [x] Write unit tests for manipulation utilities
+  - [x] Write E2E test for basic shape workflow
 
 **Dependencies:** PR-08  
 **Estimated Time:** 2.5h
@@ -161,15 +163,15 @@
 ## 🔄 Phase 4: Real-Time Collaboration
 
 ### PR-10: Canvas State Persistence
-- [ ] **Save and restore canvas objects from Supabase**
-  - [ ] Create database service utilities
-  - [ ] Implement save shape to `canvas_objects` table
-  - [ ] Implement load all shapes on canvas mount
-  - [ ] Add auto-save on shape changes
-  - [ ] Implement delete from database
-  - [ ] Add loading state during fetch
-  - [ ] Handle edge cases (network errors, etc.)
-  - [ ] Write unit tests for database operations
+- [x] **Save and restore canvas objects from Supabase**
+  - [x] Create database service utilities
+  - [x] Implement save shape to `canvas_objects` table
+  - [x] Implement load all shapes on canvas mount
+  - [x] Add auto-save on shape changes
+  - [x] Implement delete from database
+  - [x] Add loading state during fetch
+  - [x] Handle edge cases (network errors, etc.)
+  - [x] Write unit tests for database operations
 
 **Dependencies:** PR-09  
 **Estimated Time:** 2h

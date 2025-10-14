@@ -20,6 +20,10 @@ export default defineNuxtConfig({
     }
   },
 
+  typescript: {
+    typeCheck: true
+  },
+
   runtimeConfig: {
     public: {
       supabaseUrl: process.env.SUPABASE_URL,

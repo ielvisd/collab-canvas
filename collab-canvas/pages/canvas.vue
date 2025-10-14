@@ -1,5 +1,6 @@
 <template>
-  <div class="h-screen w-screen bg-gray-100">
+  <AppLayout>
+    <div class="h-screen w-screen bg-gray-100">
     <!-- Toolbar -->
     <div class="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-4">
       <div class="flex gap-2">
@@ -52,10 +53,28 @@
       </div>
     </div>
   </div>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+
+// Define page meta
+definePageMeta({
+  middleware: 'auth'
+})
+
+// Auth check
+const { isAuthenticated, loading } = useAuth()
+
+// Redirect to login if not authenticated
+onMounted(() => {
+  watchEffect(() => {
+    if (!loading.value && !isAuthenticated.value) {
+      navigateTo('/login')
+    }
+  })
+})
 
 // Canvas dimensions
 const canvasWidth = 800

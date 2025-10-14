@@ -12,13 +12,13 @@
         
         <!-- Action Buttons -->
         <div class="flex justify-center space-x-4">
-          <UButton size="lg" color="primary" to="/canvas">
+          <UButton size="lg" color="primary" to="/login">
             <UIcon name="i-heroicons-play" class="w-5 h-5 mr-2" />
-            Start Drawing
+            Get Started
           </UButton>
-          <UButton size="lg" variant="outline">
-            <UIcon name="i-heroicons-document-text" class="w-5 h-5 mr-2" />
-            Learn More
+          <UButton size="lg" variant="outline" to="/signup">
+            <UIcon name="i-heroicons-user-plus" class="w-5 h-5 mr-2" />
+            Sign Up
           </UButton>
         </div>
       </div>
@@ -107,6 +107,18 @@
 
 <script setup lang="ts">
 const name = ref('')
+
+// Auth composable
+const { isAuthenticated, loading } = useAuth()
+
+// Redirect to canvas if authenticated (client-side only)
+onMounted(() => {
+  watchEffect(() => {
+    if (!loading.value && isAuthenticated.value) {
+      navigateTo('/canvas')
+    }
+  })
+})
 
 // Set page title
 useHead({

@@ -4,15 +4,25 @@
     <UHeader>
       <template #left>
         <div class="flex items-center space-x-4">
-          <h1 class="text-xl font-bold text-gray-900">CollabCanvas</h1>
+          <NuxtLink to="/canvas" class="text-xl font-bold text-gray-900 hover:text-primary-600">
+            CollabCanvas
+          </NuxtLink>
         </div>
       </template>
       
       <template #right>
         <div class="flex items-center space-x-2">
-          <UButton variant="ghost" size="sm">
-            <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4" />
-          </UButton>
+          <!-- User menu -->
+          <UDropdownMenu :items="userMenuItems">
+            <UButton variant="ghost" size="sm" class="p-0">
+              <UAvatar
+                :src="userAvatarUrl"
+                :alt="userDisplayName"
+                size="sm"
+                class="cursor-pointer"
+              />
+            </UButton>
+          </UDropdownMenu>
         </div>
       </template>
     </UHeader>
@@ -34,5 +44,38 @@
 </template>
 
 <script setup lang="ts">
-// Layout component for the application
+import { computed } from 'vue'
+
+// Auth composable
+const { userDisplayName, userAvatarUrl, signOut } = useAuth()
+
+// User menu items
+const userMenuItems = computed(() => [
+  [{
+    label: userDisplayName.value || 'User',
+    type: 'label'
+  }],
+  [{
+    label: 'Profile',
+    icon: 'i-heroicons-user',
+    onSelect: () => {
+      // TODO: Navigate to profile page
+      console.log('Navigate to profile')
+    }
+  }, {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    onSelect: () => {
+      // TODO: Navigate to settings page
+      console.log('Navigate to settings')
+    }
+  }],
+  [{
+    label: 'Sign out',
+    icon: 'i-heroicons-arrow-right-on-rectangle',
+    onSelect: async () => {
+      await signOut()
+    }
+  }]
+])
 </script>

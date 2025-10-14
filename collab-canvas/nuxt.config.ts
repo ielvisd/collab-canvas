@@ -12,9 +12,21 @@ export default defineNuxtConfig({
     'nuxt-mcp',
   ],
 
+  css: ['~/assets/css/main.css'],
+
   experimental: {
     componentIslands: {
       selectiveClient: true
+    }
+  },
+
+  runtimeConfig: {
+    public: {
+      supabaseUrl: process.env.SUPABASE_URL,
+      // Support both new and legacy API keys
+      supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY, // Legacy support
+      supabaseSecretKey: process.env.SUPABASE_SECRET_KEY
     }
   }
 });

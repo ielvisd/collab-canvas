@@ -10,5 +10,11 @@
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true
-  }
+  },
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/tests/**",
+    "**/test/**"
+  ]
 }

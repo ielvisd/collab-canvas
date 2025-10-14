@@ -21,16 +21,21 @@ export default defineNuxtConfig({
   },
 
   typescript: {
-    typeCheck: true
+    typeCheck: true,
+    tsConfig: {
+      exclude: [
+        '**/*.test.ts',
+        '**/*.spec.ts',
+        '**/tests/**',
+        '**/test/**'
+      ]
+    }
   },
 
   runtimeConfig: {
     public: {
-      supabaseUrl: process.env.SUPABASE_URL,
-      // Support both new and legacy API keys
-      supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY, // Legacy support
-      supabaseSecretKey: process.env.SUPABASE_SECRET_KEY
+      supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY
     }
   }
 });

@@ -11,36 +11,45 @@
       <div class="flex flex-wrap gap-2 items-center justify-center">
         <!-- Shape Creation Buttons -->
         <div class="flex gap-2">
-          <UButton 
-            data-testid="add-rectangle-btn" 
-            color="primary" 
-            size="sm" 
-            :loading="saving"
-            :disabled="loading || saving"
-            @click="addRectangle"
-          >
-            Add Rectangle
-          </UButton>
-          <UButton 
-            data-testid="add-circle-btn" 
-            color="primary" 
-            size="sm" 
-            :loading="saving"
-            :disabled="loading || saving"
-            @click="addCircle"
-          >
-            Add Circle
-          </UButton>
-          <UButton 
-            data-testid="add-text-btn" 
-            color="primary" 
-            size="sm" 
-            :loading="saving"
-            :disabled="loading || saving"
-            @click="addText"
-          >
-            Add Text
-          </UButton>
+          <UTooltip text="Add a rectangle (R)">
+            <UButton 
+              data-testid="add-rectangle-btn" 
+              color="primary" 
+              size="sm" 
+              :loading="saving"
+              :disabled="loading || saving"
+              @click="addRectangle"
+            >
+              <UIcon name="i-heroicons-square-3-stack-3d" class="w-4 h-4 mr-1" />
+              Rectangle
+            </UButton>
+          </UTooltip>
+          <UTooltip text="Add a circle (C)">
+            <UButton 
+              data-testid="add-circle-btn" 
+              color="primary" 
+              size="sm" 
+              :loading="saving"
+              :disabled="loading || saving"
+              @click="addCircle"
+            >
+              <UIcon name="i-heroicons-circle-stack" class="w-4 h-4 mr-1" />
+              Circle
+            </UButton>
+          </UTooltip>
+          <UTooltip text="Add text (T)">
+            <UButton 
+              data-testid="add-text-btn" 
+              color="primary" 
+              size="sm" 
+              :loading="saving"
+              :disabled="loading || saving"
+              @click="addText"
+            >
+              <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" />
+              Text
+            </UButton>
+          </UTooltip>
         </div>
         
         <!-- Color Picker -->
@@ -90,46 +99,78 @@
           />
         </div>
         
+        <!-- Help Button -->
+        <div class="flex items-center gap-2 border-l border-gray-200 pl-2">
+          <UTooltip text="Keyboard shortcuts help">
+            <UButton 
+              data-testid="help-btn"
+              color="gray" 
+              variant="ghost" 
+              size="sm"
+              @click="showHelpModal = true"
+            >
+              <UIcon name="i-heroicons-question-mark-circle" class="w-4 h-4" />
+            </UButton>
+          </UTooltip>
+        </div>
+        
         <!-- Action Buttons -->
         <div class="flex gap-2 border-l border-gray-200 pl-2">
-          <UButton 
-            data-testid="delete-selected-btn"
-            color="red" 
-            variant="outline" 
-            size="sm" 
-            :disabled="!selectedShapeId || loading || saving"
-            :loading="saving"
-            class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
-            @click="handleDeleteSelected"
-          >
-            <UIcon name="i-heroicons-trash" class="w-4 h-4 mr-1" />
-            Delete Selected
-          </UButton>
-          <UButton 
-            data-testid="clear-all-btn" 
-            color="red" 
-            variant="outline" 
-            size="sm" 
-            :disabled="loading || saving"
-            :loading="saving"
-            class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
-            @click="clearCanvas"
-          >
-            Clear All
-          </UButton>
-        <UButton 
-          data-testid="reset-view-btn" 
-          color="gray" 
-          variant="outline" 
-          size="sm" 
-          class="font-semibold text-gray-700 border-gray-700 hover:bg-gray-50"
-          @click="resetView"
-        >
-          Reset View
-        </UButton>
-        <UButton data-testid="add-many-shapes-btn" color="blue" variant="outline" size="sm" @click="addManyShapes">
-          Add 50 Shapes
-        </UButton>
+          <UTooltip text="Delete selected shape (Delete key)">
+            <UButton 
+              data-testid="delete-selected-btn"
+              color="red" 
+              variant="outline" 
+              size="sm" 
+              :disabled="!selectedShapeId || loading || saving"
+              :loading="saving"
+              class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
+              @click="handleDeleteSelected"
+            >
+              <UIcon name="i-heroicons-trash" class="w-4 h-4 mr-1" />
+              Delete
+            </UButton>
+          </UTooltip>
+          <UTooltip text="Clear all shapes from canvas">
+            <UButton 
+              data-testid="clear-all-btn" 
+              color="red" 
+              variant="outline" 
+              size="sm" 
+              :disabled="loading || saving"
+              :loading="saving"
+              class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
+              @click="clearCanvas"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-4 h-4 mr-1" />
+              Clear All
+            </UButton>
+          </UTooltip>
+          <UTooltip text="Reset zoom and position (Home key)">
+            <UButton 
+              data-testid="reset-view-btn" 
+              color="gray" 
+              variant="outline" 
+              size="sm" 
+              class="font-semibold text-gray-700 border-gray-700 hover:bg-gray-50"
+              @click="resetView"
+            >
+              <UIcon name="i-heroicons-home" class="w-4 h-4 mr-1" />
+              Reset View
+            </UButton>
+          </UTooltip>
+          <UTooltip text="Add 50 random shapes for performance testing">
+            <UButton 
+              data-testid="add-many-shapes-btn" 
+              color="blue" 
+              variant="outline" 
+              size="sm" 
+              @click="addManyShapes"
+            >
+              <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
+              Add 50 Shapes
+            </UButton>
+          </UTooltip>
         </div>
       </div>
     </div>
@@ -182,7 +223,89 @@
       </div>
     </div>
 
-    <!-- Error Toast handled by UApp -->
+    <!-- Notifications -->
+    <UNotifications />
+    
+    <!-- Loading Overlay -->
+    <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 flex items-center gap-4">
+        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-blue-600" />
+        <span class="text-lg font-medium">Loading canvas...</span>
+      </div>
+    </div>
+    
+    <!-- Saving Overlay -->
+    <div v-if="saving" class="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 flex items-center gap-3 z-50">
+      <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-yellow-600" />
+      <span class="text-sm font-medium text-gray-700">Saving changes...</span>
+    </div>
+    
+    <!-- Error Toast -->
+    <UAlert
+      v-if="error"
+      color="red"
+      variant="soft"
+      title="Error"
+      :description="error"
+      class="fixed top-4 right-4 z-50 max-w-md"
+      @close="clearError"
+    />
+    
+    <!-- Help Modal -->
+    <UModal v-model="showHelpModal" title="Keyboard Shortcuts">
+      <template #content>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <h4 class="font-medium text-gray-900">Shape Creation</h4>
+              <div class="space-y-1 text-sm text-gray-600">
+                <div class="flex justify-between">
+                  <span>Rectangle</span>
+                  <UKbd>R</UKbd>
+                </div>
+                <div class="flex justify-between">
+                  <span>Circle</span>
+                  <UKbd>C</UKbd>
+                </div>
+                <div class="flex justify-between">
+                  <span>Text</span>
+                  <UKbd>T</UKbd>
+                </div>
+              </div>
+            </div>
+            
+            <div class="space-y-2">
+              <h4 class="font-medium text-gray-900">Actions</h4>
+              <div class="space-y-1 text-sm text-gray-600">
+                <div class="flex justify-between">
+                  <span>Delete Selected</span>
+                  <UKbd>Delete</UKbd>
+                </div>
+                <div class="flex justify-between">
+                  <span>Deselect</span>
+                  <UKbd>Esc</UKbd>
+                </div>
+                <div class="flex justify-between">
+                  <span>Reset View</span>
+                  <UKbd>Home</UKbd>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="border-t pt-4">
+            <h4 class="font-medium text-gray-900 mb-2">Canvas Controls</h4>
+            <div class="text-sm text-gray-600 space-y-1">
+              <div>• <strong>Pan:</strong> Click and drag on empty canvas</div>
+              <div>• <strong>Zoom:</strong> Mouse wheel or pinch gesture</div>
+              <div>• <strong>Select:</strong> Click on shapes</div>
+              <div>• <strong>Resize:</strong> Drag the corner handles of selected shapes</div>
+              <div>• <strong>Rotate:</strong> Use the rotation buttons in the toolbar</div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </UModal>
       </div>
     </div>
   </AppLayout>
@@ -254,6 +377,7 @@ const isDragging = ref(false)
 const lastPointerPosition = ref({ x: 0, y: 0 })
 const canvasRef = ref(null)
 const selectedColor = ref('#FF6B6B') // Default color
+const showHelpModal = ref(false)
 
 // Watch for selected shape changes to update color picker
 watch(selectedShapeId, (newShapeId) => {
@@ -431,12 +555,70 @@ const handleStageMouseUp = () => {
 
 // Keyboard shortcuts
 const handleKeyDown = async (e) => {
-  if (e.key === 'Delete' && selectedShapeId.value) {
-    const success = await deleteSelectedShape()
-    if (success && canvasRef.value) {
-      // Force refresh the canvas to ensure deleted shape is removed
-      canvasRef.value.forceRefresh()
-    }
+  // Prevent shortcuts when typing in input fields
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    return
+  }
+  
+  switch (e.key) {
+    case 'Delete':
+    case 'Backspace':
+      if (selectedShapeId.value) {
+        e.preventDefault()
+        const success = await deleteSelectedShape()
+        if (success && canvasRef.value) {
+          canvasRef.value.forceRefresh()
+        }
+      }
+      break
+    case 'Escape':
+      e.preventDefault()
+      // Deselect current shape
+      if (selectedShapeId.value) {
+        selectShape(null)
+      }
+      break
+    case 'r':
+    case 'R':
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        await addRectangle()
+      }
+      break
+    case 'c':
+    case 'C':
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        await addCircle()
+      }
+      break
+    case 't':
+    case 'T':
+      if (!e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        await addText()
+      }
+      break
+    case 'Home':
+      e.preventDefault()
+      resetView()
+      break
+    case 'a':
+    case 'A':
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        // Select all shapes (if we implement this feature)
+        console.log('Select all shapes')
+      }
+      break
+    case 's':
+    case 'S':
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        // Manual save (if we implement this feature)
+        console.log('Manual save')
+      }
+      break
   }
 }
 

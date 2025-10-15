@@ -1,6 +1,25 @@
 <template>
-  <div v-if="isClient">
+  <div v-if="isClient" class="relative">
     <div ref="konvaContainer" class="w-full h-full konva-container"></div>
+    
+    <!-- Text editing overlay -->
+    <div
+      v-if="editingText"
+      ref="textInputOverlay"
+      class="absolute pointer-events-auto"
+      :style="textInputStyle"
+    >
+      <input
+        ref="textInput"
+        v-model="editingTextValue"
+        type="text"
+        class="bg-transparent border-none outline-none text-black font-sans"
+        :style="textInputFontStyle"
+        @blur="finishTextEditing"
+        @keydown.enter="finishTextEditing"
+        @keydown.escape="cancelTextEditing"
+      />
+    </div>
   </div>
   <div v-else class="flex items-center justify-center h-full bg-gray-100 rounded">
     <div class="text-gray-500">Loading canvas...</div>
@@ -8,15 +27,47 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 
 // Client-side only rendering
 const isClient = ref(false)
 const konvaContainer = ref(null)
+const textInputOverlay = ref(null)
+const textInput = ref(null)
 let stage = null
 let layer = null
 let transformer = null
 let Konva = null
+
+// Text editing state
+const editingText = ref(null)
+const editingTextValue = ref('')
+const editingTextStyle = ref({})
+
+// Computed properties for text input styling
+const textInputStyle = computed(() => {
+  if (!editingText.value) return {}
+  
+  const stagePos = stage.position()
+  const stageScale = stage.scaleX()
+  
+  return {
+    left: `${editingTextStyle.value.x * stageScale + stagePos.x}px`,
+    top: `${editingTextStyle.value.y * stageScale + stagePos.y}px`,
+    transform: `rotate(${editingTextStyle.value.rotation || 0}deg)`,
+    transformOrigin: '0 0'
+  }
+})
+
+const textInputFontStyle = computed(() => {
+  if (!editingText.value) return {}
+  
+  return {
+    fontSize: `${editingTextStyle.value.fontSize}px`,
+    color: editingTextStyle.value.fill || '#000000',
+    fontFamily: 'Arial, sans-serif'
+  }
+})
 
 // Props
 const props = defineProps({
@@ -129,6 +180,65 @@ const handleWheel = (e) => {
   stage.batchDraw()
 }
 
+// Touch zoom functionality for mobile
+let lastTouchDistance = 0
+const handleTouchMove = (e) => {
+  e.evt.preventDefault()
+  
+  if (e.evt.touches.length === 2) {
+    // Two finger pinch
+    const touch1 = e.evt.touches[0]
+    const touch2 = e.evt.touches[1]
+    
+    const distance = Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    )
+    
+    if (lastTouchDistance > 0) {
+      const scaleBy = distance / lastTouchDistance
+      const oldScale = stage.scaleX()
+      const newScale = oldScale * scaleBy
+      const clampedScale = clampScale(newScale)
+      
+      // Get center point between touches
+      const centerX = (touch1.clientX + touch2.clientX) / 2
+      const centerY = (touch1.clientY + touch2.clientY) / 2
+      
+      const pointer = { x: centerX, y: centerY }
+      const mousePointTo = {
+        x: (pointer.x - stage.x()) / oldScale,
+        y: (pointer.y - stage.y()) / oldScale,
+      }
+      
+      stage.scale({ x: clampedScale, y: clampedScale })
+      
+      const newPos = {
+        x: pointer.x - mousePointTo.x * clampedScale,
+        y: pointer.y - mousePointTo.y * clampedScale,
+      }
+      
+      const clampedPos = clampPosition(newPos)
+      stage.position(clampedPos)
+      stage.batchDraw()
+    }
+    
+    lastTouchDistance = distance
+  } else {
+    lastTouchDistance = 0
+  }
+}
+
+const handleTouchStart = (e) => {
+  lastTouchDistance = 0
+  handleStageMouseDown(e)
+}
+
+const handleTouchEnd = (e) => {
+  lastTouchDistance = 0
+  handleStageMouseUp(e)
+}
+
 const selectShape = (shapeId) => {
   emit('select-shape', shapeId)
   
@@ -155,10 +265,79 @@ const updateShape = (shapeId, event) => {
   emit('update-shape', shapeId, event)
 }
 
+// Text editing methods
+const startTextEditing = (textShape) => {
+  editingText.value = textShape
+  editingTextValue.value = textShape.text
+  editingTextStyle.value = {
+    x: textShape.x,
+    y: textShape.y,
+    fontSize: textShape.fontSize,
+    fill: textShape.fill,
+    rotation: textShape.rotation || 0
+  }
+  
+  // Hide the Konva text while editing
+  const konvaText = layer.findOne(`#${textShape.id}`)
+  if (konvaText) {
+    konvaText.visible(false)
+    layer.draw()
+  }
+  
+  // Focus the input after next tick
+  nextTick(() => {
+    if (textInput.value) {
+      textInput.value.focus()
+      textInput.value.select()
+    }
+  })
+}
+
+const finishTextEditing = () => {
+  if (!editingText.value) return
+  
+  // Update the text content
+  updateShape(editingText.value.id, {
+    text: editingTextValue.value
+  })
+  
+  // Show the Konva text again
+  const konvaText = layer.findOne(`#${editingText.value.id}`)
+  if (konvaText) {
+    konvaText.visible(true)
+    layer.draw()
+  }
+  
+  // Clear editing state
+  editingText.value = null
+  editingTextValue.value = ''
+  editingTextStyle.value = {}
+}
+
+const cancelTextEditing = () => {
+  if (!editingText.value) return
+  
+  // Show the Konva text again without changes
+  const konvaText = layer.findOne(`#${editingText.value.id}`)
+  if (konvaText) {
+    konvaText.visible(true)
+    layer.draw()
+  }
+  
+  // Clear editing state
+  editingText.value = null
+  editingTextValue.value = ''
+  editingTextStyle.value = {}
+}
+
 // Keyboard shortcuts
 const handleKeyDown = (e) => {
   if (e.key === 'Escape') {
-    emit('select-shape', null)
+    if (editingText.value) {
+      cancelTextEditing()
+    } else {
+      emit('select-shape', null)
+    }
   }
 }
 
@@ -291,6 +470,11 @@ onMounted(async () => {
   stage.on('mousedown', handleStageMouseDown)
   stage.on('mousemove', handleStageMouseMove)
   stage.on('mouseup', handleStageMouseUp)
+  
+  // Add touch event listeners for mobile
+  stage.on('touchstart', handleTouchStart)
+  stage.on('touchmove', handleTouchMove)
+  stage.on('touchend', handleTouchEnd)
   
   // Add pan functionality
   stage.on('wheel', handleWheel)
@@ -511,6 +695,12 @@ const addShapesToLayer = () => {
       konvaText.strokeWidth(text.strokeWidth + 2)
       konvaText.stroke('#2563eb')
       layer.draw()
+    })
+    
+    // Add double-click event for text editing
+    konvaText.on('dblclick', (e) => {
+      e.cancelBubble = true
+      startTextEditing(text)
     })
     
     konvaText.on('dragstart', () => {

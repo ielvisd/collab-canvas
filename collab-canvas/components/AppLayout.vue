@@ -1,20 +1,21 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Header -->
-    <UHeader data-testid="app-header">
+    <UHeader data-testid="app-header" class="flex-shrink-0">
       <template #left>
-        <div class="flex items-center space-x-4">
-          <NuxtLink to="/canvas" class="text-xl font-bold text-gray-900 hover:text-primary-600">
-            CollabCanvas
+        <div class="flex items-center space-x-2 sm:space-x-4">
+          <NuxtLink to="/canvas" class="text-lg sm:text-xl font-bold text-gray-900 hover:text-primary-600">
+            <span class="hidden sm:inline">CollabCanvas</span>
+            <span class="sm:hidden">CC</span>
           </NuxtLink>
         </div>
       </template>
       
       <template #right>
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-1 sm:space-x-2">
           <!-- User menu -->
           <UDropdownMenu :items="userMenuItems">
-            <UButton variant="ghost" size="sm" class="p-0">
+            <UButton variant="ghost" size="sm" class="p-1 sm:p-2">
               <UAvatar
                 :src="userAvatarUrl"
                 :alt="userDisplayName"
@@ -28,12 +29,12 @@
     </UHeader>
 
     <!-- Main Content -->
-    <main class="flex-1">
+    <main class="flex-1 flex flex-col overflow-hidden">
       <slot />
     </main>
 
-    <!-- Footer -->
-    <UFooter>
+    <!-- Footer - Hidden on mobile -->
+    <UFooter class="hidden sm:block flex-shrink-0">
       <template #left>
         <p class="text-sm text-gray-500">
           Built with Nuxt 4, Supabase, and Konva.js

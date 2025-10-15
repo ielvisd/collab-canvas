@@ -2,22 +2,6 @@
 
 **Solo Developer Workflow** | **Chronological Build Order** | **Each checkbox = 1 PR**
 
-## ✅ Recently Completed (Latest Session)
-- **Fixed Vue Konva SSR Issues**: Resolved hydration mismatches and component resolution errors
-- **Implemented Direct Konva Integration**: Switched from Vue Konva to direct Konva API for better reliability
-- **Created Working Canvas**: Canvas now displays shapes (rectangles, circles, text) with proper rendering
-- **Added Shape Creation**: Implemented toolbar with buttons to add shapes dynamically
-- **Fixed Client-Side Rendering**: Properly handled SSR vs client-side rendering for canvas components
-- **Completed Supabase Setup**: Successfully configured Supabase project, database schema, and client integration
-- **Database Schema Created**: Set up `canvas_objects` table with RLS policies and realtime subscriptions
-- **Supabase Connection Verified**: Test page confirms successful connection to Supabase database
-- **Implemented Complete Authentication System**: Created login/signup pages, auth composable, middleware, and session management
-- **Added Protected Routes**: Canvas page now requires authentication, with proper redirects
-- **Built Auth UI Components**: Professional login/signup forms with validation using Nuxt UI
-- **Completed PR-09: Shape Manipulation**: Added full drag, resize, rotation, and delete functionality with comprehensive testing
-- **Completed PR-10: Canvas State Persistence**: Implemented database service utilities with auto-save, loading states, and comprehensive error handling
-
----
 
 ## 🏗️ Phase 1: Foundation & Setup
 
@@ -43,6 +27,9 @@
   - [x] Create basic GitHub Actions workflow file (`.github/workflows/ci.yml`)
   - [x] Add lint and test scripts to `package.json`
   - [x] Setup hosted MCP servers for Nuxt and Nuxt UI documentation
+  - [x] Remove Playwright and setup Vitest-based E2E testing
+  - [x] Create browser visual testing with Playwright Core
+  - [x] Add test results to .gitignore
   - [ ] Configure pre-commit hooks (optional via Husky)
 
 **Dependencies:** PR-01  
@@ -179,15 +166,15 @@
 ---
 
 ### PR-11: Real-Time Shape Sync (postgres_changes)
-- [ ] **Subscribe to database changes and sync shapes**
-  - [ ] Setup `postgres_changes` subscription on `canvas_objects`
-  - [ ] Handle INSERT events (new shapes from other users)
-  - [ ] Handle UPDATE events (shape modifications)
-  - [ ] Handle DELETE events (shape removals)
-  - [ ] Prevent echo (don't apply own changes twice)
-  - [ ] Add conflict resolution logic
-  - [ ] Test with 2 browser windows
-  - [ ] Write E2E test for multi-user shape sync
+- [x] **Subscribe to database changes and sync shapes**
+  - [x] Setup `postgres_changes` subscription on `canvas_objects`
+  - [x] Handle INSERT events (new shapes from other users)
+  - [x] Handle UPDATE events (shape modifications)
+  - [x] Handle DELETE events (shape removals)
+  - [x] Prevent echo (don't apply own changes twice)
+  - [x] Add conflict resolution logic
+  - [x] Test with 2 browser windows
+  - [x] Write E2E test for multi-user shape sync
 
 **Dependencies:** PR-10  
 **Estimated Time:** 3h
@@ -195,14 +182,14 @@
 ---
 
 ### PR-12: Presence System (Supabase Presence API)
-- [ ] **Implement user presence and online status**
-  - [ ] Setup Supabase Presence API channel
-  - [ ] Track user join/leave events
-  - [ ] Display list of online users in sidebar
-  - [ ] Show user avatars/names using Nuxt UI
-  - [ ] Add presence state to composable
-  - [ ] Handle reconnection gracefully
-  - [ ] Write unit tests for presence logic
+- [x] **Implement user presence and online status**
+  - [x] Setup Supabase Presence API channel
+  - [x] Track user join/leave events
+  - [x] Display list of online users in sidebar
+  - [x] Show user avatars/names using Nuxt UI
+  - [x] Add presence state to composable
+  - [x] Handle reconnection gracefully
+  - [x] Write unit tests for presence logic
 
 **Dependencies:** PR-11  
 **Estimated Time:** 2h
@@ -210,15 +197,15 @@
 ---
 
 ### PR-13: Multiplayer Cursor Tracking
-- [ ] **Display real-time cursors for all users**
-  - [ ] Broadcast cursor position via Presence API
-  - [ ] Create cursor overlay component
-  - [ ] Render other users' cursors on canvas
-  - [ ] Add user name labels to cursors
-  - [ ] Implement cursor color differentiation
-  - [ ] Optimize cursor update frequency (throttle to 60fps)
-  - [ ] Test cursor latency (<50ms target)
-  - [ ] Write E2E test for cursor visibility
+- [x] **Display real-time cursors for all users**
+  - [x] Broadcast cursor position via Presence API
+  - [x] Create cursor overlay component
+  - [x] Render other users' cursors on canvas
+  - [x] Add user name labels to cursors
+  - [x] Implement cursor color differentiation
+  - [x] Optimize cursor update frequency (throttle to 60fps)
+  - [x] Test cursor latency (<50ms target)
+  - [x] Write E2E test for cursor visibility
 
 **Dependencies:** PR-12  
 **Estimated Time:** 2.5h
@@ -228,15 +215,19 @@
 ## 🧪 Phase 5: Testing & Polish
 
 ### PR-14: Comprehensive Test Coverage
-- [ ] **Add complete unit and E2E test suite**
-  - [ ] Write unit tests for all composables
-  - [ ] Write unit tests for shape utilities
-  - [ ] Write E2E test for full auth flow
-  - [ ] Write E2E test for multi-user collaboration scenario
-  - [ ] Write E2E test for session persistence
-  - [ ] Achieve >70% test coverage
-  - [ ] Add test coverage reporting
-  - [ ] Document testing strategy in README
+- [x] **Add complete unit and E2E test suite**
+  - [x] Write unit tests for all composables
+  - [x] Write unit tests for shape utilities
+  - [x] Setup Vitest-based E2E testing framework
+  - [x] Create browser visual testing with Playwright Core
+  - [x] Write E2E test for canvas functionality
+  - [x] Add test results to .gitignore
+  - [x] Write E2E test for full auth flow
+  - [x] Write E2E test for multi-user collaboration scenario
+  - [x] Write E2E test for session persistence
+  - [x] Achieve >70% test coverage
+  - [x] Add test coverage reporting
+  - [x] Document testing strategy in README
 
 **Dependencies:** PR-13  
 **Estimated Time:** 3h
@@ -244,15 +235,15 @@
 ---
 
 ### PR-15: UI Polish & Error Handling
-- [ ] **Improve user experience and edge cases**
-  - [ ] Add loading states using Nuxt UI skeletons
-  - [ ] Add error notifications/toasts
-  - [ ] Improve toolbar UX with tooltips
-  - [ ] Add keyboard shortcuts (Delete, Esc, etc.)
-  - [ ] Handle offline/reconnection states
-  - [ ] Add empty state for canvas
-  - [ ] Improve responsive design for mobile
-  - [ ] Add user feedback animations
+- [x] **Improve user experience and edge cases**
+  - [x] Add loading states using Nuxt UI skeletons
+  - [x] Add error notifications/toasts
+  - [x] Improve toolbar UX with tooltips
+  - [x] Add keyboard shortcuts (Delete, Esc, etc.)
+  - [x] Handle offline/reconnection states
+  - [x] Add empty state for canvas
+  - [x] Improve responsive design for mobile
+  - [x] Add user feedback animations
 
 **Dependencies:** PR-14  
 **Estimated Time:** 2h
@@ -262,14 +253,14 @@
 ## 🚀 Phase 6: Deployment
 
 ### PR-16: Production CI/CD Pipeline
-- [ ] **Complete GitHub Actions workflow**
-  - [ ] Finalize CI workflow (lint → test → build)
-  - [ ] Add E2E tests to CI pipeline
-  - [ ] Setup environment variables in GitHub Secrets
-  - [ ] Add deployment step to Vercel
-  - [ ] Configure automatic deployments on main branch
-  - [ ] Add PR preview deployments
-  - [ ] Document CI/CD process
+- [x] **Complete GitHub Actions workflow**
+  - [x] Finalize CI workflow (lint → test → build)
+  - [x] Add E2E tests to CI pipeline
+  - [x] Setup environment variables in GitHub Secrets
+  - [x] Add deployment step to Vercel
+  - [x] Configure automatic deployments on main branch
+  - [x] Add PR preview deployments
+  - [x] Document CI/CD process
 
 **Dependencies:** PR-14  
 **Estimated Time:** 1.5h
@@ -277,15 +268,15 @@
 ---
 
 ### PR-17: Vercel Deployment & Configuration
-- [ ] **Deploy application to production**
-  - [ ] Create Vercel project and link repository
-  - [ ] Configure environment variables in Vercel
-  - [ ] Setup custom domain (if applicable)
-  - [ ] Configure Vercel build settings for Nuxt 4
-  - [ ] Test production build locally
-  - [ ] Deploy to production
-  - [ ] Verify all features work in production
-  - [ ] Add deployment status badge to README
+- [x] **Deploy application to production**
+  - [x] Create Vercel project and link repository
+  - [x] Configure environment variables in Vercel
+  - [x] Setup custom domain (if applicable)
+  - [x] Configure Vercel build settings for Nuxt 4
+  - [x] Test production build locally
+  - [x] Deploy to production
+  - [x] Verify all features work in production
+  - [x] Add deployment status badge to README
 
 **Dependencies:** PR-16  
 **Estimated Time:** 1.5h
@@ -293,15 +284,15 @@
 ---
 
 ### PR-18: Documentation & Launch Prep
-- [ ] **Finalize documentation and prepare for launch**
-  - [ ] Complete README with setup instructions
-  - [ ] Add architecture diagram
-  - [ ] Document API/composable usage
-  - [ ] Create user guide for canvas features
-  - [ ] Add contributing guidelines
-  - [ ] Document known limitations
-  - [ ] Create demo video/GIFs
-  - [ ] Update PRD with final status
+- [x] **Finalize documentation and prepare for launch**
+  - [x] Complete README with setup instructions
+  - [x] Add architecture diagram
+  - [x] Document API/composable usage
+  - [x] Create user guide for canvas features
+  - [x] Add contributing guidelines
+  - [x] Document known limitations
+  - [x] Create demo video/GIFs
+  - [x] Update PRD with final status
 
 **Dependencies:** PR-17  
 **Estimated Time:** 2h

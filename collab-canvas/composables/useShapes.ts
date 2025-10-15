@@ -133,7 +133,7 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
       type: 'text',
       x: options.x ?? position.x,
       y: options.y ?? position.y,
-      text: options.text ?? 'Hello Konva!',
+      text: options.text ?? 'hola! 👋',
       fontSize: options.fontSize ?? 24,
       fill: (options.fill ?? getRandomColor()) as string,
       stroke: (options.stroke ?? '#000') as string,

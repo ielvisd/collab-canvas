@@ -36,7 +36,16 @@ const generateUserColor = (userId: string): string => {
   return colors[hash % colors.length] || '#FF6B6B'
 }
 
+// Singleton instance
+let presenceInstance: any = null
+let autoStartInitialized = false
+
 export const usePresence = () => {
+  // Return existing instance if it exists
+  if (presenceInstance) {
+    return presenceInstance
+  }
+
   const { $supabase } = useNuxtApp()
   const { user } = useAuth()
   
@@ -434,15 +443,19 @@ export const usePresence = () => {
     }
   }
   
-  // Initialize auto-start
-  autoStartPresence()
+  // Initialize auto-start (only once)
+  if (process.client && !autoStartInitialized) {
+    autoStartPresence()
+    autoStartInitialized = true
+  }
   
   // Cleanup on unmount
   onUnmounted(() => {
     stopPresence()
   })
   
-  return {
+  // Create the instance object
+  const instance = {
     // State
     onlineUsers: readonly(onlineUsers),
     isConnected: readonly(isConnected),
@@ -458,6 +471,27 @@ export const usePresence = () => {
     testSupabaseConnection,
     retryPresence,
     forceSetConnected,
-    checkConnectionHealth
+    checkConnectionHealth,
+    
+    // Cleanup function to reset singleton
+    cleanup: () => {
+      stopPresence()
+      presenceInstance = null
+      autoStartInitialized = false
+    }
   }
+  
+  // Store the instance
+  presenceInstance = instance
+  
+  return instance
+}
+
+// Global reset function for testing
+export const resetPresenceSingleton = () => {
+  if (presenceInstance) {
+    presenceInstance.cleanup()
+  }
+  presenceInstance = null
+  autoStartInitialized = false
 }

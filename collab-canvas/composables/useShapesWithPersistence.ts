@@ -2,6 +2,8 @@ import type { Ref } from 'vue'
 import type { Shape, Rectangle, Circle, Text, Line, Star, ShapeType } from './useShapes'
 import { useRealtimeSync } from './useRealtimeSync'
 
+// useState is auto-imported in Nuxt, but we'll use it explicitly
+
 export interface PersistentShapeState {
   rectangles: Ref<Rectangle[]>
   circles: Ref<Circle[]>
@@ -51,11 +53,11 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     clearError: clearDbError
   } = useCanvasDatabase()
 
-  // State
-  const rectangles = ref<Rectangle[]>([])
-  const circles = ref<Circle[]>([])
-  const texts = ref<Text[]>([])
-  const selectedShapeId = ref<string | null>(null)
+  // State - Use useState for shared state across components
+  const rectangles = useState<Rectangle[]>('canvas-rectangles', () => [])
+  const circles = useState<Circle[]>('canvas-circles', () => [])
+  const texts = useState<Text[]>('canvas-texts', () => [])
+  const selectedShapeId = useState<string | null>('canvas-selected-shape', () => null)
   const autoSave = ref(true)
   
   // Real-time sync
@@ -131,9 +133,12 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
       rotation: options.rotation ?? 0
     }
     
+    console.log('🔧 addRectangle - options.fill:', options.fill)
+    console.log('🔧 addRectangle - final fill:', rectangle.fill)
+    
     rectangles.value.push(rectangle)
-    console.log('Added rectangle to local state:', rectangle)
-    console.log('Total rectangles now:', rectangles.value.length)
+    console.log('🔧 addRectangle - rectangles array length after push:', rectangles.value.length)
+    console.log('🔧 addRectangle - last rectangle in array:', rectangles.value[rectangles.value.length - 1])
     
     // Auto-save to database
     await autoSaveShape(rectangle)

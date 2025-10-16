@@ -4,18 +4,31 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  // Use nextTick to ensure the composable is available
-  nextTick(() => {
+  // Use a simpler approach that's more reliable
+  try {
     const { isAuthenticated, loading } = useAuth()
     
-    // Check auth state after a short delay to ensure it's initialized
-    setTimeout(() => {
-      if (!loading.value && isAuthenticated.value) {
-        // Only redirect if we're on the login page
-        if (to.path === '/login') {
-          navigateTo('/canvas')
+    // If auth is already loaded and user is authenticated, redirect from login
+    if (!loading.value && isAuthenticated.value && to.path === '/login') {
+      return navigateTo('/canvas')
+    }
+    
+    // If auth is still loading, wait a bit and check again
+    if (loading.value && to.path === '/login') {
+      setTimeout(() => {
+        try {
+          const { isAuthenticated: authCheck, loading: loadingCheck } = useAuth()
+          if (!loadingCheck.value && authCheck.value) {
+            navigateTo('/canvas')
+          }
+        } catch (error) {
+          console.error('Auth check error:', error)
+          // Don't redirect on error for guest middleware
         }
-      }
-    }, 100)
-  })
+      }, 500)
+    }
+  } catch (error) {
+    console.error('Guest middleware error:', error)
+    // If there's an error, don't redirect - let the user stay on the page
+  }
 })

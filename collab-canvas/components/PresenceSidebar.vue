@@ -21,20 +21,6 @@
         <div class="mt-2 text-xs text-gray-400 hidden sm:block">
           Debug: {{ onlineUsers.length }} users in array
         </div>
-        <div class="mt-2 text-xs text-gray-400 hidden sm:block space-y-1">
-          <div>
-            <UButton size="xs" color="neutral" @click="debugPresence">Debug Presence</UButton>
-          </div>
-          <div>
-            <UButton size="xs" color="primary" @click="testPresence">Test Fake User</UButton>
-          </div>
-          <div>
-            <UButton size="xs" color="success" @click="testRealPresence">Test Real Users</UButton>
-          </div>
-          <div>
-            <UButton size="xs" color="warning" @click="retryPresence">Retry Connection</UButton>
-          </div>
-        </div>
       </div>
       
       <div v-else class="space-y-1 sm:space-y-2">
@@ -81,8 +67,7 @@
 </template>
 
 <script setup lang="ts">
-// Import the composable
-const { onlineUsers, isConnected, error, refreshPresence, retryPresence, debugPresence, testPresence, testRealPresence } = usePresence()
+const { onlineUsers, isConnected, error, refreshPresence, retryPresence, debugPresence } = usePresence()
 </script>
 
 <style scoped>

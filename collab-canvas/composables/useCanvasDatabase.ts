@@ -31,11 +31,8 @@ export const useCanvasDatabase = () => {
 
   // Helper function to get current user ID
   const getCurrentUserId = () => {
-    // Temporarily disable auth check for testing
-    // if (!user.value) {
-    //   throw new Error('User not authenticated')
-    // }
-    return user.value?.id || 'anonymous-user'
+    // Use the actual authenticated user ID or null for anonymous
+    return user.value?.id || null
   }
 
   // Helper function to get canvas ID
@@ -44,7 +41,7 @@ export const useCanvasDatabase = () => {
   }
 
   // Helper function to convert shape to database format
-  const shapeToDbFormat = (shape: any, canvasId: string, userId: string): CanvasObjectInsert => {
+  const shapeToDbFormat = (shape: any, canvasId: string, userId: string | null): CanvasObjectInsert => {
     // Convert local shape type to database type
     let dbType: 'rect' | 'circle' | 'text' | 'line' | 'star'
     if (shape.type === 'rectangle') {
@@ -64,7 +61,7 @@ export const useCanvasDatabase = () => {
 
     return {
       canvas_id: canvasId,
-      user_id: userId,
+      user_id: userId || null,
       type: dbType,
       data: {
         x: shape.x,
@@ -242,6 +239,7 @@ export const useCanvasDatabase = () => {
   // Delete all shapes for a canvas (bulk delete)
   const deleteAllShapes = async (canvasId?: string): Promise<boolean> => {
     try {
+      saving.value = true
       loading.value = true
       error.value = null
 
@@ -265,6 +263,7 @@ export const useCanvasDatabase = () => {
       console.error('Error deleting all shapes:', err)
       return false
     } finally {
+      saving.value = false
       loading.value = false
     }
   }

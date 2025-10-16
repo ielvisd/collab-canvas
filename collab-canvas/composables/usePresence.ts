@@ -50,11 +50,8 @@ export const usePresence = () => {
   let retryTimeout: any = null
   let retryCount = 0
   const maxRetries = 5
-  const isConnecting = ref(false)
+  let isConnecting = false
   let connectionTimeout: any = null
-  let lastPresenceUpdate = 0
-  const PRESENCE_UPDATE_DEBOUNCE = 2000 // 2 second debounce
-  let presenceUpdateTimeout: any = null
   
   // Get canvas ID (same as other composables)
   const getCanvasId = (): string => {
@@ -70,14 +67,8 @@ export const usePresence = () => {
     }
     
     // Prevent multiple simultaneous connection attempts
-    if (isConnecting.value) {
+    if (isConnecting) {
       console.log('🔄 Presence connection already in progress, skipping...')
-      return
-    }
-    
-    // If already connected, don't start again
-    if (isConnected.value) {
-      console.log('🔄 Presence already connected, skipping...')
       return
     }
     
@@ -88,7 +79,7 @@ export const usePresence = () => {
       presenceChannel = null
     }
     
-    isConnecting.value = true
+    isConnecting = true
     error.value = null
     
     // Wait a bit for auth state to be fully ready
@@ -119,38 +110,22 @@ export const usePresence = () => {
           updateOnlineUsers(state)
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }: { key: string, newPresences: any[] }) => {
-          // Clear any existing timeout
-          if (presenceUpdateTimeout) {
-            clearTimeout(presenceUpdateTimeout)
+          console.log('👋 User joined:', key)
+          // If we're receiving presence events, we're connected
+          if (!isConnected.value) {
+            isConnected.value = true
+            error.value = null
           }
-          
-          // Debounce the update
-          presenceUpdateTimeout = setTimeout(() => {
-            console.log('👋 User joined:', key)
-            // If we're receiving presence events, we're connected
-            if (!isConnected.value) {
-              isConnected.value = true
-              error.value = null
-            }
-            updateOnlineUsers(presenceChannel.presenceState())
-          }, 500) // 500ms delay
+          updateOnlineUsers(presenceChannel.presenceState())
         })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }: { key: string, leftPresences: any[] }) => {
-          // Clear any existing timeout
-          if (presenceUpdateTimeout) {
-            clearTimeout(presenceUpdateTimeout)
+          console.log('👋 User left:', key)
+          // If we're receiving presence events, we're connected
+          if (!isConnected.value) {
+            isConnected.value = true
+            error.value = null
           }
-          
-          // Debounce the update
-          presenceUpdateTimeout = setTimeout(() => {
-            console.log('👋 User left:', key)
-            // If we're receiving presence events, we're connected
-            if (!isConnected.value) {
-              isConnected.value = true
-              error.value = null
-            }
-            updateOnlineUsers(presenceChannel.presenceState())
-          }, 500) // 500ms delay
+          updateOnlineUsers(presenceChannel.presenceState())
         })
       
       // Subscribe to channel
@@ -163,7 +138,7 @@ export const usePresence = () => {
           console.log('✅ Connected to presence channel')
           isConnected.value = true
           error.value = null
-          isConnecting.value = false
+          isConnecting = false
           
           // Clear any existing connection timeout
           if (connectionTimeout) {
@@ -193,39 +168,38 @@ export const usePresence = () => {
           } catch (trackError) {
             console.error('❌ Error tracking presence:', trackError)
             error.value = 'Failed to track user presence'
-            isConnecting.value = false
+            isConnecting = false
           }
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Presence channel error')
           error.value = 'Failed to connect to presence channel'
           isConnected.value = false
-          isConnecting.value = false
+          isConnecting = false
           scheduleRetry()
         } else if (status === 'TIMED_OUT') {
           console.error('❌ Presence channel timed out')
           error.value = 'Presence channel connection timed out'
           isConnected.value = false
-          isConnecting.value = false
+          isConnecting = false
           scheduleRetry()
         } else if (status === 'CLOSED') {
           console.error('❌ Presence channel closed')
           error.value = 'Presence channel connection closed'
           isConnected.value = false
-          isConnecting.value = false
-          // Don't automatically retry on CLOSED - let the user manually retry if needed
-          // scheduleRetry()
+          isConnecting = false
+          scheduleRetry()
         } else {
           console.warn('⚠️ Unknown presence channel status:', status)
-          isConnecting.value = false
+          isConnecting = false
         }
       })
       
       // Set a timeout to detect if subscription is hanging
       connectionTimeout = setTimeout(() => {
-        if (!isConnected.value && isConnecting.value) {
+        if (!isConnected.value && isConnecting) {
           console.error('❌ Presence subscription timeout - not connected after 15 seconds')
           error.value = 'Presence subscription timed out'
-          isConnecting.value = false
+          isConnecting = false
           scheduleRetry()
         }
       }, 15000)
@@ -233,7 +207,7 @@ export const usePresence = () => {
     } catch (err) {
       console.error('❌ Error starting presence:', err)
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      isConnecting.value = false
+      isConnecting = false
       scheduleRetry()
     }
   }
@@ -243,7 +217,7 @@ export const usePresence = () => {
     if (retryCount >= maxRetries) {
       console.error('❌ Max retry attempts reached for presence connection')
       error.value = 'Failed to connect to presence after multiple attempts'
-      isConnecting.value = false
+      isConnecting = false
       return
     }
     
@@ -259,7 +233,7 @@ export const usePresence = () => {
     console.log(`🔄 Scheduling presence retry ${retryCount}/${maxRetries} in ${delay}ms...`)
     
     retryTimeout = setTimeout(async () => {
-      if (!isConnecting.value && !isConnected.value) {
+      if (!isConnecting) {
         await startPresence()
       }
     }, delay)
@@ -279,18 +253,13 @@ export const usePresence = () => {
       connectionTimeout = null
     }
     
-    if (presenceUpdateTimeout) {
-      clearTimeout(presenceUpdateTimeout)
-      presenceUpdateTimeout = null
-    }
-    
     if (presenceChannel) {
       presenceChannel.unsubscribe()
       presenceChannel = null
     }
     
     isConnected.value = false
-    isConnecting.value = false
+    isConnecting = false
     onlineUsers.value = []
     retryCount = 0
     error.value = null
@@ -303,17 +272,16 @@ export const usePresence = () => {
     // Handle different presence state formats
     if (presenceState && typeof presenceState === 'object') {
       Object.entries(presenceState).forEach(([key, presences]: [string, any]) => {
-        // Handle array of presences
         if (Array.isArray(presences)) {
           presences.forEach((presence: any) => {
-            // More lenient filtering - check if it's a valid presence object
-            if (presence && presence.user_id && presence.user_id !== user.value?.id) {
+            
+            if (presence && presence.online && presence.user_id !== user.value?.id) {
               const onlineUser: OnlineUser = {
                 id: presence.user_id,
                 name: presence.user_name || 'Anonymous',
                 avatar: presence.user_avatar,
                 color: generateUserColor(presence.user_id),
-                lastSeen: new Date(presence.last_seen || new Date()),
+                lastSeen: new Date(presence.last_seen),
                 cursor: presence.cursor ? {
                   x: presence.cursor.x,
                   y: presence.cursor.y,
@@ -323,15 +291,13 @@ export const usePresence = () => {
               users.push(onlineUser)
             }
           })
-        } 
-        // Handle single presence object
-        else if (presences && typeof presences === 'object' && presences.user_id && presences.user_id !== user.value?.id) {
+        } else if (presences && typeof presences === 'object' && presences.online && presences.user_id !== user.value?.id) {
           const onlineUser: OnlineUser = {
             id: presences.user_id,
             name: presences.user_name || 'Anonymous',
             avatar: presences.user_avatar,
             color: generateUserColor(presences.user_id),
-            lastSeen: new Date(presences.last_seen || new Date()),
+            lastSeen: new Date(presences.last_seen),
             cursor: presences.cursor ? {
               x: presences.cursor.x,
               y: presences.cursor.y,
@@ -384,30 +350,7 @@ export const usePresence = () => {
         online: true
       }]
     }
-    console.log('🧪 Testing with fake presence state:', fakePresenceState)
     updateOnlineUsers(fakePresenceState)
-  }
-  
-  // Test function to simulate real presence state
-  const testRealPresence = () => {
-    const realPresenceState = {
-      '314fa7c6-021c-4ae4-9c30-ec3193f74be2': [{
-        user_id: '314fa7c6-021c-4ae4-9c30-ec3193f74be2',
-        user_name: 'Real User 1',
-        user_avatar: null,
-        last_seen: new Date().toISOString(),
-        online: true
-      }],
-      'a2eab037-299a-426a-b7ab-a1b57681aabd': [{
-        user_id: 'a2eab037-299a-426a-b7ab-a1b57681aabd',
-        user_name: 'Real User 2',
-        user_avatar: null,
-        last_seen: new Date().toISOString(),
-        online: true
-      }]
-    }
-    console.log('🧪 Testing with real presence state:', realPresenceState)
-    updateOnlineUsers(realPresenceState)
   }
   
   // Debug function for console access
@@ -416,13 +359,9 @@ export const usePresence = () => {
     console.log('Current user:', user.value?.id)
     console.log('Online users:', onlineUsers.value.length)
     console.log('Is connected:', isConnected.value)
-    console.log('Is connecting:', isConnecting.value)
     console.log('Error:', error.value)
-    console.log('Retry count:', retryCount)
     if (presenceChannel) {
-      const state = presenceChannel.presenceState()
-      console.log('Presence channel state:', state)
-      console.log('Presence channel state (raw):', JSON.stringify(state, null, 2))
+      console.log('Presence channel state:', presenceChannel.presenceState())
     }
   }
   
@@ -465,17 +404,11 @@ export const usePresence = () => {
         const state = presenceChannel.presenceState()
         if (!state) {
           console.warn('⚠️ Presence channel appears unresponsive, reconnecting...')
-          // Only retry if we're not already connecting
-          if (!isConnecting.value) {
-            scheduleRetry()
-          }
+          scheduleRetry()
         }
       } catch (err) {
         console.warn('⚠️ Presence channel health check failed, reconnecting...', err)
-        // Only retry if we're not already connecting
-        if (!isConnecting.value) {
-          scheduleRetry()
-        }
+        scheduleRetry()
       }
     }
   }
@@ -488,10 +421,7 @@ export const usePresence = () => {
         if (newUser && !oldUser) {
           // User just logged in
           console.log('👤 User authenticated, starting presence...')
-          // Add a small delay to prevent immediate reconnection issues
-          setTimeout(() => {
-            startPresence()
-          }, 2000)
+          await startPresence()
         } else if (!newUser && oldUser) {
           // User just logged out
           console.log('👤 User logged out, stopping presence...')
@@ -499,8 +429,8 @@ export const usePresence = () => {
         }
       }, { immediate: true })
       
-      // Periodic health check every 60 seconds (less frequent)
-      setInterval(checkConnectionHealth, 60000)
+      // Periodic health check every 30 seconds
+      setInterval(checkConnectionHealth, 30000)
     }
   }
   
@@ -524,7 +454,6 @@ export const usePresence = () => {
     updateUserStatus,
     refreshPresence,
     testPresence,
-    testRealPresence,
     debugPresence,
     testSupabaseConnection,
     retryPresence,

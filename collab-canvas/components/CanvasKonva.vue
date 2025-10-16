@@ -1,6 +1,6 @@
 <template>
   <div v-if="isClient" class="relative">
-    <div ref="konvaContainer" class="w-full h-full konva-container"></div>
+    <div ref="konvaContainer" class="w-full h-full konva-container"/>
     
     <!-- Text editing overlay -->
     <div
@@ -18,7 +18,7 @@
         @blur="finishTextEditing"
         @keydown.enter="finishTextEditing"
         @keydown.escape="cancelTextEditing"
-      />
+      >
     </div>
   </div>
   <div v-else class="flex items-center justify-center h-full bg-gray-100 rounded">
@@ -26,23 +26,23 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 
 // Client-side only rendering
 const isClient = ref(false)
-const konvaContainer = ref(null)
-const textInputOverlay = ref(null)
-const textInput = ref(null)
-let stage = null
-let layer = null
-let transformer = null
-let Konva = null
+const konvaContainer = ref<HTMLElement | null>(null)
+const textInputOverlay = ref<HTMLElement | null>(null)
+const textInput = ref<HTMLInputElement | null>(null)
+let stage: any = null
+let layer: any = null
+let transformer: any = null
+let Konva: any = null
 
 // Text editing state
-const editingText = ref(null)
-const editingTextValue = ref('')
-const editingTextStyle = ref({})
+const editingText = ref<any>(null)
+const editingTextValue = ref<string>('')
+const editingTextStyle = ref<any>({})
 
 // Computed properties for text input styling
 const textInputStyle = computed(() => {
@@ -70,32 +70,14 @@ const textInputFontStyle = computed(() => {
 })
 
 // Props
-const props = defineProps({
-  stageConfig: {
-    type: Object,
-    required: true
-  },
-  rectangles: {
-    type: Array,
-    default: () => []
-  },
-  circles: {
-    type: Array,
-    default: () => []
-  },
-  texts: {
-    type: Array,
-    default: () => []
-  },
-  lines: {
-    type: Array,
-    default: () => []
-  },
-  stars: {
-    type: Array,
-    default: () => []
-  }
-})
+const props = defineProps<{
+  stageConfig: any
+  rectangles: any[]
+  circles: any[]
+  texts: any[]
+  lines?: any[]
+  stars?: any[]
+}>()
 
 // Emits
 const emit = defineEmits([
@@ -107,7 +89,7 @@ const emit = defineEmits([
 ])
 
 // Stage interaction handlers
-const handleStageMouseDown = (e) => {
+const handleStageMouseDown = (e: any) => {
   // Only pan if clicking on empty space (not on shapes)
   if (e.target === stage) {
     stage.draggable(true)
@@ -118,11 +100,11 @@ const handleStageMouseDown = (e) => {
   emit('stage-mousedown', e)
 }
 
-const handleStageMouseMove = (e) => {
+const handleStageMouseMove = (e: any) => {
   emit('stage-mousemove', e)
 }
 
-const handleStageMouseUp = (e) => {
+const handleStageMouseUp = (e: any) => {
   stage.draggable(false)
   
   // Apply bounds checking when dragging ends
@@ -147,7 +129,7 @@ const canvasBounds = {
 }
 
 // Function to clamp position within bounds
-const clampPosition = (pos) => {
+const clampPosition = (pos: any) => {
   return {
     x: Math.max(canvasBounds.minX, Math.min(canvasBounds.maxX, pos.x)),
     y: Math.max(canvasBounds.minY, Math.min(canvasBounds.maxY, pos.y))
@@ -155,12 +137,12 @@ const clampPosition = (pos) => {
 }
 
 // Function to clamp scale within bounds
-const clampScale = (scale) => {
+const clampScale = (scale: number) => {
   return Math.max(canvasBounds.minScale, Math.min(canvasBounds.maxScale, scale))
 }
 
 // Zoom functionality with bounds checking
-const handleWheel = (e) => {
+const handleWheel = (e: any) => {
   e.evt.preventDefault()
   
   const scaleBy = 0.95
@@ -190,7 +172,7 @@ const handleWheel = (e) => {
 
 // Touch zoom functionality for mobile
 let lastTouchDistance = 0
-const handleTouchMove = (e) => {
+const handleTouchMove = (e: any) => {
   e.evt.preventDefault()
   
   if (e.evt.touches.length === 2) {
@@ -237,22 +219,22 @@ const handleTouchMove = (e) => {
   }
 }
 
-const handleTouchStart = (e) => {
+const handleTouchStart = (e: any) => {
   lastTouchDistance = 0
   handleStageMouseDown(e)
 }
 
-const handleTouchEnd = (e) => {
+const handleTouchEnd = (e: any) => {
   lastTouchDistance = 0
   handleStageMouseUp(e)
 }
 
-const selectShape = (shapeId) => {
+const selectShape = (shapeId: string) => {
   emit('select-shape', shapeId)
   
   // Find the shape and attach transformer
-  if (shapeId && transformer) {
-    const allShapes = [...props.rectangles, ...props.circles, ...props.texts, ...props.lines, ...props.stars]
+  if (shapeId && transformer && layer) {
+    const allShapes = [...props.rectangles, ...props.circles, ...props.texts, ...(props.lines || []), ...(props.stars || [])]
     const shape = allShapes.find(s => s.id === shapeId)
     
     if (shape) {
@@ -269,12 +251,12 @@ const selectShape = (shapeId) => {
   }
 }
 
-const updateShape = (shapeId, event) => {
+const updateShape = (shapeId: string, event: any) => {
   emit('update-shape', shapeId, event)
 }
 
 // Text editing methods
-const startTextEditing = (textShape) => {
+const startTextEditing = (textShape: any) => {
   editingText.value = textShape
   editingTextValue.value = textShape.text
   editingTextStyle.value = {
@@ -339,7 +321,7 @@ const cancelTextEditing = () => {
 }
 
 // Keyboard shortcuts
-const handleKeyDown = (e) => {
+const handleKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     if (editingText.value) {
       cancelTextEditing()
@@ -370,7 +352,7 @@ onMounted(async () => {
     const KonvaModule = await import('konva')
     console.log('KonvaModule:', KonvaModule)
     console.log('KonvaModule.default:', KonvaModule.default)
-    console.log('KonvaModule.Stage:', KonvaModule.Stage)
+    console.log('KonvaModule.Stage:', (KonvaModule as any).Stage)
     
     Konva = KonvaModule.default || KonvaModule
     console.log('Konva loaded:', Konva)
@@ -413,7 +395,7 @@ onMounted(async () => {
   })
   
   // Add resize event handlers
-  transformer.on('transformend', (e) => {
+  transformer.on('transformend', (e: any) => {
     const shape = e.target
     const shapeId = shape.id()
     
@@ -470,7 +452,7 @@ onMounted(async () => {
       // This is a line (open line)
       const scaleX = shape.scaleX()
       const scaleY = shape.scaleY()
-      const newPoints = shape.points().map((point, index) => {
+      const newPoints = shape.points().map((point: number, index: number) => {
         return index % 2 === 0 ? point * scaleX : point * scaleY
       })
       
@@ -492,7 +474,7 @@ onMounted(async () => {
       const scale = Math.min(scaleX, scaleY) // Use uniform scaling for stars
       
       // Find the star data to update radius
-      const star = props.stars.find(s => s.id === shapeId)
+      const star = props.stars?.find((s: any) => s.id === shapeId)
       if (star) {
         const newOuterRadius = star.outerRadius * scale
         const newInnerRadius = star.innerRadius * scale
@@ -540,23 +522,47 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
+// Helper function to convert color names to hex
+const colorToHex = (color: string): string => {
+  const colorMap: { [key: string]: string } = {
+    'red': '#ff0000',
+    'blue': '#0000ff',
+    'green': '#00ff00',
+    'yellow': '#ffff00',
+    'orange': '#ffa500',
+    'purple': '#800080',
+    'pink': '#ffc0cb',
+    'brown': '#a52a2a',
+    'black': '#000000',
+    'white': '#ffffff',
+    'gray': '#808080',
+    'grey': '#808080'
+  }
+  return colorMap[color.toLowerCase()] || color
+}
+
 // Function to add shapes to the layer
 const addShapesToLayer = () => {
   if (!layer || !Konva) return
   
   // Clear existing shapes but keep transformer
-  const shapes = layer.getChildren().filter(node => node !== transformer)
-  shapes.forEach(shape => shape.destroy())
+  const shapes = layer.getChildren().filter((node: any) => node !== transformer)
+  shapes.forEach((shape: any) => shape.destroy())
+  
+  // Clear transformer nodes to prevent errors
+  if (transformer) {
+    transformer.nodes([])
+  }
   
   // Add rectangles
-  props.rectangles.forEach(rect => {
+  props.rectangles.forEach((rect: any) => {
     const konvaRect = new Konva.Rect({
       id: rect.id,
       x: rect.x,
       y: rect.y,
       width: rect.width,
       height: rect.height,
-      fill: rect.fill,
+      fill: colorToHex(rect.fill),
       stroke: rect.stroke,
       strokeWidth: rect.strokeWidth,
       draggable: rect.draggable,
@@ -568,7 +574,7 @@ const addShapesToLayer = () => {
       listening: true,
       imageSmoothingEnabled: true,
       // Improve drag sensitivity
-      dragBoundFunc: (pos) => {
+      dragBoundFunc: (pos: any) => {
         // Allow dragging within canvas bounds
         return {
           x: Math.max(0, Math.min(pos.x, stage.width() - rect.width)),
@@ -584,16 +590,16 @@ const addShapesToLayer = () => {
     konvaRect.on('mouseenter', () => {
       document.body.style.cursor = 'pointer'
       konvaRect.shadowOpacity(0.4)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
     konvaRect.on('mouseleave', () => {
       document.body.style.cursor = 'default'
       konvaRect.shadowOpacity(0.2)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
-    konvaRect.on('mousedown', (e) => {
+    konvaRect.on('mousedown', (e: any) => {
       // Prevent event bubbling to stage
       e.cancelBubble = true
       selectShape(rect.id)
@@ -607,31 +613,31 @@ const addShapesToLayer = () => {
     
     konvaRect.on('dragstart', () => {
       konvaRect.shadowOpacity(0.6)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
-    konvaRect.on('dragend', (e) => {
+    konvaRect.on('dragend', (e: any) => {
       const updates = {
         x: e.target.x(),
         y: e.target.y()
       }
-      console.log('Dragend - updating rectangle:', rect.id, 'with:', updates)
       updateShape(rect.id, updates)
       konvaRect.shadowOpacity(0.2)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
     layer.add(konvaRect)
+      // Konva rectangle created and added to layer
   })
   
   // Add circles
-  props.circles.forEach(circle => {
+  props.circles.forEach((circle: any) => {
     const konvaCircle = new Konva.Circle({
       id: circle.id,
       x: circle.x,
       y: circle.y,
       radius: circle.radius,
-      fill: circle.fill,
+      fill: colorToHex(circle.fill),
       stroke: circle.stroke,
       strokeWidth: circle.strokeWidth,
       draggable: circle.draggable,
@@ -641,7 +647,7 @@ const addShapesToLayer = () => {
       shadowOpacity: 0.2,
       shadowOffset: { x: 2, y: 2 },
       // Improve drag sensitivity
-      dragBoundFunc: (pos) => {
+      dragBoundFunc: (pos: any) => {
         // Allow dragging within canvas bounds
         return {
           x: Math.max(circle.radius, Math.min(pos.x, stage.width() - circle.radius)),
@@ -657,16 +663,16 @@ const addShapesToLayer = () => {
     konvaCircle.on('mouseenter', () => {
       document.body.style.cursor = 'pointer'
       konvaCircle.shadowOpacity(0.4)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
     konvaCircle.on('mouseleave', () => {
       document.body.style.cursor = 'default'
       konvaCircle.shadowOpacity(0.2)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
-    konvaCircle.on('mousedown', (e) => {
+    konvaCircle.on('mousedown', (e: any) => {
       // Prevent event bubbling to stage
       e.cancelBubble = true
       selectShape(circle.id)
@@ -680,23 +686,24 @@ const addShapesToLayer = () => {
     
     konvaCircle.on('dragstart', () => {
       konvaCircle.shadowOpacity(0.6)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
-    konvaCircle.on('dragend', (e) => {
+    konvaCircle.on('dragend', (e: any) => {
       updateShape(circle.id, {
         x: e.target.x(),
         y: e.target.y()
       })
       konvaCircle.shadowOpacity(0.2)
-      layer.draw()
+      if (layer) layer.draw()
     })
     
     layer.add(konvaCircle)
+      // Konva circle created and added to layer
   })
   
   // Add texts
-  props.texts.forEach(text => {
+  props.texts.forEach((text: any) => {
     const konvaText = new Konva.Text({
       id: text.id,
       x: text.x,
@@ -711,7 +718,7 @@ const addShapesToLayer = () => {
       shadowOpacity: 0.2,
       shadowOffset: { x: 2, y: 2 },
       // Improve drag sensitivity
-      dragBoundFunc: (pos) => {
+      dragBoundFunc: (pos: any) => {
         // Allow dragging within canvas bounds
         return {
           x: Math.max(0, Math.min(pos.x, stage.width())),
@@ -736,7 +743,7 @@ const addShapesToLayer = () => {
       layer.draw()
     })
     
-    konvaText.on('mousedown', (e) => {
+    konvaText.on('mousedown', (e: any) => {
       // Prevent event bubbling to stage
       e.cancelBubble = true
       selectShape(text.id)
@@ -749,7 +756,7 @@ const addShapesToLayer = () => {
     })
     
     // Add double-click event for text editing
-    konvaText.on('dblclick', (e) => {
+    konvaText.on('dblclick', (e: any) => {
       e.cancelBubble = true
       startTextEditing(text)
     })
@@ -759,7 +766,7 @@ const addShapesToLayer = () => {
       layer.draw()
     })
     
-    konvaText.on('dragend', (e) => {
+    konvaText.on('dragend', (e: any) => {
       updateShape(text.id, {
         x: e.target.x(),
         y: e.target.y()
@@ -772,7 +779,7 @@ const addShapesToLayer = () => {
   })
   
   // Add lines
-  props.lines.forEach(line => {
+  props.lines?.forEach((line: any) => {
     const konvaLine = new Konva.Line({
       id: line.id,
       x: line.x,
@@ -787,7 +794,7 @@ const addShapesToLayer = () => {
       shadowOpacity: 0.2,
       shadowOffset: { x: 2, y: 2 },
       // Improve drag sensitivity
-      dragBoundFunc: (pos) => {
+      dragBoundFunc: (pos: any) => {
         return {
           x: Math.max(0, Math.min(pos.x, stage.width())),
           y: Math.max(0, Math.min(pos.y, stage.height()))
@@ -812,7 +819,7 @@ const addShapesToLayer = () => {
     })
     
     // Add click handler for selection
-    konvaLine.on('click', (e) => {
+    konvaLine.on('click', (e: any) => {
       e.cancelBubble = true
       selectShape(line.id)
     })
@@ -823,7 +830,7 @@ const addShapesToLayer = () => {
       layer.draw()
     })
     
-    konvaLine.on('dragend', (e) => {
+    konvaLine.on('dragend', (e: any) => {
       updateShape(line.id, {
         x: e.target.x(),
         y: e.target.y()
@@ -836,7 +843,7 @@ const addShapesToLayer = () => {
   })
   
   // Add stars
-  props.stars.forEach(star => {
+  props.stars?.forEach((star: any) => {
     // Create star points
     const points = []
     const angle = Math.PI / star.numPoints
@@ -863,7 +870,7 @@ const addShapesToLayer = () => {
       shadowOpacity: 0.2,
       shadowOffset: { x: 2, y: 2 },
       // Improve drag sensitivity
-      dragBoundFunc: (pos) => {
+      dragBoundFunc: (pos: any) => {
         return {
           x: Math.max(0, Math.min(pos.x, stage.width())),
           y: Math.max(0, Math.min(pos.y, stage.height()))
@@ -888,7 +895,7 @@ const addShapesToLayer = () => {
     })
     
     // Add click handler for selection
-    konvaStar.on('click', (e) => {
+    konvaStar.on('click', (e: any) => {
       e.cancelBubble = true
       selectShape(star.id)
     })
@@ -899,7 +906,7 @@ const addShapesToLayer = () => {
       layer.draw()
     })
     
-    konvaStar.on('dragend', (e) => {
+    konvaStar.on('dragend', (e: any) => {
       updateShape(star.id, {
         x: e.target.x(),
         y: e.target.y()
@@ -969,7 +976,7 @@ const updateExistingShapes = () => {
   layer.draw()
   
   // Update texts
-  props.texts.forEach(text => {
+  props.texts.forEach((text: any) => {
     const konvaText = layer.findOne(`#${text.id}`)
     if (konvaText) {
       // Only update position if the shape is not currently being dragged
@@ -991,102 +998,34 @@ const updateExistingShapes = () => {
 }
 
 // Watch for prop changes and update shapes
-watch(() => [props.rectangles, props.circles, props.texts, props.lines, props.stars], (newProps, oldProps) => {
-  // Only recreate shapes if the arrays have actually changed (not just individual properties)
-  const hasNewShapes = newProps[0].length !== oldProps?.[0]?.length || 
-                      newProps[1].length !== oldProps?.[1]?.length || 
-                      newProps[2].length !== oldProps?.[2]?.length ||
-                      newProps[3].length !== oldProps?.[3]?.length ||
-                      newProps[4].length !== oldProps?.[4]?.length
+watch(() => [props.rectangles, props.circles, props.texts, props.lines || [], props.stars || []], (newProps, oldProps) => {
+  if (!layer || !stage) return
   
-  console.log('🔄 Shape arrays changed:', {
-    rectangles: { old: oldProps?.[0]?.length, new: newProps[0].length },
-    circles: { old: oldProps?.[1]?.length, new: newProps[1].length },
-    texts: { old: oldProps?.[2]?.length, new: newProps[2].length },
-    lines: { old: oldProps?.[3]?.length, new: newProps[3].length },
-    stars: { old: oldProps?.[4]?.length, new: newProps[4].length },
-    hasNewShapes
-  })
+  const [newRects, newCircles, newTexts, newLines, newStars] = newProps
+  const [oldRects, oldCircles, oldTexts, oldLines, oldStars] = oldProps || [[], [], [], [], []]
   
-  // Debug: Log the actual shape data
-  console.log('Current shapes data:', {
-    rectangles: newProps[0].map(r => ({ id: r.id, type: r.type })),
-    circles: newProps[1].map(c => ({ id: c.id, type: c.type })),
-    texts: newProps[2].map(t => ({ id: t.id, type: t.type })),
-    lines: newProps[3].map(l => ({ id: l.id, type: l.type })),
-    stars: newProps[4].map(s => ({ id: s.id, type: s.type }))
-  })
+  // Check if we need to recreate shapes (new shapes added or removed)
+  const hasNewShapes = (newRects?.length || 0) !== (oldRects?.length || 0) || 
+                       (newCircles?.length || 0) !== (oldCircles?.length || 0) || 
+                       (newTexts?.length || 0) !== (oldTexts?.length || 0) ||
+                       (newLines?.length || 0) !== (oldLines?.length || 0) || 
+                       (newStars?.length || 0) !== (oldStars?.length || 0)
   
   if (hasNewShapes) {
-    console.log('Recreating shapes due to array length change')
-    console.log('Current shape counts:', {
-      rectangles: newProps[0].length,
-      circles: newProps[1].length,
-      texts: newProps[2].length,
-      lines: newProps[3].length,
-      stars: newProps[4].length
-    })
-    addShapesToLayer()
-  } else if (oldProps && (oldProps[0]?.length > 0 || oldProps[1]?.length > 0 || oldProps[2]?.length > 0 || oldProps[3]?.length > 0 || oldProps[4]?.length > 0)) {
-    // Check if any shapes were deleted by comparing IDs
-    const oldShapeIds = new Set([
-      ...(oldProps[0] || []).map(s => s.id),
-      ...(oldProps[1] || []).map(s => s.id),
-      ...(oldProps[2] || []).map(s => s.id),
-      ...(oldProps[3] || []).map(s => s.id),
-      ...(oldProps[4] || []).map(s => s.id)
-    ])
-    
-    const newShapeIds = new Set([
-      ...newProps[0].map(s => s.id),
-      ...newProps[1].map(s => s.id),
-      ...newProps[2].map(s => s.id),
-      ...newProps[3].map(s => s.id),
-      ...newProps[4].map(s => s.id)
-    ])
-    
-    // Find deleted shapes
-    const deletedShapeIds = [...oldShapeIds].filter(id => !newShapeIds.has(id))
-    
-    console.log('🔍 Shape ID comparison:', {
-      oldShapeIds: [...oldShapeIds],
-      newShapeIds: [...newShapeIds],
-      deletedShapeIds
-    })
-    
-    if (deletedShapeIds.length > 0) {
-      console.log('🗑️ Shapes were deleted, removing from Konva layer:', deletedShapeIds)
-      // Remove deleted shapes from Konva layer
-      deletedShapeIds.forEach(shapeId => {
-        const konvaShape = layer.findOne(`#${shapeId}`)
-        if (konvaShape) {
-          console.log('🗑️ Removing shape from Konva layer:', shapeId)
-          konvaShape.destroy()
-        } else {
-          console.log('🗑️ Shape not found in Konva layer:', shapeId)
-        }
-      })
-      // Clear transformer if it was attached to a deleted shape
-      if (transformer && deletedShapeIds.some(id => transformer.nodes().some(node => node.id() === id))) {
-        console.log('🗑️ Clearing transformer for deleted shapes')
-        transformer.nodes([])
-      }
-      layer.draw()
-      console.log('🗑️ Canvas redrawn after shape deletion')
-    } else {
-      // Only update existing shapes if no deletions occurred
-      console.log('Updating existing shapes without recreation')
-      console.log('Current shape counts:', {
-        rectangles: newProps[0].length,
-        circles: newProps[1].length,
-        texts: newProps[2].length,
-        lines: newProps[3].length,
-        stars: newProps[4].length
-      })
-      updateExistingShapes()
+    // Clear transformer first to prevent errors
+    if (transformer) {
+      transformer.nodes([])
     }
+    
+    // Clear existing shapes and recreate all
+    if (layer.children) {
+      layer.destroyChildren()
+    }
+    
+    // Recreate all shapes
+    addShapesToLayer()
   }
-}, { deep: true, immediate: true })
+}, { deep: true })
 
 // Individual length watchers removed to prevent duplicate updates
 
@@ -1117,8 +1056,21 @@ defineExpose({
   },
   getBounds: () => canvasBounds,
   forceRefresh: () => {
-    console.log('Force refreshing canvas...')
-    addShapesToLayer()
+    console.log('🔄 Force refreshing canvas - rectangles:', props.rectangles.length)
+    if (layer && stage) {
+      // Clear transformer first
+      if (transformer) {
+        transformer.nodes([])
+      }
+      
+      // Clear existing shapes and recreate all
+      if (layer.children) {
+        layer.destroyChildren()
+      }
+      
+      // Recreate all shapes
+      addShapesToLayer()
+    }
   }
 })
 </script>

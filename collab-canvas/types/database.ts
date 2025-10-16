@@ -5,7 +5,7 @@ export interface Database {
         Row: {
           id: string
           canvas_id: string
-          user_id: string
+          user_id: string | null
           type: 'rect' | 'circle' | 'text' | 'line' | 'star' | 'ellipse' | 'arrow' | 'image'
           data: {
             x: number
@@ -32,7 +32,7 @@ export interface Database {
         Insert: {
           id?: string
           canvas_id: string
-          user_id: string
+          user_id: string | null
           type: 'rect' | 'circle' | 'text' | 'line' | 'star' | 'ellipse' | 'arrow' | 'image'
           data: {
             x: number
@@ -59,7 +59,7 @@ export interface Database {
         Update: {
           id?: string
           canvas_id?: string
-          user_id?: string
+          user_id?: string | null
           type?: 'rect' | 'circle' | 'text' | 'line' | 'ellipse' | 'arrow' | 'image'
           data?: {
             x?: number
@@ -96,7 +96,7 @@ export interface Database {
         Returns: {
           id: string
           canvas_id: string
-          user_id: string
+          user_id: string | null
           type: string
           data: any
           created_at: string

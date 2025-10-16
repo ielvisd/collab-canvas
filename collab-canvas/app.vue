@@ -1,5 +1,5 @@
 <template>
-  <UApp>
+  <UApp :notifications="false">
     <NuxtPage />
   </UApp>
 </template>

@@ -158,6 +158,8 @@
           :rectangles="rectangles"
           :circles="circles"
           :texts="texts"
+          :lines="[]"
+          :stars="[]"
           @stage-mousedown="handleStageMouseDown"
           @stage-mousemove="handleStageMouseMove"
           @stage-mouseup="handleStageMouseUp"
@@ -165,8 +167,12 @@
           @update-shape="handleShapeUpdate"
         />
         
+        
         <!-- Cursor Overlay -->
         <CursorOverlay />
+        
+        <!-- AI Chat Interface -->
+        <AIChatInterface />
       </div>
     </div>
 
@@ -195,8 +201,7 @@
       </div>
     </div>
 
-    <!-- Notifications -->
-    <UNotifications />
+    <!-- Notifications removed - causing hydration issues -->
     
     <!-- Loading Overlay -->
     <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -326,7 +331,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useShapesWithPersistence } from '~/composables/useShapesWithPersistence'
 
 // Define page meta
@@ -377,6 +382,26 @@ const {
   lastSyncTime
 } = useShapesWithPersistence(canvasWidth, canvasHeight)
 
+// Watch for shape array changes and force canvas refresh
+watch([rectangles, circles, texts], async ([newRects, newCircles, newTexts], [oldRects, oldCircles, oldTexts]) => {
+    console.log('🔄 Canvas page - shape arrays changed, forcing refresh')
+    console.log('🔄 Canvas page - rectangles:', newRects.length, 'circles:', newCircles.length, 'texts:', newTexts.length)
+    
+    // Use nextTick to ensure DOM has been updated before refreshing canvas
+    await nextTick()
+    
+    // Force refresh the canvas to ensure shapes appear immediately
+    if (canvasRef.value && canvasRef.value.forceRefresh) {
+      console.log('🔄 Canvas page - calling forceRefresh after nextTick')
+      canvasRef.value.forceRefresh()
+    }
+}, { deep: true })
+
+// Initialize canvas on mount
+onMounted(async () => {
+  // Canvas is ready
+})
+
 // Stage configuration
 const stageConfig = ref({
   width: canvasWidth,
@@ -398,8 +423,10 @@ const showClearModal = ref(false)
 
 // Watch for selected shape changes to update color picker
 watch(selectedShapeId, (newShapeId) => {
+  console.log('🎯 selectedShapeId changed to:', newShapeId)
   if (newShapeId) {
     const shape = getShapeById(newShapeId)
+    console.log('🎯 Selected shape:', shape)
     if (shape && shape.fill) {
       selectedColor.value = shape.fill
     }
@@ -480,24 +507,31 @@ const clearCanvas = () => {
 }
 
 const confirmClearCanvas = async () => {
-  await clearAllShapes()
-  showClearModal.value = false
+  try {
+    await clearAllShapes()
+    
+    // Force refresh the canvas to ensure shapes are removed
+    if (canvasRef.value) {
+      canvasRef.value.forceRefresh()
+    }
+    
+    showClearModal.value = false
+  } catch (error) {
+    console.error('Error clearing canvas:', error)
+    showClearModal.value = false
+  }
 }
 
 const applyColorToSelected = async () => {
   if (selectedShapeId.value) {
-    console.log('Applying color to shape:', selectedShapeId.value, 'color:', selectedColor.value)
+    // Applying color to shape
     
     // Get the current shape to see its current color
     const currentShape = getShapeById(selectedShapeId.value)
-    console.log('Current shape before color change:', currentShape)
+    // Current shape before color change
     
     const result = await updateShape(selectedShapeId.value, { fill: selectedColor.value })
-    console.log('Color update result:', result)
-    
-    // Get the shape again to verify the color was updated
-    const updatedShape = getShapeById(selectedShapeId.value)
-    console.log('Shape after color change:', updatedShape)
+    // Color update completed
   }
 }
 

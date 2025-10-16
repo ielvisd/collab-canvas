@@ -28,12 +28,26 @@ export interface Text extends Shape {
   fontSize: number
 }
 
-export type ShapeType = Rectangle | Circle | Text
+export interface Line extends Shape {
+  type: 'line'
+  points: number[]
+}
+
+export interface Star extends Shape {
+  type: 'star'
+  outerRadius: number
+  innerRadius: number
+  numPoints: number
+}
+
+export type ShapeType = Rectangle | Circle | Text | Line | Star
 
 export interface ShapeState {
   rectangles: Ref<Rectangle[]>
   circles: Ref<Circle[]>
   texts: Ref<Text[]>
+  lines: Ref<Line[]>
+  stars: Ref<Star[]>
   selectedShapeId: Ref<string | null>
   totalShapes: Ref<number>
 }
@@ -42,13 +56,15 @@ export interface ShapeActions {
   addRectangle: (options?: Partial<Omit<Rectangle, 'id' | 'type'>>) => Rectangle
   addCircle: (options?: Partial<Omit<Circle, 'id' | 'type'>>) => Circle
   addText: (options?: Partial<Omit<Text, 'id' | 'type'>>) => Text
+  addLine: (options?: Partial<Omit<Line, 'id' | 'type'>>) => Line
+  addStar: (options?: Partial<Omit<Star, 'id' | 'type'>>) => Star
   selectShape: (shapeId: string | null) => void
   updateShape: (shapeId: string, updates: Partial<Shape>) => void
   deleteShape: (shapeId: string) => boolean
   deleteSelectedShape: () => boolean
   clearAllShapes: () => void
   getShapeById: (shapeId: string) => ShapeType | null
-  getShapeByType: (type: 'rectangle' | 'circle' | 'text', shapeId: string) => ShapeType | null
+  getShapeByType: (type: 'rectangle' | 'circle' | 'text' | 'line' | 'star', shapeId: string) => ShapeType | null
 }
 
 export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600) => {
@@ -56,11 +72,13 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
   const rectangles = ref<Rectangle[]>([])
   const circles = ref<Circle[]>([])
   const texts = ref<Text[]>([])
+  const lines = ref<Line[]>([])
+  const stars = ref<Star[]>([])
   const selectedShapeId = ref<string | null>(null)
 
   // Computed
   const totalShapes = computed(() => 
-    rectangles.value.length + circles.value.length + texts.value.length
+    rectangles.value.length + circles.value.length + texts.value.length + lines.value.length + stars.value.length
   )
 
   // Utility functions
@@ -146,6 +164,48 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
     return text
   }
 
+  const addLine = (options: Partial<Omit<Line, 'id' | 'type'>> = {}): Line => {
+    const position = getRandomPosition(canvasWidth - 100, canvasHeight - 100)
+    
+    const line: Line = {
+      id: generateId('line'),
+      type: 'line',
+      x: options.x ?? position.x,
+      y: options.y ?? position.y,
+      points: options.points ?? [0, 0, 100, 0], // Simple horizontal line
+      fill: (options.fill ?? getRandomColor()) as string,
+      stroke: (options.stroke ?? '#000') as string,
+      strokeWidth: (options.strokeWidth ?? 2) as number,
+      draggable: options.draggable ?? true,
+      rotation: options.rotation ?? 0
+    }
+    
+    lines.value.push(line)
+    return line
+  }
+
+  const addStar = (options: Partial<Omit<Star, 'id' | 'type'>> = {}): Star => {
+    const position = getRandomPosition(canvasWidth - 100, canvasHeight - 100)
+    
+    const star: Star = {
+      id: generateId('star'),
+      type: 'star',
+      x: options.x ?? position.x,
+      y: options.y ?? position.y,
+      outerRadius: options.outerRadius ?? 50,
+      innerRadius: options.innerRadius ?? 25,
+      numPoints: options.numPoints ?? 5,
+      fill: (options.fill ?? getRandomColor()) as string,
+      stroke: (options.stroke ?? '#000') as string,
+      strokeWidth: (options.strokeWidth ?? 2) as number,
+      draggable: options.draggable ?? true,
+      rotation: options.rotation ?? 0
+    }
+    
+    stars.value.push(star)
+    return star
+  }
+
   // Shape management methods
   const selectShape = (shapeId: string | null) => {
     selectedShapeId.value = shapeId
@@ -205,6 +265,26 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
       return true
     }
 
+    // Try to delete from lines
+    const lineIndex = lines.value.findIndex(l => l.id === shapeId)
+    if (lineIndex !== -1) {
+      lines.value.splice(lineIndex, 1)
+      if (selectedShapeId.value === shapeId) {
+        selectedShapeId.value = null
+      }
+      return true
+    }
+
+    // Try to delete from stars
+    const starIndex = stars.value.findIndex(s => s.id === shapeId)
+    if (starIndex !== -1) {
+      stars.value.splice(starIndex, 1)
+      if (selectedShapeId.value === shapeId) {
+        selectedShapeId.value = null
+      }
+      return true
+    }
+
     return false
   }
 
@@ -217,15 +297,17 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
     rectangles.value = []
     circles.value = []
     texts.value = []
+    lines.value = []
+    stars.value = []
     selectedShapeId.value = null
   }
 
   const getShapeById = (shapeId: string): ShapeType | null => {
-    const allShapes = [...rectangles.value, ...circles.value, ...texts.value]
+    const allShapes = [...rectangles.value, ...circles.value, ...texts.value, ...lines.value, ...stars.value]
     return allShapes.find(shape => shape.id === shapeId) || null
   }
 
-  const getShapeByType = (type: 'rectangle' | 'circle' | 'text', shapeId: string): ShapeType | null => {
+  const getShapeByType = (type: 'rectangle' | 'circle' | 'text' | 'line' | 'star', shapeId: string): ShapeType | null => {
     switch (type) {
       case 'rectangle':
         return rectangles.value.find(r => r.id === shapeId) || null
@@ -233,6 +315,10 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
         return circles.value.find(c => c.id === shapeId) || null
       case 'text':
         return texts.value.find(t => t.id === shapeId) || null
+      case 'line':
+        return lines.value.find(l => l.id === shapeId) || null
+      case 'star':
+        return stars.value.find(s => s.id === shapeId) || null
       default:
         return null
     }
@@ -243,6 +329,8 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
     rectangles,
     circles,
     texts,
+    lines,
+    stars,
     selectedShapeId,
     totalShapes
   }
@@ -251,6 +339,8 @@ export const useShapes = (canvasWidth: number = 800, canvasHeight: number = 600)
     addRectangle,
     addCircle,
     addText,
+    addLine,
+    addStar,
     selectShape,
     updateShape,
     deleteShape,

@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { Shape, Rectangle, Circle, Text, ShapeType } from './useShapes'
+import type { Shape, Rectangle, Circle, Text, Line, Star, ShapeType } from './useShapes'
 import { useRealtimeSync } from './useRealtimeSync'
 
 export interface PersistentShapeState {
@@ -27,7 +27,6 @@ export interface PersistentShapeActions {
   getShapeByType: (type: 'rectangle' | 'circle' | 'text', shapeId: string) => ShapeType | null
   loadShapesFromDatabase: () => Promise<void>
   saveShapeToDatabase: (shape: ShapeType) => Promise<boolean>
-  updateShapeInDatabase: (shapeId: string, updates: Partial<Shape>) => Promise<boolean>
   deleteShapeFromDatabase: (shapeId: string) => Promise<boolean>
   setAutoSave: (enabled: boolean) => void
   clearError: () => void
@@ -176,7 +175,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
       type: 'text',
       x: options.x ?? position.x,
       y: options.y ?? position.y,
-      text: options.text ?? 'Hello Konva!',
+      text: options.text ?? 'Hola! 👋',
       fontSize: options.fontSize ?? 24,
       fill: (options.fill ?? getRandomColor()) as string,
       stroke: (options.stroke ?? '#000') as string,
@@ -195,6 +194,8 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     return text
   }
 
+
+
   // Shape management methods with database persistence
   const selectShape = (shapeId: string | null) => {
     selectedShapeId.value = shapeId
@@ -204,11 +205,12 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     try {
       // Skip database update if this is from real-time sync
       if (isUpdatingFromRealtime.value) {
-        console.log('Skipping database update - updating from real-time sync')
+        console.log('🔄 Skipping database update - updating from real-time sync')
         return true
       }
 
-      console.log('Updating shape:', shapeId, 'with updates:', updates)
+      console.log('🔄 Updating shape:', shapeId, 'with updates:', updates)
+      console.log('🔄 isUpdatingFromRealtime:', isUpdatingFromRealtime.value)
       
       // Update local state
       const rectIndex = rectangles.value.findIndex(r => r.id === shapeId)
@@ -219,8 +221,9 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         
         
         // Pass the complete updated shape data instead of just updates
-        const updateResult = await updateShapeInDatabase(shapeId, rectangles.value[rectIndex] as Partial<Shape>)
-        console.log('Rectangle update completed:', updateResult)
+        console.log('🔄 Calling updateShapeInDb for rectangle:', shapeId, rectangles.value[rectIndex])
+        const updateResult = await updateShapeInDb(shapeId, rectangles.value[rectIndex] as Partial<Shape>)
+        console.log('🔄 Rectangle update completed:', updateResult)
         return updateResult
       }
 
@@ -232,8 +235,9 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         
         
         // Pass the complete updated shape data instead of just updates
-        const updateResult = await updateShapeInDatabase(shapeId, circles.value[circleIndex] as Partial<Shape>)
-        console.log('Circle update completed:', updateResult)
+        console.log('🔄 Calling updateShapeInDb for circle:', shapeId, circles.value[circleIndex])
+        const updateResult = await updateShapeInDb(shapeId, circles.value[circleIndex] as Partial<Shape>)
+        console.log('🔄 Circle update completed:', updateResult)
         return updateResult
       }
 
@@ -245,10 +249,11 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         
         
         // Pass the complete updated shape data instead of just updates
-        const updateResult = await updateShapeInDatabase(shapeId, texts.value[textIndex] as Partial<Shape>)
+        const updateResult = await updateShapeInDb(shapeId, texts.value[textIndex] as Partial<Shape>)
         console.log('Text update completed:', updateResult)
         return updateResult
       }
+
 
       console.warn('Shape not found for update:', shapeId)
       return false
@@ -309,6 +314,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         console.log('Text deleted successfully')
         return true
       }
+
 
       console.log('Shape not found for deletion:', shapeId)
       return false
@@ -472,14 +478,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     }
   }
 
-  const updateShapeInDatabase = async (shapeId: string, updates: Partial<Shape>): Promise<boolean> => {
-    try {
-      return await updateShapeInDb(shapeId, updates)
-    } catch (error) {
-      console.error('Error updating shape in database:', error)
-      return false
-    }
-  }
 
   const deleteShapeFromDatabase = async (shapeId: string): Promise<boolean> => {
     try {
@@ -525,7 +523,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     getShapeByType,
     loadShapesFromDatabase,
     saveShapeToDatabase,
-    updateShapeInDatabase,
     deleteShapeFromDatabase,
     setAutoSave,
     clearError,

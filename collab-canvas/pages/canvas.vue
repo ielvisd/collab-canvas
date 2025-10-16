@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="h-full w-full bg-gray-100 flex flex-col sm:flex-row">
+    <div class="h-full w-full bg-black flex flex-col sm:flex-row">
       <!-- Presence Sidebar - Hidden on mobile, shown as overlay -->
       <PresenceSidebar class="hidden sm:block" />
       
@@ -41,60 +41,32 @@
       <!-- Main Canvas Area -->
       <div class="flex-1 flex flex-col relative">
     <!-- Toolbar -->
-    <div data-testid="canvas-toolbar" class="absolute left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-lg shadow-lg p-2 sm:p-4" :style="{ top: isMobile ? 'calc(var(--ui-header-height, 4rem) + 0.5rem)' : 'calc(var(--ui-header-height, 4rem) + 1rem)' }">
+    <div data-testid="canvas-toolbar" class="absolute left-1/2 transform -translate-x-1/2 z-50 bg-gray-800 border-2 border-pink-500 rounded-lg shadow-lg p-2 sm:p-4" :style="{ top: isMobile ? 'calc(var(--ui-header-height, 4rem) + 0.5rem)' : 'calc(var(--ui-header-height, 4rem) + 1rem)' }">
       <div class="flex flex-wrap gap-1 sm:gap-2 items-center justify-center">
-        <!-- Shape Creation Buttons -->
-        <div class="flex gap-1 sm:gap-2">
-          <UTooltip text="Add a rectangle (R)">
-            <UButton 
-              data-testid="add-rectangle-btn" 
-              color="primary" 
-              :size="isMobile ? 'xs' : 'sm'"
-              :loading="saving"
-              :disabled="loading || saving"
-              @click="addRectangle"
-            >
-              <UIcon name="i-heroicons-square-3-stack-3d" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Rectangle</span>
-            </UButton>
-          </UTooltip>
-          <UTooltip text="Add a circle (C)">
-            <UButton 
-              data-testid="add-circle-btn" 
-              color="primary" 
-              :size="isMobile ? 'xs' : 'sm'"
-              :loading="saving"
-              :disabled="loading || saving"
-              @click="addCircle"
-            >
-              <UIcon name="i-heroicons-circle-stack" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Circle</span>
-            </UButton>
-          </UTooltip>
-          <UTooltip text="Add text (T)">
-            <UButton 
-              data-testid="add-text-btn" 
-              color="primary" 
-              :size="isMobile ? 'xs' : 'sm'"
-              :loading="saving"
-              :disabled="loading || saving"
-              @click="addText"
-            >
-              <UIcon name="i-heroicons-document-text" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Text</span>
-            </UButton>
-          </UTooltip>
-        </div>
+        <!-- Shape Creation Dropdown -->
+        <UDropdownMenu :items="shapeMenuItems" :ui="{ content: 'w-48' }">
+          <UButton 
+            color="pink" 
+            variant="solid"
+            :size="isMobile ? 'xs' : 'sm'"
+            :loading="saving"
+            :disabled="loading || saving"
+            trailing-icon="i-heroicons-chevron-down"
+          >
+            <UIcon name="i-heroicons-plus" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
+            <span class="hidden sm:inline">Add Shape</span>
+          </UButton>
+        </UDropdownMenu>
         
         <!-- Color Picker -->
-        <div class="flex items-center gap-1 sm:gap-2 border-l border-gray-200 pl-1 sm:pl-2">
-          <label class="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Color:</label>
+        <div class="flex items-center gap-1 sm:gap-2 border-l border-pink-500 pl-1 sm:pl-2">
+          <label class="text-xs sm:text-sm font-medium text-white hidden sm:inline">Color:</label>
           <input 
             v-model="selectedColor"
             data-testid="color-picker" 
             type="color"
             :class="isMobile ? 'w-6 h-6' : 'w-8 h-8'"
-            class="rounded border border-gray-300 cursor-pointer" 
+            class="rounded cursor-pointer" 
             title="Select shape color"
             :disabled="!selectedShapeId"
             @input="applyColorToSelected"
@@ -102,110 +74,70 @@
         </div>
         
         <!-- Rotation Controls -->
-        <div v-if="selectedShapeId" class="flex items-center gap-1 sm:gap-2 border-l border-gray-200 pl-1 sm:pl-2">
-          <label class="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Rotate:</label>
-          <UButton 
-            data-testid="rotate-left-btn"
-            :size="isMobile ? '2xs' : 'xs'"
-            variant="outline" 
-            :disabled="!selectedShapeId"
-            @click="rotateSelected(-45)"
-          >
-            <span class="hidden sm:inline">↶ -45°</span>
-            <span class="sm:hidden">↶</span>
-          </UButton>
-          <UButton 
-            data-testid="rotate-right-btn"
-            :size="isMobile ? '2xs' : 'xs'"
-            variant="outline" 
-            :disabled="!selectedShapeId"
-            @click="rotateSelected(45)"
-          >
-            <span class="hidden sm:inline">↷ +45°</span>
-            <span class="sm:hidden">↷</span>
-          </UButton>
-        </div>
-        
-        <!-- Auto-save Toggle -->
-        <div class="flex items-center gap-1 sm:gap-2 border-l border-gray-200 pl-1 sm:pl-2">
-          <USwitch 
-            v-model="autoSave" 
-            :size="isMobile ? 'xs' : 'sm'"
-            :label="isMobile ? undefined : 'Auto-save'"
-            @update:model-value="setAutoSave"
-          />
-        </div>
-        
-        <!-- Help Button -->
-        <div class="flex items-center gap-1 sm:gap-2 border-l border-gray-200 pl-1 sm:pl-2">
-          <UTooltip text="Keyboard shortcuts help">
+        <div v-if="selectedShapeId" class="flex items-center gap-1 sm:gap-2 border-l border-pink-500 pl-1 sm:pl-2">
+          <UTooltip text="Rotate left 45°">
             <UButton 
-              data-testid="help-btn"
-              color="gray" 
-              variant="ghost" 
-              :size="isMobile ? 'xs' : 'sm'"
-              @click="showHelpModal = true"
+              data-testid="rotate-left-btn"
+              :size="isMobile ? '2xs' : 'xs'"
+              color="pink"
+              variant="outline" 
+              :disabled="!selectedShapeId"
+              @click="rotateSelected(-45)"
             >
-              <UIcon name="i-heroicons-question-mark-circle" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
+              <UIcon name="i-heroicons-arrow-uturn-left" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
+            </UButton>
+          </UTooltip>
+          <UTooltip text="Rotate right 45°">
+            <UButton 
+              data-testid="rotate-right-btn"
+              :size="isMobile ? '2xs' : 'xs'"
+              color="pink"
+              variant="outline" 
+              :disabled="!selectedShapeId"
+              @click="rotateSelected(45)"
+            >
+              <UIcon name="i-heroicons-arrow-uturn-right" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
             </UButton>
           </UTooltip>
         </div>
         
         <!-- Action Buttons -->
-        <div class="flex gap-1 sm:gap-2 border-l border-gray-200 pl-1 sm:pl-2">
+        <div class="flex gap-1 sm:gap-2 border-l border-pink-500 pl-1 sm:pl-2">
           <UTooltip text="Delete selected shape (Delete key)">
             <UButton 
               data-testid="delete-selected-btn"
-              color="red" 
+              color="error" 
               variant="outline" 
               :size="isMobile ? 'xs' : 'sm'"
               :disabled="!selectedShapeId || loading || saving"
               :loading="saving"
-              class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
               @click="handleDeleteSelected"
             >
-              <UIcon name="i-heroicons-trash" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Delete</span>
+              <UIcon name="i-heroicons-trash" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
             </UButton>
           </UTooltip>
           <UTooltip text="Clear all shapes from canvas">
             <UButton 
               data-testid="clear-all-btn" 
-              color="red" 
+              color="error" 
               variant="outline" 
               :size="isMobile ? 'xs' : 'sm'"
-              :disabled="loading || saving"
+              :disabled="totalShapes === 0 || loading || saving"
               :loading="saving"
-              class="font-semibold text-red-700 border-red-700 hover:bg-red-50"
               @click="clearCanvas"
             >
-              <UIcon name="i-heroicons-x-mark" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Clear All</span>
+              <UIcon name="i-heroicons-x-mark" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
             </UButton>
           </UTooltip>
           <UTooltip text="Reset zoom and position (Home key)">
             <UButton 
               data-testid="reset-view-btn" 
-              color="gray" 
+              color="neutral" 
               variant="outline" 
               :size="isMobile ? 'xs' : 'sm'"
-              class="font-semibold text-gray-700 border-gray-700 hover:bg-gray-50"
               @click="resetView"
             >
-              <UIcon name="i-heroicons-home" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Reset View</span>
-            </UButton>
-          </UTooltip>
-          <UTooltip text="Add 50 random shapes for performance testing">
-            <UButton 
-              data-testid="add-many-shapes-btn" 
-              color="blue" 
-              variant="outline" 
-              :size="isMobile ? 'xs' : 'sm'"
-              @click="addManyShapes"
-            >
-              <UIcon name="i-heroicons-plus" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-              <span class="hidden sm:inline">Add 50 Shapes</span>
+              <UIcon name="i-heroicons-home" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
             </UButton>
           </UTooltip>
         </div>
@@ -217,11 +149,8 @@
       <div 
         ref="canvasContainer"
         data-testid="canvas-container" 
-        class="border-2 border-gray-300 rounded-lg shadow-lg bg-white relative"
-        :style="{ 
-          width: isMobile ? Math.min(canvasWidth, (typeof window !== 'undefined' ? window.innerWidth : 800) - 32) + 'px' : canvasWidth + 'px', 
-          height: isMobile ? Math.min(canvasHeight, (typeof window !== 'undefined' ? window.innerHeight : 600) - 200) + 'px' : canvasHeight + 'px' 
-        }"
+        class="border-3 border-pink-500 rounded-lg shadow-lg bg-white relative"
+        :style="canvasContainerStyle"
       >
         <CanvasKonva
           ref="canvasRef"
@@ -242,8 +171,8 @@
     </div>
 
     <!-- Debug Info -->
-    <div data-testid="debug-info" class="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10 bg-white rounded-lg shadow-lg p-2 sm:p-4 max-w-xs sm:max-w-none">
-      <div :class="isMobile ? 'text-xs text-gray-800 font-medium' : 'text-sm text-gray-800 font-medium'">
+    <div data-testid="debug-info" class="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10 bg-gray-800 border border-pink-500 rounded-lg shadow-lg p-2 sm:p-4 max-w-xs sm:max-w-none">
+      <div :class="isMobile ? 'text-xs text-white font-medium' : 'text-sm text-white font-medium'">
         <div class="flex flex-wrap gap-2 sm:gap-4">
           <div>Shapes: {{ totalShapes }}</div>
           <div>Zoom: {{ Math.round(zoom * 100) }}%</div>
@@ -252,13 +181,12 @@
           <div>Selected: {{ selectedShapeId || 'None' }}</div>
           <div>Position: ({{ Math.round(stageConfig.x) }}, {{ Math.round(stageConfig.y) }})</div>
           <div>Bounds: X:[-2000,2000] Y:[-2000,2000]</div>
-          <div>Auto-save: {{ autoSave ? 'ON' : 'OFF' }}</div>
         </div>
         <div class="flex items-center gap-1 mt-1">
-          <div class="w-2 h-2 rounded-full" :class="isRealtimeConnected ? 'bg-green-500' : 'bg-red-500'"/>
-          <span :class="isMobile ? 'text-xs' : 'text-sm'">Real-time: {{ isRealtimeConnected ? 'Connected' : 'Disconnected' }}</span>
+          <div class="w-2 h-2 rounded-full" :class="isRealtimeConnected ? 'bg-pink-500' : 'bg-red-500'"/>
+          <span :class="isMobile ? 'text-xs text-white' : 'text-sm text-white'">Real-time: {{ isRealtimeConnected ? 'Connected' : 'Disconnected' }}</span>
         </div>
-        <div v-if="lastSyncTime && !isMobile" class="text-xs text-gray-500">
+        <div v-if="lastSyncTime && !isMobile" class="text-xs text-gray-300">
           Last sync: {{ lastSyncTime.toLocaleTimeString() }}
         </div>
         <div v-if="loading" :class="isMobile ? 'text-xs text-blue-600 font-semibold' : 'text-sm text-blue-600 font-semibold'">Loading...</div>
@@ -315,6 +243,14 @@
                   <span>Text</span>
                   <UKbd>T</UKbd>
                 </div>
+                <div class="flex justify-between">
+                  <span>Line</span>
+                  <UKbd>L</UKbd>
+                </div>
+                <div class="flex justify-between">
+                  <span>Star</span>
+                  <UKbd>S</UKbd>
+                </div>
               </div>
             </div>
             
@@ -350,13 +286,47 @@
         </div>
       </template>
     </UModal>
+    
+    <!-- Clear All Confirmation Modal -->
+    <UModal v-model:open="showClearModal" title="Clear All Shapes" description="This action cannot be undone">
+      <template #body>
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <UIcon name="i-heroicons-exclamation-triangle" class="w-8 h-8 text-pink-500" />
+            <div>
+              <h3 class="text-lg font-medium text-white">Are you sure?</h3>
+              <p class="text-sm text-gray-300">This will permanently delete all {{ totalShapes }} shape{{ totalShapes === 1 ? '' : 's' }} from the canvas.</p>
+            </div>
+          </div>
+        </div>
+      </template>
+      
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton 
+            color="neutral" 
+            variant="outline" 
+            @click="showClearModal = false"
+          >
+            Cancel
+          </UButton>
+          <UButton 
+            color="error" 
+            :loading="saving"
+            @click="confirmClearCanvas"
+          >
+            Clear All Shapes
+          </UButton>
+        </div>
+      </template>
+    </UModal>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useShapesWithPersistence } from '~/composables/useShapesWithPersistence'
 
 // Define page meta
@@ -391,7 +361,6 @@ const {
   loading,
   saving,
   error,
-  autoSave,
   addRectangle: addRect,
   addCircle: addCirc,
   addText: addTxt,
@@ -401,7 +370,6 @@ const {
   clearAllShapes,
   getShapeById,
   loadShapesFromDatabase,
-  setAutoSave,
   clearError,
   startRealtimeSync,
   stopRealtimeSync,
@@ -423,9 +391,10 @@ const stageConfig = ref({
 // Interaction state
 const isDragging = ref(false)
 const lastPointerPosition = ref({ x: 0, y: 0 })
-const canvasRef = ref(null)
+  const canvasRef = ref(null)
 const selectedColor = ref('#FF6B6B') // Default color
 const showHelpModal = ref(false)
+const showClearModal = ref(false)
 
 // Watch for selected shape changes to update color picker
 watch(selectedShapeId, (newShapeId) => {
@@ -439,6 +408,45 @@ watch(selectedShapeId, (newShapeId) => {
 
 // Computed properties
 const zoom = computed(() => stageConfig.value.scaleX || 1)
+
+const canvasContainerStyle = computed(() => {
+  if (isMobile.value) {
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 800
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 600
+    return {
+      width: Math.min(canvasWidth, windowWidth - 32) + 'px',
+      height: Math.min(canvasHeight, windowHeight - 200) + 'px'
+    }
+  }
+  return {
+    width: canvasWidth + 'px',
+    height: canvasHeight + 'px'
+  }
+})
+
+// Shape menu items for dropdown
+const shapeMenuItems = computed(() => [
+  [{
+    label: 'Basic Shapes',
+    type: 'label'
+  }],
+  [{
+    label: 'Rectangle',
+    icon: 'i-heroicons-square-3-stack-3d',
+    kbds: ['R'],
+    onSelect: () => addRectangle()
+  }, {
+    label: 'Circle',
+    icon: 'i-heroicons-circle-stack',
+    kbds: ['C'],
+    onSelect: () => addCircle()
+  }, {
+    label: 'Text',
+    icon: 'i-heroicons-document-text',
+    kbds: ['T'],
+    onSelect: () => addText()
+  }],
+])
 
 // Shape creation methods (now using composable with selected color and persistence)
 const addRectangle = async () => {
@@ -465,8 +473,15 @@ const addText = async () => {
   }
 }
 
-const clearCanvas = async () => {
+
+
+const clearCanvas = () => {
+  showClearModal.value = true
+}
+
+const confirmClearCanvas = async () => {
   await clearAllShapes()
+  showClearModal.value = false
 }
 
 const applyColorToSelected = async () => {
@@ -510,46 +525,7 @@ const handleDeleteSelected = async () => {
   }
 }
 
-const addManyShapes = () => {
-  const startTime = performance.now()
-  
-  // Add 50 shapes for performance testing
-  for (let i = 0; i < 50; i++) {
-    const shapeType = Math.floor(Math.random() * 3)
-    switch (shapeType) {
-      case 0:
-        addRect({ 
-          x: Math.random() * (canvasWidth - 100),
-          y: Math.random() * (canvasHeight - 100),
-          fill: getRandomColor()
-        })
-        break
-      case 1:
-        addCirc({ 
-          x: Math.random() * (canvasWidth - 100),
-          y: Math.random() * (canvasHeight - 100),
-          fill: getRandomColor()
-        })
-        break
-      case 2:
-        addTxt({ 
-          x: Math.random() * (canvasWidth - 100),
-          y: Math.random() * (canvasHeight - 100),
-          fill: getRandomColor(),
-          text: `Text ${i + 1}`
-        })
-        break
-    }
-  }
-  
-  const endTime = performance.now()
-  console.log(`Added 50 shapes in ${(endTime - startTime).toFixed(2)}ms`)
-}
 
-const getRandomColor = () => {
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
-  return colors[Math.floor(Math.random() * colors.length)]
-}
 
 const resetView = () => {
   // Reset stage configuration to default
@@ -570,7 +546,7 @@ const resetView = () => {
 }
 
 // Shape update handler
-const handleShapeUpdate = (shapeId, updates) => {
+  const handleShapeUpdate = (shapeId, updates) => {
   // updates is already an object with x, y, etc.
   console.log('Canvas handleShapeUpdate called for:', shapeId, 'with updates:', updates)
   updateShape(shapeId, updates)
@@ -578,13 +554,13 @@ const handleShapeUpdate = (shapeId, updates) => {
 }
 
 // Stage interaction handlers
-const handleStageMouseDown = (e) => {
+  const handleStageMouseDown = (e) => {
   isDragging.value = true
   const pos = e.evt
   lastPointerPosition.value = { x: pos.clientX, y: pos.clientY }
 }
 
-const handleStageMouseMove = (e) => {
+  const handleStageMouseMove = (e) => {
   if (!isDragging.value) return
   
   const pos = e.evt
@@ -602,9 +578,9 @@ const handleStageMouseUp = () => {
 }
 
 // Keyboard shortcuts
-const handleKeyDown = async (e) => {
+  const handleKeyDown = async (e) => {
   // Prevent shortcuts when typing in input fields
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
     return
   }
   
@@ -647,6 +623,14 @@ const handleKeyDown = async (e) => {
         await addText()
       }
       break
+    case 's':
+    case 'S':
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        // Manual save (if we implement this feature)
+        console.log('Manual save')
+      }
+      break
     case 'Home':
       e.preventDefault()
       resetView()
@@ -657,14 +641,6 @@ const handleKeyDown = async (e) => {
         e.preventDefault()
         // Select all shapes (if we implement this feature)
         console.log('Select all shapes')
-      }
-      break
-    case 's':
-    case 'S':
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        // Manual save (if we implement this feature)
-        console.log('Manual save')
       }
       break
   }
@@ -692,18 +668,7 @@ onMounted(async () => {
     })
   } catch (error) {
     console.error('Failed to load shapes from database:', error)
-    // Add some initial shapes for testing if database load fails
-    nextTick(async () => {
-      console.log('Adding initial shapes...')
-      await addRectangle()
-      await addCircle()
-      await addText()
-      console.log('Shapes added:', { 
-        rectangles: rectangles.value.length, 
-        circles: circles.value.length, 
-        texts: texts.value.length 
-      })
-    })
+    // Don't add test shapes - start with empty canvas
   }
   
   // Start real-time sync

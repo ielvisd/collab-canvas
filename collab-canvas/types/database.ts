@@ -6,7 +6,7 @@ export interface Database {
           id: string
           canvas_id: string
           user_id: string
-          type: 'rect' | 'circle' | 'text' | 'line' | 'ellipse' | 'arrow' | 'image'
+          type: 'rect' | 'circle' | 'text' | 'line' | 'star' | 'ellipse' | 'arrow' | 'image'
           data: {
             x: number
             y: number
@@ -33,7 +33,7 @@ export interface Database {
           id?: string
           canvas_id: string
           user_id: string
-          type: 'rect' | 'circle' | 'text' | 'line' | 'ellipse' | 'arrow' | 'image'
+          type: 'rect' | 'circle' | 'text' | 'line' | 'star' | 'ellipse' | 'arrow' | 'image'
           data: {
             x: number
             y: number

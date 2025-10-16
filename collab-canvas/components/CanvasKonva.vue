@@ -86,6 +86,14 @@ const props = defineProps({
   texts: {
     type: Array,
     default: () => []
+  },
+  lines: {
+    type: Array,
+    default: () => []
+  },
+  stars: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -244,7 +252,7 @@ const selectShape = (shapeId) => {
   
   // Find the shape and attach transformer
   if (shapeId && transformer) {
-    const allShapes = [...props.rectangles, ...props.circles, ...props.texts]
+    const allShapes = [...props.rectangles, ...props.circles, ...props.texts, ...props.lines, ...props.stars]
     const shape = allShapes.find(s => s.id === shapeId)
     
     if (shape) {
@@ -458,6 +466,49 @@ onMounted(async () => {
       shape.fontSize(newFontSize)
       shape.scaleX(1)
       shape.scaleY(1)
+    } else if (shape.getClassName() === 'Line' && !shape.closed()) {
+      // This is a line (open line)
+      const scaleX = shape.scaleX()
+      const scaleY = shape.scaleY()
+      const newPoints = shape.points().map((point, index) => {
+        return index % 2 === 0 ? point * scaleX : point * scaleY
+      })
+      
+      updateShape(shapeId, {
+        x: shape.x(),
+        y: shape.y(),
+        points: newPoints,
+        rotation: shape.rotation()
+      })
+      
+      // Update the shape's base points and reset scale
+      shape.points(newPoints)
+      shape.scaleX(1)
+      shape.scaleY(1)
+    } else if (shape.getClassName() === 'Line' && shape.closed()) {
+      // This is a star (closed line)
+      const scaleX = shape.scaleX()
+      const scaleY = shape.scaleY()
+      const scale = Math.min(scaleX, scaleY) // Use uniform scaling for stars
+      
+      // Find the star data to update radius
+      const star = props.stars.find(s => s.id === shapeId)
+      if (star) {
+        const newOuterRadius = star.outerRadius * scale
+        const newInnerRadius = star.innerRadius * scale
+        
+        updateShape(shapeId, {
+          x: shape.x(),
+          y: shape.y(),
+          outerRadius: newOuterRadius,
+          innerRadius: newInnerRadius,
+          rotation: shape.rotation()
+        })
+        
+        // Update the shape's base scale
+        shape.scaleX(1)
+        shape.scaleY(1)
+      }
     }
   })
   
@@ -720,6 +771,146 @@ const addShapesToLayer = () => {
     layer.add(konvaText)
   })
   
+  // Add lines
+  props.lines.forEach(line => {
+    const konvaLine = new Konva.Line({
+      id: line.id,
+      x: line.x,
+      y: line.y,
+      points: line.points,
+      stroke: line.fill, // Use fill as stroke color for lines
+      strokeWidth: line.strokeWidth,
+      draggable: line.draggable,
+      rotation: line.rotation || 0,
+      shadowColor: 'black',
+      shadowBlur: 10,
+      shadowOpacity: 0.2,
+      shadowOffset: { x: 2, y: 2 },
+      // Improve drag sensitivity
+      dragBoundFunc: (pos) => {
+        return {
+          x: Math.max(0, Math.min(pos.x, stage.width())),
+          y: Math.max(0, Math.min(pos.y, stage.height()))
+        }
+      }
+    })
+    
+    // Set drag threshold to 0 for immediate drag response
+    konvaLine.dragDistance(0)
+    
+    // Add hover effects
+    konvaLine.on('mouseenter', () => {
+      document.body.style.cursor = 'pointer'
+      konvaLine.shadowOpacity(0.4)
+      layer.draw()
+    })
+    
+    konvaLine.on('mouseleave', () => {
+      document.body.style.cursor = 'default'
+      konvaLine.shadowOpacity(0.2)
+      layer.draw()
+    })
+    
+    // Add click handler for selection
+    konvaLine.on('click', (e) => {
+      e.cancelBubble = true
+      selectShape(line.id)
+    })
+    
+    // Add drag handlers
+    konvaLine.on('dragstart', () => {
+      konvaLine.shadowOpacity(0.4)
+      layer.draw()
+    })
+    
+    konvaLine.on('dragend', (e) => {
+      updateShape(line.id, {
+        x: e.target.x(),
+        y: e.target.y()
+      })
+      konvaLine.shadowOpacity(0.2)
+      layer.draw()
+    })
+    
+    layer.add(konvaLine)
+  })
+  
+  // Add stars
+  props.stars.forEach(star => {
+    // Create star points
+    const points = []
+    const angle = Math.PI / star.numPoints
+    for (let i = 0; i < star.numPoints * 2; i++) {
+      const radius = i % 2 === 0 ? star.outerRadius : star.innerRadius
+      const x = Math.cos(i * angle - Math.PI / 2) * radius
+      const y = Math.sin(i * angle - Math.PI / 2) * radius
+      points.push(x, y)
+    }
+    
+    const konvaStar = new Konva.Line({
+      id: star.id,
+      x: star.x,
+      y: star.y,
+      points: points,
+      fill: star.fill,
+      stroke: star.stroke,
+      strokeWidth: star.strokeWidth,
+      closed: true,
+      draggable: star.draggable,
+      rotation: star.rotation || 0,
+      shadowColor: 'black',
+      shadowBlur: 10,
+      shadowOpacity: 0.2,
+      shadowOffset: { x: 2, y: 2 },
+      // Improve drag sensitivity
+      dragBoundFunc: (pos) => {
+        return {
+          x: Math.max(0, Math.min(pos.x, stage.width())),
+          y: Math.max(0, Math.min(pos.y, stage.height()))
+        }
+      }
+    })
+    
+    // Set drag threshold to 0 for immediate drag response
+    konvaStar.dragDistance(0)
+    
+    // Add hover effects
+    konvaStar.on('mouseenter', () => {
+      document.body.style.cursor = 'pointer'
+      konvaStar.shadowOpacity(0.4)
+      layer.draw()
+    })
+    
+    konvaStar.on('mouseleave', () => {
+      document.body.style.cursor = 'default'
+      konvaStar.shadowOpacity(0.2)
+      layer.draw()
+    })
+    
+    // Add click handler for selection
+    konvaStar.on('click', (e) => {
+      e.cancelBubble = true
+      selectShape(star.id)
+    })
+    
+    // Add drag handlers
+    konvaStar.on('dragstart', () => {
+      konvaStar.shadowOpacity(0.4)
+      layer.draw()
+    })
+    
+    konvaStar.on('dragend', (e) => {
+      updateShape(star.id, {
+        x: e.target.x(),
+        y: e.target.y()
+      })
+      konvaStar.shadowOpacity(0.2)
+      layer.draw()
+    })
+    
+    layer.add(konvaStar)
+  })
+  
   // Redraw layer
   layer.draw()
 }
@@ -800,16 +991,20 @@ const updateExistingShapes = () => {
 }
 
 // Watch for prop changes and update shapes
-watch(() => [props.rectangles, props.circles, props.texts], (newProps, oldProps) => {
+watch(() => [props.rectangles, props.circles, props.texts, props.lines, props.stars], (newProps, oldProps) => {
   // Only recreate shapes if the arrays have actually changed (not just individual properties)
   const hasNewShapes = newProps[0].length !== oldProps?.[0]?.length || 
                       newProps[1].length !== oldProps?.[1]?.length || 
-                      newProps[2].length !== oldProps?.[2]?.length
+                      newProps[2].length !== oldProps?.[2]?.length ||
+                      newProps[3].length !== oldProps?.[3]?.length ||
+                      newProps[4].length !== oldProps?.[4]?.length
   
-  console.log('Shape arrays changed:', {
+  console.log('🔄 Shape arrays changed:', {
     rectangles: { old: oldProps?.[0]?.length, new: newProps[0].length },
     circles: { old: oldProps?.[1]?.length, new: newProps[1].length },
     texts: { old: oldProps?.[2]?.length, new: newProps[2].length },
+    lines: { old: oldProps?.[3]?.length, new: newProps[3].length },
+    stars: { old: oldProps?.[4]?.length, new: newProps[4].length },
     hasNewShapes
   })
   
@@ -817,7 +1012,9 @@ watch(() => [props.rectangles, props.circles, props.texts], (newProps, oldProps)
   console.log('Current shapes data:', {
     rectangles: newProps[0].map(r => ({ id: r.id, type: r.type })),
     circles: newProps[1].map(c => ({ id: c.id, type: c.type })),
-    texts: newProps[2].map(t => ({ id: t.id, type: t.type }))
+    texts: newProps[2].map(t => ({ id: t.id, type: t.type })),
+    lines: newProps[3].map(l => ({ id: l.id, type: l.type })),
+    stars: newProps[4].map(s => ({ id: s.id, type: s.type }))
   })
   
   if (hasNewShapes) {
@@ -825,18 +1022,69 @@ watch(() => [props.rectangles, props.circles, props.texts], (newProps, oldProps)
     console.log('Current shape counts:', {
       rectangles: newProps[0].length,
       circles: newProps[1].length,
-      texts: newProps[2].length
+      texts: newProps[2].length,
+      lines: newProps[3].length,
+      stars: newProps[4].length
     })
     addShapesToLayer()
-  } else if (oldProps && (oldProps[0]?.length > 0 || oldProps[1]?.length > 0 || oldProps[2]?.length > 0)) {
-    // Only update existing shapes if we had shapes before (not on initial load)
-    console.log('Updating existing shapes without recreation')
-    console.log('Current shape counts:', {
-      rectangles: newProps[0].length,
-      circles: newProps[1].length,
-      texts: newProps[2].length
+  } else if (oldProps && (oldProps[0]?.length > 0 || oldProps[1]?.length > 0 || oldProps[2]?.length > 0 || oldProps[3]?.length > 0 || oldProps[4]?.length > 0)) {
+    // Check if any shapes were deleted by comparing IDs
+    const oldShapeIds = new Set([
+      ...(oldProps[0] || []).map(s => s.id),
+      ...(oldProps[1] || []).map(s => s.id),
+      ...(oldProps[2] || []).map(s => s.id),
+      ...(oldProps[3] || []).map(s => s.id),
+      ...(oldProps[4] || []).map(s => s.id)
+    ])
+    
+    const newShapeIds = new Set([
+      ...newProps[0].map(s => s.id),
+      ...newProps[1].map(s => s.id),
+      ...newProps[2].map(s => s.id),
+      ...newProps[3].map(s => s.id),
+      ...newProps[4].map(s => s.id)
+    ])
+    
+    // Find deleted shapes
+    const deletedShapeIds = [...oldShapeIds].filter(id => !newShapeIds.has(id))
+    
+    console.log('🔍 Shape ID comparison:', {
+      oldShapeIds: [...oldShapeIds],
+      newShapeIds: [...newShapeIds],
+      deletedShapeIds
     })
-    updateExistingShapes()
+    
+    if (deletedShapeIds.length > 0) {
+      console.log('🗑️ Shapes were deleted, removing from Konva layer:', deletedShapeIds)
+      // Remove deleted shapes from Konva layer
+      deletedShapeIds.forEach(shapeId => {
+        const konvaShape = layer.findOne(`#${shapeId}`)
+        if (konvaShape) {
+          console.log('🗑️ Removing shape from Konva layer:', shapeId)
+          konvaShape.destroy()
+        } else {
+          console.log('🗑️ Shape not found in Konva layer:', shapeId)
+        }
+      })
+      // Clear transformer if it was attached to a deleted shape
+      if (transformer && deletedShapeIds.some(id => transformer.nodes().some(node => node.id() === id))) {
+        console.log('🗑️ Clearing transformer for deleted shapes')
+        transformer.nodes([])
+      }
+      layer.draw()
+      console.log('🗑️ Canvas redrawn after shape deletion')
+    } else {
+      // Only update existing shapes if no deletions occurred
+      console.log('Updating existing shapes without recreation')
+      console.log('Current shape counts:', {
+        rectangles: newProps[0].length,
+        circles: newProps[1].length,
+        texts: newProps[2].length,
+        lines: newProps[3].length,
+        stars: newProps[4].length
+      })
+      updateExistingShapes()
+    }
   }
 }, { deep: true, immediate: true })
 

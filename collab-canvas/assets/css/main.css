@@ -1,2 +1,45 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* Hot Pink and Black Theme - Simplified */
+:root {
+  --color-primary: #ff1493; /* Hot pink */
+  --color-secondary: #000000; /* Black */
+  --color-background: #1a1a1a; /* Dark background */
+  --color-surface: #2a2a2a; /* Dark surface */
+  --color-text: #ffffff; /* White text */
+}
+
+/* Simplified color overrides - 5 colors only */
+.bg-gray-100 {
+  background-color: var(--color-background) !important;
+}
+
+/* Canvas should be white */
+.bg-white {
+  background-color: white !important;
+}
+
+.bg-gray-800 {
+  background-color: var(--color-surface) !important;
+}
+
+.text-gray-800, .text-gray-700, .text-gray-600, .text-gray-500, .text-gray-400, .text-gray-300 {
+  color: var(--color-text) !important;
+}
+
+.border-gray-200, .border-gray-300 {
+  border-color: var(--color-primary) !important;
+}
+
+/* Status indicators - use hot pink */
+.bg-green-500, .bg-pink-500 {
+  background-color: var(--color-primary) !important;
+}
+
+/* Remove color selector outline */
+input[type="color"] {
+  border: none !important;
+  outline: none !important;
+  border-radius: 4px;
+}

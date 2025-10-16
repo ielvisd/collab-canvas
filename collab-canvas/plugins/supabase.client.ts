@@ -17,6 +17,16 @@ export default defineNuxtPlugin(() => {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'collab-canvas@1.0.0'
+      }
     }
   })
 

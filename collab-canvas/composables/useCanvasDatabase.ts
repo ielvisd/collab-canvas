@@ -46,13 +46,17 @@ export const useCanvasDatabase = () => {
   // Helper function to convert shape to database format
   const shapeToDbFormat = (shape: any, canvasId: string, userId: string): CanvasObjectInsert => {
     // Convert local shape type to database type
-    let dbType: 'rect' | 'circle' | 'text'
+    let dbType: 'rect' | 'circle' | 'text' | 'line' | 'star'
     if (shape.type === 'rectangle') {
       dbType = 'rect'
     } else if (shape.type === 'circle') {
       dbType = 'circle'
     } else if (shape.type === 'text') {
       dbType = 'text'
+    } else if (shape.type === 'line') {
+      dbType = 'line'
+    } else if (shape.type === 'star') {
+      dbType = 'star'
     } else {
       console.warn('Unknown shape type for database conversion:', shape.type)
       dbType = 'rect' // fallback
@@ -81,6 +85,14 @@ export const useCanvasDatabase = () => {
         ...(shape.type === 'text' && {
           text: shape.text,
           fontSize: shape.fontSize
+        }),
+        ...(shape.type === 'line' && {
+          points: shape.points
+        }),
+        ...(shape.type === 'star' && {
+          outerRadius: shape.outerRadius,
+          innerRadius: shape.innerRadius,
+          numPoints: shape.numPoints
         })
       }
     }
@@ -135,8 +147,8 @@ export const useCanvasDatabase = () => {
 
       const canvas = getCanvasId(canvasId)
       
-      console.log('Updating shape in database:', { shapeId, updates, canvas })
-      console.log('Complete shape data being saved:', JSON.stringify(updates, null, 2))
+      console.log('🔄 Updating shape in database:', { shapeId, updates, canvas })
+      console.log('🔄 Complete shape data being saved:', JSON.stringify(updates, null, 2))
 
       // Since we're now passing the complete shape data, we don't need to merge
       // Just save the complete data directly
@@ -155,8 +167,8 @@ export const useCanvasDatabase = () => {
         throw new Error(`Failed to update shape: ${dbError.message}`)
       }
 
-      console.log('Shape updated successfully in database')
-      console.log('Final saved data:', JSON.stringify(updates, null, 2))
+      console.log('🔄 Shape updated successfully in database')
+      console.log('🔄 Final saved data:', JSON.stringify(updates, null, 2))
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'

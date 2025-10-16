@@ -150,77 +150,119 @@ export const useRealtimeSync = (
   
   // Handle shape update from other users
   const handleShapeUpdate = (shape: any) => {
-    console.log('Real-time UPDATE event:', shape)
-    console.log('Current user object:', user.value)
-    console.log('Current user ID:', user.value?.id)
-    console.log('Shape object keys:', Object.keys(shape))
-    console.log('Shape user_id field:', shape.user_id)
+    console.log('🔄 Real-time UPDATE event:', shape)
+    console.log('🔄 Current user object:', user.value)
+    console.log('🔄 Current user ID:', user.value?.id)
+    console.log('🔄 Shape object keys:', Object.keys(shape))
+    console.log('🔄 Shape user_id field:', shape.user_id)
     
     // For now, process all updates regardless of who owns the shape
     // TODO: Implement proper echo prevention using timestamps or other mechanisms
-    console.log('Processing UPDATE for shape:', shape.id, 'user_id:', shape.user_id)
+    console.log('🔄 Processing UPDATE for shape:', shape.id, 'user_id:', shape.user_id)
     
     const localShape = dbShapeToLocal(shape)
-    if (!localShape) return
+    if (!localShape) {
+      console.log('🔄 Failed to convert shape to local format:', shape)
+      return
+    }
+    
+    console.log('🔄 Converted shape to local format:', localShape)
     
     // Update in appropriate array
     if (localShape.type === 'rectangle') {
       const index = rectangles.value.findIndex(r => r.id === shape.id)
       if (index !== -1) {
+        console.log('🔄 Updating rectangle at index:', index, 'old:', rectangles.value[index], 'new:', localShape)
         rectangles.value[index] = localShape as Rectangle
+        console.log('🔄 Rectangle updated successfully')
+      } else {
+        console.log('🔄 Rectangle not found in array:', shape.id)
       }
     } else if (localShape.type === 'circle') {
       const index = circles.value.findIndex(c => c.id === shape.id)
       if (index !== -1) {
+        console.log('🔄 Updating circle at index:', index, 'old:', circles.value[index], 'new:', localShape)
         circles.value[index] = localShape as Circle
+        console.log('🔄 Circle updated successfully')
+      } else {
+        console.log('🔄 Circle not found in array:', shape.id)
       }
     } else if (localShape.type === 'text') {
       const index = texts.value.findIndex(t => t.id === shape.id)
       if (index !== -1) {
+        console.log('🔄 Updating text at index:', index, 'old:', texts.value[index], 'new:', localShape)
         texts.value[index] = localShape as Text
+        console.log('🔄 Text updated successfully')
+      } else {
+        console.log('🔄 Text not found in array:', shape.id)
       }
     }
     
     lastSyncTime.value = new Date()
     onShapeChange?.('update', localShape)
-    console.log('Updated shape from other user:', localShape)
+    console.log('🔄 Updated shape from other user:', localShape)
   }
   
   // Handle shape delete from other users
   const handleShapeDelete = (shapeId: string, shapeUserId?: string) => {
-    console.log('Real-time DELETE event:', shapeId)
-    console.log('Current shapes before delete:', {
+    console.log('🗑️ Real-time DELETE event:', shapeId)
+    console.log('🗑️ Current user ID:', user.value?.id)
+    console.log('🗑️ Shape user ID:', shapeUserId)
+    console.log('🗑️ Current shapes before delete:', {
       rectangles: rectangles.value.length,
       circles: circles.value.length,
       texts: texts.value.length
     })
     
-    // Re-enable echo prevention to prevent duplicate deletes
-    if (user.value && shapeUserId === user.value.id) {
-      console.log('Ignoring own DELETE change:', shapeId, 'user_id:', shapeUserId)
+    // Echo prevention - only skip if we have a user and the shape belongs to us
+    if (user.value && shapeUserId && shapeUserId === user.value.id) {
+      console.log('🗑️ Ignoring own DELETE change:', shapeId, 'user_id:', shapeUserId)
       return
     }
     
-    // Remove from all arrays
+    // Check if shape exists before attempting to delete
+    const existingRect = rectangles.value.find(r => r.id === shapeId)
+    const existingCircle = circles.value.find(c => c.id === shapeId)
+    const existingText = texts.value.find(t => t.id === shapeId)
+    
+    console.log('🗑️ Shape search results:', {
+      existingRect: !!existingRect,
+      existingCircle: !!existingCircle,
+      existingText: !!existingText,
+      shapeId
+    })
+    
+    if (!existingRect && !existingCircle && !existingText) {
+      console.log('🗑️ Shape not found in local arrays, may have already been deleted:', shapeId)
+      return
+    }
+    
+    // Remove from all arrays - create new arrays to ensure reactivity
     const rectIndex = rectangles.value.findIndex(r => r.id === shapeId)
     if (rectIndex !== -1) {
-      console.log('Removing rectangle at index:', rectIndex)
-      rectangles.value.splice(rectIndex, 1)
+      console.log('🗑️ Removing rectangle at index:', rectIndex, 'shape:', rectangles.value[rectIndex])
+      const oldLength = rectangles.value.length
+      rectangles.value = rectangles.value.filter(r => r.id !== shapeId)
+      console.log('🗑️ Rectangle removed, old count:', oldLength, 'new count:', rectangles.value.length)
     }
     
     const circleIndex = circles.value.findIndex(c => c.id === shapeId)
     if (circleIndex !== -1) {
-      console.log('Removing circle at index:', circleIndex)
-      circles.value.splice(circleIndex, 1)
+      console.log('🗑️ Removing circle at index:', circleIndex, 'shape:', circles.value[circleIndex])
+      const oldLength = circles.value.length
+      circles.value = circles.value.filter(c => c.id !== shapeId)
+      console.log('🗑️ Circle removed, old count:', oldLength, 'new count:', circles.value.length)
     }
     
     const textIndex = texts.value.findIndex(t => t.id === shapeId)
     if (textIndex !== -1) {
-      console.log('Removing text at index:', textIndex)
-      texts.value.splice(textIndex, 1)
+      console.log('🗑️ Removing text at index:', textIndex, 'shape:', texts.value[textIndex])
+      const oldLength = texts.value.length
+      texts.value = texts.value.filter(t => t.id !== shapeId)
+      console.log('🗑️ Text removed, old count:', oldLength, 'new count:', texts.value.length)
     }
     
-    console.log('Current shapes after delete:', {
+    console.log('🗑️ Current shapes after delete:', {
       rectangles: rectangles.value.length,
       circles: circles.value.length,
       texts: texts.value.length
@@ -228,11 +270,11 @@ export const useRealtimeSync = (
     
     lastSyncTime.value = new Date()
     onShapeChange?.('delete', { id: shapeId })
-    console.log('Removed shape from other user:', shapeId)
+    console.log('🗑️ Removed shape from other user:', shapeId)
     
     // Force canvas refresh to ensure visual update
     nextTick(() => {
-      console.log('Forcing canvas refresh after delete')
+      console.log('🗑️ Forcing canvas refresh after delete')
       // This will be handled by the watch function in CanvasKonva
     })
   }
@@ -280,9 +322,32 @@ export const useRealtimeSync = (
             table: 'canvas_objects'
           },
           (payload) => {
-            console.log('Received ANY event on canvas_objects:', payload)
-            console.log('ANY event type:', payload.eventType)
-            console.log('ANY event timestamp:', new Date().toISOString())
+            console.log('📡 Received ANY event on canvas_objects:', payload)
+            console.log('📡 ANY event type:', payload.eventType)
+            console.log('📡 ANY event timestamp:', new Date().toISOString())
+            console.log('📡 ANY event canvas_id:', (payload.old as any)?.canvas_id || (payload.new as any)?.canvas_id)
+            console.log('📡 Expected canvas_id:', canvasId)
+            
+            // If it's a DELETE event, also call the handler directly
+            if (payload.eventType === 'DELETE') {
+              console.log('📡 Processing DELETE via ANY event handler')
+              const shapeId = payload.old?.id
+              const shapeUserId = payload.old?.user_id
+              if (shapeId) {
+                console.log('📡 Calling handleShapeDelete via ANY event:', shapeId, shapeUserId)
+                handleShapeDelete(shapeId, shapeUserId)
+              }
+            }
+            // If it's an UPDATE event, also call the handler directly
+            else if (payload.eventType === 'UPDATE') {
+              console.log('📡 Processing UPDATE via ANY event handler')
+              console.log('📡 UPDATE via ANY - payload.new:', payload.new)
+              console.log('📡 UPDATE via ANY - payload.old:', payload.old)
+              if (payload.new) {
+                console.log('📡 Calling handleShapeUpdate via ANY event:', payload.new.id)
+                handleShapeUpdate(payload.new)
+              }
+            }
           }
         )
         .on(
@@ -294,12 +359,14 @@ export const useRealtimeSync = (
             filter: `canvas_id=eq.${canvasId}`
           },
           (payload) => {
-            console.log('Received UPDATE event:', payload)
-            console.log('UPDATE payload.new:', payload.new)
-            console.log('UPDATE payload.old:', payload.old)
-            console.log('UPDATE payload.new.user_id:', payload.new?.user_id)
-            console.log('UPDATE payload.old.user_id:', payload.old?.user_id)
-            console.log('UPDATE event timestamp:', new Date().toISOString())
+            console.log('🔄 Received UPDATE event (filtered):', payload)
+            console.log('🔄 UPDATE payload.new:', payload.new)
+            console.log('🔄 UPDATE payload.old:', payload.old)
+            console.log('🔄 UPDATE payload.new.user_id:', payload.new?.user_id)
+            console.log('🔄 UPDATE payload.old.user_id:', payload.old?.user_id)
+            console.log('🔄 UPDATE event timestamp:', new Date().toISOString())
+            console.log('🔄 Canvas ID filter:', canvasId)
+            console.log('🔄 Payload canvas_id:', payload.new?.canvas_id)
             handleShapeUpdate(payload.new)
           }
         )
@@ -312,16 +379,22 @@ export const useRealtimeSync = (
             filter: `canvas_id=eq.${canvasId}`
           },
           (payload) => {
-            console.log('Received DELETE event:', payload)
-            console.log('DELETE payload.old:', payload.old)
-            console.log('DELETE payload.new:', payload.new)
+            console.log('🗑️ Received DELETE event (filtered):', payload)
+            console.log('🗑️ DELETE payload.old:', payload.old)
+            console.log('🗑️ DELETE payload.new:', payload.new)
+            console.log('🗑️ DELETE event timestamp:', new Date().toISOString())
+            console.log('🗑️ Canvas ID filter:', canvasId)
+            console.log('🗑️ Payload canvas_id:', payload.old?.canvas_id)
             
             const shapeId = payload.old?.id
             const shapeUserId = payload.old?.user_id
+            console.log('🗑️ Extracted shapeId:', shapeId, 'shapeUserId:', shapeUserId)
+            
             if (shapeId) {
+              console.log('🗑️ Calling handleShapeDelete with:', shapeId, shapeUserId)
               handleShapeDelete(shapeId, shapeUserId)
             } else {
-              console.error('No shape ID found in DELETE payload:', payload)
+              console.error('🗑️ No shape ID found in DELETE payload:', payload)
             }
           }
         )

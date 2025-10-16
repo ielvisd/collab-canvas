@@ -40,22 +40,22 @@ CREATE TRIGGER update_canvas_objects_updated_at
 -- Enable Row Level Security (RLS)
 ALTER TABLE canvas_objects ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
--- Users can only see objects they created or objects in canvases they have access to
-CREATE POLICY "Users can view their own objects" ON canvas_objects
-  FOR SELECT USING (auth.uid() = user_id);
+-- RLS Policies for Collaborative Canvas
+-- All authenticated users can view all objects (collaborative canvas)
+CREATE POLICY "Users can view all objects" ON canvas_objects
+  FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- Users can insert their own objects
 CREATE POLICY "Users can insert their own objects" ON canvas_objects
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Users can update their own objects
-CREATE POLICY "Users can update their own objects" ON canvas_objects
-  FOR UPDATE USING (auth.uid() = user_id);
+-- All authenticated users can update any objects (collaborative editing)
+CREATE POLICY "Users can update any objects" ON canvas_objects
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
 
--- Users can delete their own objects
-CREATE POLICY "Users can delete their own objects" ON canvas_objects
-  FOR DELETE USING (auth.uid() = user_id);
+-- All authenticated users can delete any objects (collaborative editing)
+CREATE POLICY "Users can delete any objects" ON canvas_objects
+  FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- Enable Realtime for canvas_objects table
 ALTER PUBLICATION supabase_realtime ADD TABLE canvas_objects;

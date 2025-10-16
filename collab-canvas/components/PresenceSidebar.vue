@@ -2,53 +2,38 @@
   <UCard class="presence-sidebar w-full sm:w-64 h-full">
     <template #header>
       <div class="presence-header">
-        <h3 class="text-base sm:text-lg font-semibold text-gray-800">Online Users</h3>
+        <h3 class="text-base sm:text-lg font-semibold text-white">Online Users</h3>
         <div class="flex items-center gap-1 sm:gap-2">
           <div 
             class="w-2 h-2 rounded-full"
             :class="isConnected ? 'bg-green-500' : 'bg-red-500'"
           ></div>
-          <span class="text-xs sm:text-sm text-gray-600">
+          <span class="text-xs sm:text-sm text-white">
             {{ isConnected ? 'Connected' : 'Disconnected' }}
           </span>
-          <UButton 
-            @click="refreshPresence" 
-            size="2xs" 
-            variant="outline"
-            :disabled="!isConnected"
-            title="Refresh presence"
-            class="hidden sm:flex"
-          >
-            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
-          </UButton>
-          <UButton 
-            @click="retryPresence" 
-            size="2xs" 
-            variant="outline"
-            :disabled="isConnected"
-            title="Retry presence connection"
-            class="text-orange-600 border-orange-600 hover:bg-orange-50 hidden sm:flex"
-          >
-            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
-          </UButton>
-          <UButton 
-            @click="debugPresence" 
-            size="2xs" 
-            variant="outline"
-            title="Debug presence state"
-            class="text-blue-600 border-blue-600 hover:bg-blue-50 hidden sm:flex"
-          >
-            <UIcon name="i-heroicons-bug-ant" class="w-3 h-3" />
-          </UButton>
         </div>
       </div>
     </template>
     
     <div class="presence-users">
-      <div v-if="onlineUsers.length === 0" class="text-gray-500 text-xs sm:text-sm py-4">
+      <div v-if="onlineUsers.length === 0" class="text-gray-300 text-xs sm:text-sm py-4">
         No other users online
         <div class="mt-2 text-xs text-gray-400 hidden sm:block">
           Debug: {{ onlineUsers.length }} users in array
+        </div>
+        <div class="mt-2 text-xs text-gray-400 hidden sm:block space-y-1">
+          <div>
+            <UButton size="xs" color="neutral" @click="debugPresence">Debug Presence</UButton>
+          </div>
+          <div>
+            <UButton size="xs" color="primary" @click="testPresence">Test Fake User</UButton>
+          </div>
+          <div>
+            <UButton size="xs" color="success" @click="testRealPresence">Test Real Users</UButton>
+          </div>
+          <div>
+            <UButton size="xs" color="warning" @click="retryPresence">Retry Connection</UButton>
+          </div>
         </div>
       </div>
       
@@ -68,17 +53,17 @@
           
           <!-- User Info -->
           <div class="flex-1 min-w-0">
-            <div class="text-xs sm:text-sm font-medium text-gray-900 truncate">
+            <div class="text-xs sm:text-sm font-medium text-white truncate">
               {{ user.name }}
             </div>
-            <div class="text-xs text-gray-500 hidden sm:block">
+            <div class="text-xs text-gray-300 hidden sm:block">
               Online now
             </div>
           </div>
           
           <!-- Online Indicator -->
           <div 
-            class="w-2 h-2 rounded-full bg-green-500"
+            class="w-2 h-2 rounded-full bg-pink-500"
             title="Online"
           ></div>
         </div>
@@ -96,14 +81,16 @@
 </template>
 
 <script setup lang="ts">
-const { onlineUsers, isConnected, error, refreshPresence, retryPresence, debugPresence } = usePresence()
+// Import the composable
+const { onlineUsers, isConnected, error, refreshPresence, retryPresence, debugPresence, testPresence, testRealPresence } = usePresence()
 </script>
 
 <style scoped>
 .presence-sidebar {
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid #ff1493;
   overflow-y: auto;
   height: 100%;
+  background-color: #2a2a2a;
 }
 
 .presence-header {
@@ -112,7 +99,7 @@ const { onlineUsers, isConnected, error, refreshPresence, retryPresence, debugPr
   justify-content: space-between;
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #ff1493;
 }
 
 .presence-users {

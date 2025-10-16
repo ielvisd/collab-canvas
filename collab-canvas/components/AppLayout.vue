@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col">
+  <div class="min-h-screen bg-black flex flex-col">
     <!-- Header -->
-    <UHeader data-testid="app-header" class="flex-shrink-0">
+    <UHeader data-testid="app-header" class="flex-shrink-0" :toggle="false">
       <template #left>
         <div class="flex items-center space-x-2 sm:space-x-4">
-          <NuxtLink to="/canvas" class="text-lg sm:text-xl font-bold text-gray-900 hover:text-primary-600">
+          <NuxtLink to="/canvas" class="text-lg sm:text-xl font-bold text-pink-500 hover:text-pink-400">
             <span class="hidden sm:inline">CollabCanvas</span>
             <span class="sm:hidden">CC</span>
           </NuxtLink>
@@ -14,7 +14,7 @@
       <template #right>
         <div class="flex items-center space-x-1 sm:space-x-2">
           <!-- User menu -->
-          <UDropdownMenu :items="userMenuItems">
+          <UDropdownMenu :items="userMenuItems" :ui="{ content: 'z-[9999] min-w-48' }">
             <UButton variant="ghost" size="sm" class="p-1 sm:p-2">
               <UAvatar
                 :src="userAvatarUrl"
@@ -36,7 +36,7 @@
     <!-- Footer - Hidden on mobile -->
     <UFooter class="hidden sm:block flex-shrink-0">
       <template #left>
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-white">
           Built with Nuxt 4, Supabase, and Konva.js
         </p>
       </template>

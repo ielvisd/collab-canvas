@@ -2,12 +2,16 @@
 # Copy this file to .env and replace with your actual Supabase project credentials
 
 # NEW API Keys (Recommended - Available June 2025+)
-SUPABASE_URL=your_supabase_project_url_here
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_publishable_key_here
-SUPABASE_SECRET_KEY=sb_secret_your_secret_key_here
+NUXT_PUBLIC_SUPABASE_URL=your_supabase_project_url_here
+NUXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+# Site Configuration
+NUXT_PUBLIC_SITE_URL=http://localhost:3000
+NUXT_PUBLIC_APP_ENV=development
 
 # LEGACY API Keys (Still work until late 2026, but deprecated)
 # SUPABASE_ANON_KEY=your_legacy_anon_key_here
 # SUPABASE_SERVICE_ROLE_KEY=your_legacy_service_role_key_here
 
-# Note: You can use either the new keys OR legacy keys, but new keys are recommended
+# Note: For production, set NUXT_PUBLIC_SITE_URL to your production domain
+# and NUXT_PUBLIC_APP_ENV to 'production'

@@ -95,7 +95,7 @@ export const useAuth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/canvas`
+          emailRedirectTo: `${useRuntimeConfig().public.siteUrl}/canvas`
         }
       })
 
@@ -147,7 +147,7 @@ export const useAuth = () => {
       const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/canvas`
+          emailRedirectTo: `${useRuntimeConfig().public.siteUrl}/canvas`
         }
       })
 
@@ -226,7 +226,7 @@ export const useAuth = () => {
       error.value = null
 
       const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: `${useRuntimeConfig().public.siteUrl}/reset-password`
       })
 
       if (resetError) {

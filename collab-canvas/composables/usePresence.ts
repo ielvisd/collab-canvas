@@ -39,12 +39,36 @@ const generateUserColor = (userId: string): string => {
 // Singleton instance
 let presenceInstance: any = null
 let autoStartInitialized = false
+let isInitializing = false
 
 export const usePresence = () => {
   // Return existing instance if it exists
   if (presenceInstance) {
     return presenceInstance
   }
+
+  // Prevent multiple simultaneous initializations
+  if (isInitializing) {
+    // Return a temporary instance while initializing
+    return {
+      onlineUsers: ref([]),
+      isConnected: ref(false),
+      error: ref('Initializing...'),
+      startPresence: () => Promise.resolve(),
+      stopPresence: () => {},
+      updateUserStatus: () => {},
+      refreshPresence: () => {},
+      testPresence: () => {},
+      debugPresence: () => {},
+      testSupabaseConnection: () => Promise.resolve(false),
+      retryPresence: () => Promise.resolve(),
+      forceSetConnected: () => {},
+      checkConnectionHealth: () => {},
+      cleanup: () => {}
+    }
+  }
+
+  isInitializing = true
 
   const { $supabase } = useNuxtApp()
   const { user } = useAuth()
@@ -61,6 +85,8 @@ export const usePresence = () => {
   const maxRetries = 5
   let isConnecting = false
   let connectionTimeout: any = null
+  let lastConnectionAttempt = 0
+  const minConnectionInterval = 2000 // Minimum 2 seconds between connection attempts
   
   // Get canvas ID (same as other composables)
   const getCanvasId = (): string => {
@@ -80,6 +106,20 @@ export const usePresence = () => {
       console.log('🔄 Presence connection already in progress, skipping...')
       return
     }
+    
+    // If already connected, don't start again
+    if (isConnected.value && presenceChannel) {
+      console.log('✅ Presence already connected, skipping...')
+      return
+    }
+    
+    // Rate limiting: prevent too frequent connection attempts
+    const now = Date.now()
+    if (now - lastConnectionAttempt < minConnectionInterval) {
+      console.log('🔄 Connection attempt too soon, skipping...')
+      return
+    }
+    lastConnectionAttempt = now
     
     // Clean up any existing connection
     if (presenceChannel) {
@@ -237,12 +277,12 @@ export const usePresence = () => {
     }
     
     retryCount++
-    const delay = Math.min(2000 * Math.pow(2, retryCount - 1), 30000) // Exponential backoff, max 30s
+    const delay = Math.min(5000 * Math.pow(2, retryCount - 1), 60000) // Exponential backoff, min 5s, max 60s
     
     console.log(`🔄 Scheduling presence retry ${retryCount}/${maxRetries} in ${delay}ms...`)
     
     retryTimeout = setTimeout(async () => {
-      if (!isConnecting) {
+      if (!isConnecting && !isConnected.value) {
         await startPresence()
       }
     }, delay)
@@ -407,24 +447,26 @@ export const usePresence = () => {
   
   // Connection health check
   const checkConnectionHealth = () => {
-    if (presenceChannel && isConnected.value) {
+    if (presenceChannel && isConnected.value && !isConnecting) {
       // Test if channel is still responsive
       try {
         const state = presenceChannel.presenceState()
         if (!state) {
-          console.warn('⚠️ Presence channel appears unresponsive, reconnecting...')
-          scheduleRetry()
+          console.warn('⚠️ Presence channel appears unresponsive, will reconnect on next activity...')
+          // Don't immediately reconnect, just mark as disconnected
+          isConnected.value = false
         }
       } catch (err) {
-        console.warn('⚠️ Presence channel health check failed, reconnecting...', err)
-        scheduleRetry()
+        console.warn('⚠️ Presence channel health check failed, will reconnect on next activity...', err)
+        // Don't immediately reconnect, just mark as disconnected
+        isConnected.value = false
       }
     }
   }
 
   // Auto-start presence when user becomes authenticated
   const autoStartPresence = () => {
-    if (process.client) {
+    if (process.client && !autoStartInitialized) {
       // Watch for user authentication changes
       watch(user, async (newUser, oldUser) => {
         if (newUser && !oldUser) {
@@ -438,15 +480,16 @@ export const usePresence = () => {
         }
       }, { immediate: true })
       
-      // Periodic health check every 30 seconds
-      setInterval(checkConnectionHealth, 30000)
+      // Periodic health check every 60 seconds
+      setInterval(checkConnectionHealth, 60000)
+      
+      autoStartInitialized = true
     }
   }
   
   // Initialize auto-start (only once)
-  if (process.client && !autoStartInitialized) {
+  if (process.client) {
     autoStartPresence()
-    autoStartInitialized = true
   }
   
   // Cleanup on unmount
@@ -478,11 +521,13 @@ export const usePresence = () => {
       stopPresence()
       presenceInstance = null
       autoStartInitialized = false
+      isInitializing = false
     }
   }
   
   // Store the instance
   presenceInstance = instance
+  isInitializing = false
   
   return instance
 }
@@ -494,4 +539,5 @@ export const resetPresenceSingleton = () => {
   }
   presenceInstance = null
   autoStartInitialized = false
+  isInitializing = false
 }

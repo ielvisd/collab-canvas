@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import type { OnlineUser } from './usePresence'
 
 export interface CursorPosition {
   x: number
@@ -122,13 +123,13 @@ export const useCursorTracking = () => {
   const { onlineUsers } = usePresence()
   
   // Watch for changes in online users to update cursor data
-  watch(onlineUsers, (users) => {
+  watch(onlineUsers, (users: OnlineUser[]) => {
     // Update remote cursors based on presence data
     const cursors: RemoteCursor[] = []
     
-    users.forEach(user => {
+    users.forEach((user: OnlineUser) => {
       const hasCursor = user.cursor && user.cursor.timestamp > 0
-      const isRecent = hasCursor && (Date.now() - user.cursor.timestamp) < 5000 // 5 seconds
+      const isRecent = hasCursor && user.cursor && (Date.now() - user.cursor.timestamp) < 5000 // 5 seconds
       
       cursors.push({
         userId: user.id,

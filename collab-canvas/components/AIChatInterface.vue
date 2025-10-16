@@ -62,9 +62,9 @@
             <div class="text-sm whitespace-pre-wrap">{{ message.content }}</div>
             <div v-if="message.role === 'assistant' && isLoading" class="mt-2">
               <div class="flex items-center gap-1">
-                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce"></div>
-                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce"/>
+                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 0.1s"/>
+                <div class="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style="animation-delay: 0.2s"/>
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@
 
       <!-- Input Area -->
       <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-        <form @submit.prevent="handleSubmit" class="flex gap-2">
+        <form class="flex gap-2" @submit.prevent="handleSubmit">
           <UInput
             v-model="input"
             placeholder="Ask me to create or modify shapes..."

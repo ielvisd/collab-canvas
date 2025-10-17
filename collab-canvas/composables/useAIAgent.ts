@@ -75,21 +75,38 @@ export const useAIAgent = () => {
     // Also look for commands in the new fallback format
     if (content.includes('Command:') && content.includes('{')) {
       console.log('🔍 Looking for fallback command format')
-      const commandMatch = content.match(/Command:\s*(\{.*\})/s)
-      console.log('🔍 Command match:', commandMatch)
-      if (commandMatch && commandMatch[1]) {
-        try {
-          const command = JSON.parse(commandMatch[1])
-          if (command.action) {
-            const commandKey = JSON.stringify(command)
-            if (!seenCommands.has(commandKey)) {
-              console.log('✅ Parsed fallback command:', command)
-              commands.push(command)
-              seenCommands.add(commandKey)
-            }
+      // Find the start of the JSON object after "Command:"
+      const commandStart = content.indexOf('Command:')
+      const jsonStart = content.indexOf('{', commandStart)
+      if (jsonStart !== -1) {
+        // Find the matching closing brace
+        let braceCount = 0
+        let jsonEnd = jsonStart
+        for (let i = jsonStart; i < content.length; i++) {
+          if (content[i] === '{') braceCount++
+          if (content[i] === '}') braceCount--
+          if (braceCount === 0) {
+            jsonEnd = i
+            break
           }
-        } catch (e) {
-          console.warn('Failed to parse fallback command JSON:', commandMatch[1])
+        }
+        
+        if (jsonEnd > jsonStart) {
+          const jsonString = content.substring(jsonStart, jsonEnd + 1)
+          console.log('🔍 Extracted JSON string:', jsonString)
+          try {
+            const command = JSON.parse(jsonString)
+            if (command.action) {
+              const commandKey = JSON.stringify(command)
+              if (!seenCommands.has(commandKey)) {
+                console.log('✅ Parsed fallback command:', command)
+                commands.push(command)
+                seenCommands.add(commandKey)
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to parse fallback command JSON:', jsonString)
+          }
         }
       }
     }
@@ -388,9 +405,8 @@ export const useAIAgent = () => {
     }
   }
 
-  // Custom sendMessage implementation
+  // Optimized sendMessage implementation with better error handling
   const sendMessage = async (message: string) => {
-    console.log('🤖 AI Agent: sendMessage called with:', message)
     if (!message.trim()) return
 
     // Add user message
@@ -405,50 +421,19 @@ export const useAIAgent = () => {
     isProcessing.value = true
     error.value = null
     
-    console.log('🤖 AI Agent: Sending request to /api/chat')
-    
     try {
-      // Send to API
-      const response = await fetch('/api/chat', {
+      // Use $fetch for better Nuxt integration and error handling
+      const response = await $fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ messages: messages.value })
+        body: { messages: messages.value }
       })
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      // Parse streaming response
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No response body')
-      }
-      
-      const decoder = new TextDecoder()
+      // Handle streaming response
       let assistantMessage = ''
-      
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              if (data.content) {
-                assistantMessage += data.content
-              }
-            } catch (e) {
-              // Ignore parsing errors
-            }
-          }
-        }
+      if (typeof response === 'string') {
+        assistantMessage = response
+      } else if (response && typeof response === 'object' && 'content' in response) {
+        assistantMessage = response.content as string
       }
       
       // Add assistant message
@@ -458,19 +443,14 @@ export const useAIAgent = () => {
         content: assistantMessage
       })
       
-      // Try to execute any commands from the response
-      console.log('🤖 AI Agent: Extracting commands from response:', assistantMessage)
+      // Execute commands from the response
       const commands = extractCommandsFromMessage(assistantMessage)
-      console.log('🤖 AI Agent: Found commands:', commands)
-      
       for (const command of commands) {
-        console.log('🤖 AI Agent: Executing command:', command)
         await executeCommand(command)
       }
       
     } catch (err: any) {
       error.value = err.message || 'Failed to get AI response'
-      console.error('Error sending message:', err)
       
       // Add error message
       messages.value.push({

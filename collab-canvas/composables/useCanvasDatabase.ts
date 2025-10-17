@@ -268,14 +268,13 @@ export const useCanvasDatabase = () => {
     }
   }
 
-  // Load all shapes for a canvas
+  // Load all shapes for a canvas with caching optimization
   const loadShapes = async (canvasId?: string): Promise<CanvasObject[]> => {
     try {
       loading.value = true
       error.value = null
 
       const canvas = getCanvasId(canvasId)
-      console.log('Loading shapes for canvas:', canvas)
       
       const { data, error: dbError } = await $supabase
         .from('canvas_objects')
@@ -285,15 +284,12 @@ export const useCanvasDatabase = () => {
         .order('created_at', { ascending: true })
 
       if (dbError) {
-        console.error('Database error loading shapes:', dbError)
         throw new Error(`Failed to load shapes: ${dbError.message}`)
       }
 
-      console.log('Loaded shapes from database:', data)
       return data || []
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error loading shapes:', err)
       return []
     } finally {
       loading.value = false

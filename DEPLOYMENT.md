@@ -117,6 +117,10 @@ Add the following environment variables in Vercel:
 NUXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NUXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 
+# Site Configuration (REQUIRED for proper email redirects)
+NUXT_PUBLIC_SITE_URL=https://your-domain.vercel.app
+NUXT_PUBLIC_APP_ENV=production
+
 # Optional: Analytics
 NUXT_PUBLIC_GA_ID=your_google_analytics_id
 

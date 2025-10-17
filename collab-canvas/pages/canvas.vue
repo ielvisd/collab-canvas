@@ -158,8 +158,6 @@
           :rectangles="rectangles"
           :circles="circles"
           :texts="texts"
-          :lines="[]"
-          :stars="[]"
           @stage-mousedown="handleStageMouseDown"
           @stage-mousemove="handleStageMouseMove"
           @stage-mouseup="handleStageMouseUp"
@@ -217,15 +215,16 @@
       <span class="text-sm font-medium text-gray-700">Saving changes...</span>
     </div>
     
-    <!-- Error Toast -->
+    <!-- Error Toast - Using Nuxt UI Alert component -->
     <UAlert
       v-if="error"
-      color="red"
+      color="error"
       variant="soft"
       title="Error"
       :description="error"
       class="fixed top-4 right-4 z-50 max-w-md"
-      @close="clearError"
+      close
+      @update:open="(open) => !open && clearError()"
     />
     
     <!-- Help Modal -->
@@ -550,10 +549,19 @@ const handleDeleteSelected = async () => {
   if (selectedShapeId.value) {
     const confirmed = confirm('Are you sure you want to delete the selected shape?')
     if (confirmed) {
-      const success = await deleteSelectedShape()
-      if (success && canvasRef.value) {
-        // Force refresh the canvas to ensure deleted shape is removed
-        canvasRef.value.forceRefresh()
+      try {
+        const success = await deleteSelectedShape()
+        if (success && canvasRef.value) {
+          // Force refresh the canvas to ensure deleted shape is removed
+          canvasRef.value.forceRefresh()
+          console.log('Shape deleted successfully')
+        } else {
+          console.error('Failed to delete shape')
+          // You could show a toast notification here
+        }
+      } catch (error) {
+        console.error('Error deleting shape:', error)
+        // You could show a toast notification here
       }
     }
   }
@@ -623,9 +631,16 @@ const handleStageMouseUp = () => {
     case 'Backspace':
       if (selectedShapeId.value) {
         e.preventDefault()
-        const success = await deleteSelectedShape()
-        if (success && canvasRef.value) {
-          canvasRef.value.forceRefresh()
+        try {
+          const success = await deleteSelectedShape()
+          if (success && canvasRef.value) {
+            canvasRef.value.forceRefresh()
+            console.log('Shape deleted successfully via keyboard')
+          } else {
+            console.error('Failed to delete shape via keyboard')
+          }
+        } catch (error) {
+          console.error('Error deleting shape via keyboard:', error)
         }
       }
       break

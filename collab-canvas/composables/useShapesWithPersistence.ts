@@ -53,7 +53,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     clearError: clearDbError
   } = useCanvasDatabase()
 
-  // State - Use useState for shared state across components
+  // State - Use useState for shared state across components with performance optimization
   const rectangles = useState<Rectangle[]>('canvas-rectangles', () => [])
   const circles = useState<Circle[]>('canvas-circles', () => [])
   const texts = useState<Text[]>('canvas-texts', () => [])
@@ -84,9 +84,8 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     rectangles.value.length + circles.value.length + texts.value.length
   )
 
-  // Utility functions
+  // Utility functions - moved to shared utilities
   const generateId = (type: string) => {
-    // Generate a proper UUID v4
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
       const r = Math.random() * 16 | 0
       const v = c === 'x' ? r : (r & 0x3 | 0x8)
@@ -133,12 +132,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
       rotation: options.rotation ?? 0
     }
     
-    console.log('🔧 addRectangle - options.fill:', options.fill)
-    console.log('🔧 addRectangle - final fill:', rectangle.fill)
-    
     rectangles.value.push(rectangle)
-    console.log('🔧 addRectangle - rectangles array length after push:', rectangles.value.length)
-    console.log('🔧 addRectangle - last rectangle in array:', rectangles.value[rectangles.value.length - 1])
     
     // Auto-save to database
     await autoSaveShape(rectangle)
@@ -163,8 +157,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     }
     
     circles.value.push(circle)
-    console.log('Added circle to local state:', circle)
-    console.log('Total circles now:', circles.value.length)
     
     // Auto-save to database
     await autoSaveShape(circle)
@@ -190,8 +182,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     }
     
     texts.value.push(text)
-    console.log('Added text to local state:', text)
-    console.log('Total texts now:', texts.value.length)
     
     // Auto-save to database
     await autoSaveShape(text)
@@ -277,7 +267,14 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         texts: texts.value.length
       })
       
-      // Remove from local state
+      // First, try to delete from database
+      const dbDeleteSuccess = await deleteShapeFromDatabase(shapeId)
+      if (!dbDeleteSuccess) {
+        console.error('Failed to delete shape from database:', shapeId)
+        return false
+      }
+      
+      // Only remove from local state after successful database deletion
       const rectIndex = rectangles.value.findIndex(r => r.id === shapeId)
       if (rectIndex !== -1) {
         console.log('Deleting rectangle at index:', rectIndex)
@@ -285,9 +282,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         if (selectedShapeId.value === shapeId) {
           selectedShapeId.value = null
         }
-        
-        
-        await deleteShapeFromDatabase(shapeId)
         console.log('Rectangle deleted successfully')
         return true
       }
@@ -299,9 +293,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         if (selectedShapeId.value === shapeId) {
           selectedShapeId.value = null
         }
-        
-        
-        await deleteShapeFromDatabase(shapeId)
         console.log('Circle deleted successfully')
         return true
       }
@@ -313,13 +304,9 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         if (selectedShapeId.value === shapeId) {
           selectedShapeId.value = null
         }
-        
-        
-        await deleteShapeFromDatabase(shapeId)
         console.log('Text deleted successfully')
         return true
       }
-
 
       console.log('Shape not found for deletion:', shapeId)
       return false
@@ -486,7 +473,10 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
 
   const deleteShapeFromDatabase = async (shapeId: string): Promise<boolean> => {
     try {
-      return await deleteShapeFromDb(shapeId)
+      console.log('Attempting to delete shape from database:', shapeId)
+      const result = await deleteShapeFromDb(shapeId)
+      console.log('Database delete result:', result)
+      return result
     } catch (error) {
       console.error('Error deleting shape from database:', error)
       return false

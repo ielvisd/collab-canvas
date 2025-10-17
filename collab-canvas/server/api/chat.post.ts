@@ -8,14 +8,17 @@ declare function hubAI(): any
 export default defineEventHandler(async (event) => {
   const { messages } = await readBody(event)
 
-  // Check if we're in fallback mode
+  // Check if we're in fallback mode with better error handling
   let isFallbackMode = false
   try {
     // Try to use hubAI() - if this fails, we're in fallback mode
     const ai = hubAI()
     isFallbackMode = false
   } catch (error) {
-    console.warn('hubAI not available, using fallback. Run "npx nuxthub link" to enable real AI.')
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('hubAI not available, using fallback. Run "npx nuxthub link" to enable real AI.')
+    }
     isFallbackMode = true
   }
 
@@ -26,7 +29,16 @@ export default defineEventHandler(async (event) => {
     
     // Simple command parsing for fallback mode
     let command = null
-    if (userMessage.toLowerCase().includes('rectangle') || userMessage.toLowerCase().includes('red rectangle')) {
+    if (userMessage.toLowerCase().includes('rectangle')) {
+      // Determine color based on message content
+      let color = '#ff0000' // default red
+      if (userMessage.toLowerCase().includes('pink')) color = '#ffc0cb'
+      else if (userMessage.toLowerCase().includes('blue')) color = '#0000ff'
+      else if (userMessage.toLowerCase().includes('green')) color = '#00ff00'
+      else if (userMessage.toLowerCase().includes('yellow')) color = '#ffff00'
+      else if (userMessage.toLowerCase().includes('purple')) color = '#800080'
+      else if (userMessage.toLowerCase().includes('orange')) color = '#ffa500'
+      
       command = {
         action: 'create-shape',
         shapeType: 'rectangle',
@@ -34,16 +46,25 @@ export default defineEventHandler(async (event) => {
         y: 200,
         width: 100,
         height: 80,
-        fill: '#ff0000'
+        fill: color
       }
-    } else if (userMessage.toLowerCase().includes('circle') || userMessage.toLowerCase().includes('blue circle')) {
+    } else if (userMessage.toLowerCase().includes('circle')) {
+      // Determine color based on message content
+      let color = '#0000ff' // default blue
+      if (userMessage.toLowerCase().includes('pink')) color = '#ffc0cb'
+      else if (userMessage.toLowerCase().includes('red')) color = '#ff0000'
+      else if (userMessage.toLowerCase().includes('green')) color = '#00ff00'
+      else if (userMessage.toLowerCase().includes('yellow')) color = '#ffff00'
+      else if (userMessage.toLowerCase().includes('purple')) color = '#800080'
+      else if (userMessage.toLowerCase().includes('orange')) color = '#ffa500'
+      
       command = {
         action: 'create-shape',
         shapeType: 'circle',
         x: 200,
         y: 200,
         radius: 50,
-        fill: '#0000ff'
+        fill: color
       }
     } else if (userMessage.toLowerCase().includes('text') || userMessage.toLowerCase().includes('hello')) {
       command = {
@@ -70,24 +91,12 @@ export default defineEventHandler(async (event) => {
     
     console.log('🤖 Fallback API: Generated command:', command)
     
-    // Return a simple streaming response
+    // Return a simple JSON response for fallback mode
     const response = `AI response (fallback mode - run npx nuxthub link to enable real AI)\n\nCommand: ${command ? JSON.stringify(command) : 'No command generated'}`
     
-    return new Response(
-      new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ content: response })}\n\n`))
-          controller.close()
-        }
-      }),
-      {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      }
-    )
+    return {
+      content: response
+    }
   }
 
   // Real AI mode - use hubAI()

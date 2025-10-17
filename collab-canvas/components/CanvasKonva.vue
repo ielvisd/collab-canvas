@@ -75,8 +75,6 @@ const props = defineProps<{
   rectangles: any[]
   circles: any[]
   texts: any[]
-  lines?: any[]
-  stars?: any[]
 }>()
 
 // Emits
@@ -234,7 +232,7 @@ const selectShape = (shapeId: string) => {
   
   // Find the shape and attach transformer
   if (shapeId && transformer && layer) {
-    const allShapes = [...props.rectangles, ...props.circles, ...props.texts, ...(props.lines || []), ...(props.stars || [])]
+    const allShapes = [...props.rectangles, ...props.circles, ...props.texts]
     const shape = allShapes.find(s => s.id === shapeId)
     
     if (shape) {
@@ -467,30 +465,6 @@ onMounted(async () => {
       shape.points(newPoints)
       shape.scaleX(1)
       shape.scaleY(1)
-    } else if (shape.getClassName() === 'Line' && shape.closed()) {
-      // This is a star (closed line)
-      const scaleX = shape.scaleX()
-      const scaleY = shape.scaleY()
-      const scale = Math.min(scaleX, scaleY) // Use uniform scaling for stars
-      
-      // Find the star data to update radius
-      const star = props.stars?.find((s: any) => s.id === shapeId)
-      if (star) {
-        const newOuterRadius = star.outerRadius * scale
-        const newInnerRadius = star.innerRadius * scale
-        
-        updateShape(shapeId, {
-          x: shape.x(),
-          y: shape.y(),
-          outerRadius: newOuterRadius,
-          innerRadius: newInnerRadius,
-          rotation: shape.rotation()
-        })
-        
-        // Update the shape's base scale
-        shape.scaleX(1)
-        shape.scaleY(1)
-      }
     }
   })
   
@@ -778,145 +752,6 @@ const addShapesToLayer = () => {
     layer.add(konvaText)
   })
   
-  // Add lines
-  props.lines?.forEach((line: any) => {
-    const konvaLine = new Konva.Line({
-      id: line.id,
-      x: line.x,
-      y: line.y,
-      points: line.points,
-      stroke: line.fill, // Use fill as stroke color for lines
-      strokeWidth: line.strokeWidth,
-      draggable: line.draggable,
-      rotation: line.rotation || 0,
-      shadowColor: 'black',
-      shadowBlur: 10,
-      shadowOpacity: 0.2,
-      shadowOffset: { x: 2, y: 2 },
-      // Improve drag sensitivity
-      dragBoundFunc: (pos: any) => {
-        return {
-          x: Math.max(0, Math.min(pos.x, stage.width())),
-          y: Math.max(0, Math.min(pos.y, stage.height()))
-        }
-      }
-    })
-    
-    // Set drag threshold to 0 for immediate drag response
-    konvaLine.dragDistance(0)
-    
-    // Add hover effects
-    konvaLine.on('mouseenter', () => {
-      document.body.style.cursor = 'pointer'
-      konvaLine.shadowOpacity(0.4)
-      layer.draw()
-    })
-    
-    konvaLine.on('mouseleave', () => {
-      document.body.style.cursor = 'default'
-      konvaLine.shadowOpacity(0.2)
-      layer.draw()
-    })
-    
-    // Add click handler for selection
-    konvaLine.on('click', (e: any) => {
-      e.cancelBubble = true
-      selectShape(line.id)
-    })
-    
-    // Add drag handlers
-    konvaLine.on('dragstart', () => {
-      konvaLine.shadowOpacity(0.4)
-      layer.draw()
-    })
-    
-    konvaLine.on('dragend', (e: any) => {
-      updateShape(line.id, {
-        x: e.target.x(),
-        y: e.target.y()
-      })
-      konvaLine.shadowOpacity(0.2)
-      layer.draw()
-    })
-    
-    layer.add(konvaLine)
-  })
-  
-  // Add stars
-  props.stars?.forEach((star: any) => {
-    // Create star points
-    const points = []
-    const angle = Math.PI / star.numPoints
-    for (let i = 0; i < star.numPoints * 2; i++) {
-      const radius = i % 2 === 0 ? star.outerRadius : star.innerRadius
-      const x = Math.cos(i * angle - Math.PI / 2) * radius
-      const y = Math.sin(i * angle - Math.PI / 2) * radius
-      points.push(x, y)
-    }
-    
-    const konvaStar = new Konva.Line({
-      id: star.id,
-      x: star.x,
-      y: star.y,
-      points: points,
-      fill: star.fill,
-      stroke: star.stroke,
-      strokeWidth: star.strokeWidth,
-      closed: true,
-      draggable: star.draggable,
-      rotation: star.rotation || 0,
-      shadowColor: 'black',
-      shadowBlur: 10,
-      shadowOpacity: 0.2,
-      shadowOffset: { x: 2, y: 2 },
-      // Improve drag sensitivity
-      dragBoundFunc: (pos: any) => {
-        return {
-          x: Math.max(0, Math.min(pos.x, stage.width())),
-          y: Math.max(0, Math.min(pos.y, stage.height()))
-        }
-      }
-    })
-    
-    // Set drag threshold to 0 for immediate drag response
-    konvaStar.dragDistance(0)
-    
-    // Add hover effects
-    konvaStar.on('mouseenter', () => {
-      document.body.style.cursor = 'pointer'
-      konvaStar.shadowOpacity(0.4)
-      layer.draw()
-    })
-    
-    konvaStar.on('mouseleave', () => {
-      document.body.style.cursor = 'default'
-      konvaStar.shadowOpacity(0.2)
-      layer.draw()
-    })
-    
-    // Add click handler for selection
-    konvaStar.on('click', (e: any) => {
-      e.cancelBubble = true
-      selectShape(star.id)
-    })
-    
-    // Add drag handlers
-    konvaStar.on('dragstart', () => {
-      konvaStar.shadowOpacity(0.4)
-      layer.draw()
-    })
-    
-    konvaStar.on('dragend', (e: any) => {
-      updateShape(star.id, {
-        x: e.target.x(),
-        y: e.target.y()
-      })
-      konvaStar.shadowOpacity(0.2)
-      layer.draw()
-    })
-    
-    layer.add(konvaStar)
-  })
   
   // Redraw layer
   layer.draw()
@@ -998,18 +833,16 @@ const updateExistingShapes = () => {
 }
 
 // Watch for prop changes and update shapes
-watch(() => [props.rectangles, props.circles, props.texts, props.lines || [], props.stars || []], (newProps, oldProps) => {
+watch(() => [props.rectangles, props.circles, props.texts], (newProps, oldProps) => {
   if (!layer || !stage) return
   
-  const [newRects, newCircles, newTexts, newLines, newStars] = newProps
-  const [oldRects, oldCircles, oldTexts, oldLines, oldStars] = oldProps || [[], [], [], [], []]
+  const [newRects, newCircles, newTexts] = newProps
+  const [oldRects, oldCircles, oldTexts] = oldProps || [[], [], []]
   
   // Check if we need to recreate shapes (new shapes added or removed)
   const hasNewShapes = (newRects?.length || 0) !== (oldRects?.length || 0) || 
                        (newCircles?.length || 0) !== (oldCircles?.length || 0) || 
-                       (newTexts?.length || 0) !== (oldTexts?.length || 0) ||
-                       (newLines?.length || 0) !== (oldLines?.length || 0) || 
-                       (newStars?.length || 0) !== (oldStars?.length || 0)
+                       (newTexts?.length || 0) !== (oldTexts?.length || 0)
   
   if (hasNewShapes) {
     // Clear transformer first to prevent errors

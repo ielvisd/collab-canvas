@@ -20,6 +20,22 @@ export default defineNuxtConfig({
     }
   },
 
+  // Performance optimizations
+  nitro: {
+    compressPublicAssets: true,
+    minify: true
+  },
+
+  // Route rules for better performance
+  routeRules: {
+    // Canvas page should be client-side only for better interactivity
+    '/canvas': { ssr: false },
+    // Static pages can be pre-rendered
+    '/': { prerender: true },
+    '/login': { prerender: true },
+    '/signup': { prerender: true }
+  },
+
   typescript: {
     typeCheck: true,
     tsConfig: {

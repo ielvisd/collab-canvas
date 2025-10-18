@@ -11,6 +11,7 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     'nuxt-mcp',
     '@nuxthub/core',
+    'nuxt-emoji-picker'
   ],
 
   css: ['~/assets/css/main.css'],

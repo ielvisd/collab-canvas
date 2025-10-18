@@ -2,6 +2,12 @@ import { ref } from 'vue'
 import { useShapesWithPersistence } from './useShapesWithPersistence'
 import { useEmojis } from './useEmojis'
 
+// Utility function for random colors
+const getRandomColor = () => {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
+  return colors[Math.floor(Math.random() * colors.length)]
+}
+
 export interface AICommand {
   action: string
   [key: string]: unknown
@@ -266,7 +272,7 @@ export const useAIAgent = () => {
             y: y !== undefined ? y : 100,
             width: width || 100,
             height: height || 60,
-            fill: fill || '#ff0000',
+            fill: fill || getRandomColor(),
             stroke: stroke || '#000'
           }
           console.log('🔧 Rectangle parameters:', rectParams)
@@ -281,7 +287,7 @@ export const useAIAgent = () => {
             x: x !== undefined ? x : 100,
             y: y !== undefined ? y : 100,
             radius: radius || 50,
-            fill: fill || '#0000ff',
+            fill: fill || getRandomColor(),
             stroke: stroke || '#000'
           })
           console.log('🔍 Current circles array after creation:', circles.value.length)
@@ -295,7 +301,7 @@ export const useAIAgent = () => {
             y: y !== undefined ? y : 100,
             text: text || 'AI Generated Text',
             fontSize: fontSize || 24,
-            fill: fill || 'black',
+            fill: fill || getRandomColor(),
             stroke: stroke || '#000'
           })
           break

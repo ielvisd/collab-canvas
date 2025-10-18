@@ -113,9 +113,9 @@ export const useCanvasDatabase = () => {
       const canvas = getCanvasId(canvasId)
       
       const dbShape = shapeToDbFormat(shape, canvas, userId)
-      console.log('Saving shape to database:', { originalShape: shape, dbShape })
-      console.log('User ID being used:', userId)
-      console.log('Canvas ID being used:', canvas)
+      // console.log('Saving shape to database:', { originalShape: shape, dbShape })
+      // console.log('User ID being used:', userId)
+      // console.log('Canvas ID being used:', canvas)
       
       const { data, error: dbError } = await $supabase
         .from('canvas_objects')
@@ -130,9 +130,9 @@ export const useCanvasDatabase = () => {
         throw new Error(`Failed to save shape: ${dbError.message}`)
       }
 
-      console.log('Shape saved successfully:', data)
-      console.log('Shape ID in response:', data?.id)
-      console.log('Shape position in response:', { x: data?.data?.x, y: data?.data?.y })
+      // console.log('Shape saved successfully:', data)
+      // console.log('Shape ID in response:', data?.id)
+      // console.log('Shape position in response:', { x: data?.data?.x, y: data?.data?.y })
       return data
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'

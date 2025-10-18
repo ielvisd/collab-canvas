@@ -84,7 +84,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       size: emoji.size,
       layer: emoji.layer || 1,
       rotation: emoji.rotation || 0,
-      fill: 'black',
+      fill: 'transparent',
       stroke: 'transparent'
     }
   }
@@ -154,7 +154,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       if (dbShape) {
         // Update local state
         emojis.value.push(emoji)
-        console.log('✅ Emoji added:', emoji)
+        // console.log('✅ Emoji added:', emoji)
         return emoji
       }
       return null
@@ -268,11 +268,11 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     }
   }
 
-  // Initialize on mount
-  onMounted(async () => {
+  // Initialize emojis - call this from component onMounted instead
+  const initializeEmojis = async () => {
     await loadEmojis()
     isRealtimeConnected.value = true
-  })
+  }
 
   // State
   const state: EmojiState = {
@@ -298,6 +298,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     ...state,
     ...actions,
     isRealtimeConnected,
-    lastSyncTime
+    lastSyncTime,
+    initializeEmojis
   }
 }

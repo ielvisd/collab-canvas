@@ -66,15 +66,6 @@
                     Select
           </UButton>
                   
-            <UButton 
-                    :variant="currentTool === 'pen' ? 'solid' : 'outline'"
-                    size="sm"
-                    class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-                    @click="setTool('pen')"
-                  >
-                    <UIcon name="i-lucide-pen-tool" class="w-4 h-4 mr-2" />
-                    Pen
-            </UButton>
                   
                   <UDropdownMenu :items="shapeMenuItems" :ui="{ content: 'w-48' }">
             <UButton 
@@ -148,6 +139,7 @@
                       </template>
                     </UPopover>
                   </div>
+
                 </div>
         </div>
         
@@ -172,7 +164,7 @@
               variant="outline" 
                   size="sm"
                   class="font-body text-white border-red-400 hover:bg-red-500/20"
-              @click="clearCanvas"
+              @click="showClearAllModal = true"
                 />
             <UButton 
                   icon="i-lucide-rotate-ccw"
@@ -193,6 +185,8 @@
         ref="canvasContainer"
               class="border-2 border-pink-500 rounded-xl shadow-lg bg-white relative overflow-hidden"
               :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
+              :data-tool="currentTool"
+              data-testid="canvas-container"
               @mousedown="handleCanvasMouseDown"
               @mousemove="handleCanvasMouseMove"
               @mouseup="handleCanvasMouseUp"
@@ -246,41 +240,6 @@
       </div>
     </div>
 
-              <!-- Pen Strokes -->
-              <svg
-                v-if="penStrokes.length > 0"
-                class="absolute inset-0 pointer-events-none"
-                :style="{ zIndex: 1000 }"
-              >
-                <path
-                  v-for="stroke in penStrokes"
-                  :key="stroke.id"
-                  :d="stroke.path"
-                  :stroke="stroke.color"
-                  :stroke-width="stroke.width"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="pen-stroke"
-                />
-              </svg>
-
-              <!-- Current Pen Stroke -->
-              <svg
-                v-if="currentPenStroke"
-                class="absolute inset-0 pointer-events-none"
-                :style="{ zIndex: 1001 }"
-              >
-                <path
-                  :d="currentPenStroke"
-                  :stroke="penColor"
-                  :stroke-width="penWidth"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="pen-stroke"
-                />
-              </svg>
 
               <!-- Rotation Handles -->
               <div
@@ -306,6 +265,9 @@
                 <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full border border-white"/>
               </div>
             </div>
+            
+            <!-- Cursor Overlay for Real-time Collaboration -->
+            <CursorOverlay />
               </div>
             </div>
             
@@ -350,6 +312,41 @@
         </div>
       </template>
     </UModal>
+
+    <!-- Clear All Confirmation Modal -->
+    <UModal 
+      v-model:open="showClearAllModal" 
+      title="⚠️ Clear All Canvas" 
+      :ui="{ 
+        overlay: 'fixed inset-0 bg-black/75',
+        content: 'fixed bg-black/90 border-2 border-red-500 rounded-xl shadow-2xl',
+        header: 'bg-black/90 border-b-2 border-red-500',
+        title: 'text-xl font-display text-red-300',
+        body: 'bg-black/90',
+        close: 'text-red-300 hover:text-white hover:bg-red-500/20'
+      }"
+    >
+      <template #content>
+        <div class="p-4 bg-black/90">
+          <p class="text-red-100 mb-4">This action will permanently delete all emojis and shapes from the canvas. This action cannot be undone.</p>
+          <div class="flex gap-2 justify-end">
+            <UButton 
+              label="Cancel" 
+              color="neutral" 
+              variant="outline" 
+              @click="showClearAllModal = false"
+            />
+            <UButton 
+              label="Clear All" 
+              color="error" 
+              variant="solid" 
+              @click="confirmClearAll"
+            />
+          </div>
+        </div>
+      </template>
+    </UModal>
+
     </div>
   </AppLayout>
 </template>
@@ -360,6 +357,8 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 // Composables
 import { useEmojis } from '~/composables/useEmojis'
 import { useShapesWithPersistence } from '~/composables/useShapesWithPersistence'
+import { useCursorTracking } from '~/composables/useCursorTracking'
+import { useRealtimeSync } from '~/composables/useRealtimeSync'
 
 // Auth middleware
 definePageMeta({
@@ -372,15 +371,16 @@ const canvasHeight = 700
 
 // State
 const showPresence = ref(false)
-const showAIChat = ref(false) // AI chat closed by default
+const showAIChat = ref(false)
 const showEmojiPicker = ref(false)
-const currentTool = ref<'select' | 'pen'>('select')
+const showClearAllModal = ref(false)
+const currentTool = ref<'select'>('select')
 const selectedEmojiId = ref<string | null>(null)
 const selectedShapeId = ref<string | null>(null)
 const searchTerm = ref('')
 const rotationAngle = ref(0)
 const isRotating = ref(false)
-const selectedShapeColor = ref('#3B82F6') // Default blue color
+const selectedShapeColor = ref('#3B82F6')
 
 // Canvas ref
 const canvasContainer = ref<HTMLElement | null>(null)
@@ -388,6 +388,9 @@ const canvasContainer = ref<HTMLElement | null>(null)
 // Drag state
 const pendingDragShapeId = ref<string | null>(null)
 const pendingDragEmojiId = ref<string | null>(null)
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const originalPosition = ref({ x: 0, y: 0 })
 
 // Emoji system
 const {
@@ -396,7 +399,8 @@ const {
   updateEmoji,
   clearAllEmojis,
   getEmojiById,
-  deleteEmoji
+  deleteEmoji,
+  initializeEmojis
 } = useEmojis(canvasWidth, canvasHeight)
 
 // Shape system for AI-created shapes
@@ -412,42 +416,49 @@ const {
   deleteShape
 } = useShapesWithPersistence()
 
+// Cursor tracking for real-time collaboration
+const { startTracking: startCursorTracking, stopTracking: stopCursorTracking } = useCursorTracking()
+
+// Real-time sync for shape changes
+const { startSync: startRealtimeSync, cleanup: cleanupRealtimeSync } = useRealtimeSync(
+  rectangles,
+  circles,
+  texts,
+  (type, shape) => {
+    console.log(`🔄 Real-time ${type}:`, shape)
+  }
+)
+
 // Load shapes when page mounts
 onMounted(async () => {
   await loadShapesFromDatabase()
+  await initializeEmojis()
+  
+  // Start real-time collaboration features
+  await startRealtimeSync()
+  startCursorTracking()
 })
 
-// Shape interfaces - removed unused Shape interface
 
-interface PenStroke {
-  id: string
-  path: string
-  color: string
-  width: number
-}
-
-// Pen strokes
-const penStrokes = ref<PenStroke[]>([])
-
-// Computed - All shapes combined for rendering
-const allShapes = computed(() => [
-  ...rectangles.value,
-  ...circles.value,
-  ...texts.value
-])
-
-// Drag state
-const isDragging = ref(false)
-const dragStart = ref({ x: 0, y: 0 })
-const originalPosition = ref({ x: 0, y: 0 })
-
-// Pen drawing state
-const isDrawing = ref(false)
-const currentPenStroke = ref('')
-const penColor = ref('#000000')
-const penWidth = ref(3)
-const lastPenPosition = ref({ x: 0, y: 0 })
-const penPoints = ref<Array<{x: number, y: number}>>([])
+// Computed - All shapes combined for rendering (excluding emoji text shapes)
+const allShapes = computed(() => {
+  // Filter out text shapes that are emojis to prevent duplication
+  const nonEmojiTexts = texts.value.filter(text => {
+    // Check if this text shape is an emoji by looking at the text content
+    const textContent = text.text || ''
+    // If it's a single character and matches emoji pattern, it's an emoji
+    if (textContent.length === 1 && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(textContent)) {
+      return false // Exclude emoji text shapes
+    }
+    return true // Include regular text shapes
+  })
+  
+  return [
+    ...rectangles.value,
+    ...circles.value,
+    ...nonEmojiTexts
+  ]
+})
 
 // Emoji picker data
 const emojiGroups = ref([
@@ -847,7 +858,7 @@ const shapeMenuItems = computed(() => [
 ])
 
 // Tool functions
-function setTool(tool: 'select' | 'pen') {
+function setTool(tool: 'select') {
   currentTool.value = tool
   selectedEmojiId.value = null
   selectedShapeId.value = null
@@ -906,7 +917,7 @@ function startShapeDrag(event: MouseEvent, shapeId: string) {
   // Only prepare for dragging if select tool is active
   if (currentTool.value === 'select') {
     // Don't start dragging immediately - wait for mouse movement
-    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const allShapesArray = allShapes.value
     const shape = allShapesArray.find(s => s.id === shapeId)
     
     if (shape) {
@@ -934,7 +945,7 @@ function handleDrag(event: MouseEvent) {
     
     // Handle shape dragging
   if (selectedShapeId.value) {
-      const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+      const allShapesArray = allShapes.value
       const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
       if (shape) {
         shape.x = originalPosition.value.x + deltaX
@@ -959,19 +970,14 @@ async function endDrag() {
     
     // Handle shape drag end - persist position changes to database
     if (selectedShapeId.value) {
-      const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+      const allShapesArray = allShapes.value
       const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
       if (shape) {
         try {
-          const success = await updateShape(selectedShapeId.value, {
+          await updateShape(selectedShapeId.value, {
             x: shape.x,
             y: shape.y
           })
-          if (success) {
-            console.log('🎯 Successfully updated shape position in database:', selectedShapeId.value)
-          } else {
-            console.error('❌ Failed to update shape position in database')
-          }
         } catch (error) {
           console.error('❌ Error updating shape position:', error)
         }
@@ -1027,57 +1033,23 @@ function selectShape(shapeId: string) {
   updateColorFromSelection()
 }
 
-function selectEmoji(emojiId: string) {
-  console.log('🎯 selectEmoji called with:', emojiId)
-  selectedEmojiId.value = emojiId
-  selectedShapeId.value = null
-  updateRotationFromSelection()
-  console.log('🎯 Selected emoji ID:', selectedEmojiId.value)
-}
 
 // Canvas mouse handlers
 function handleCanvasClick(event: MouseEvent) {
   // Only deselect if clicking on empty canvas space (not on an emoji or shape)
   if (event.target === canvasContainer.value) {
-    console.log('🎯 Canvas clicked - deselecting all items')
     selectedEmojiId.value = null
     selectedShapeId.value = null
     rotationAngle.value = 0
   }
 }
 
-function handleCanvasMouseDown(event: MouseEvent) {
-  if (currentTool.value === 'pen') {
-    isDrawing.value = true
-    const rect = (event.target as HTMLElement).getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
-    
-    // Initialize pen stroke
-    currentPenStroke.value = `M ${x} ${y}`
-    lastPenPosition.value = { x, y }
-    penPoints.value = [{ x, y }]
-  }
+function handleCanvasMouseDown(_event: MouseEvent) {
+  // Canvas mouse down handler - currently no specific functionality
 }
 
 function handleCanvasMouseMove(event: MouseEvent) {
-  if (isDrawing.value && currentTool.value === 'pen') {
-    const rect = (event.target as HTMLElement).getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
-    
-    // Only add point if it's far enough from the last point (performance optimization)
-    const distance = Math.sqrt(
-      Math.pow(x - lastPenPosition.value.x, 2) + 
-      Math.pow(y - lastPenPosition.value.y, 2)
-    )
-    
-    if (distance > 2) { // Minimum distance threshold
-      currentPenStroke.value += ` L ${x} ${y}`
-      lastPenPosition.value = { x, y }
-      penPoints.value.push({ x, y })
-    }
-  } else if (isDragging.value) {
+  if (isDragging.value) {
     handleDrag(event)
   } else if (pendingDragShapeId.value && currentTool.value === 'select') {
     // Start dragging when mouse actually moves
@@ -1107,27 +1079,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
 }
 
 function handleCanvasMouseUp() {
-  if (isDrawing.value && currentTool.value === 'pen') {
-    isDrawing.value = false
-    if (currentPenStroke.value && penPoints.value.length > 1) {
-      // Use requestAnimationFrame for smooth rendering
-      requestAnimationFrame(() => {
-        const stroke: PenStroke = {
-          id: generateId(),
-          path: currentPenStroke.value,
-          color: penColor.value,
-          width: penWidth.value
-        }
-        penStrokes.value.push(stroke)
-        currentPenStroke.value = ''
-        penPoints.value = []
-      })
-          } else {
-      // Clear if not enough points
-      currentPenStroke.value = ''
-      penPoints.value = []
-    }
-  } else if (isDragging.value) {
+  if (isDragging.value) {
     endDrag()
   }
   
@@ -1136,23 +1088,20 @@ function handleCanvasMouseUp() {
   pendingDragEmojiId.value = null
 }
 
-// Utility functions
-function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
-}
+
 
 async function clearCanvas() {
   await clearAllEmojis()
   rectangles.value = []
   circles.value = []
   texts.value = []
-  penStrokes.value = []
   selectedEmojiId.value = null
   selectedShapeId.value = null
+}
+
+async function confirmClearAll() {
+  await clearCanvas()
+  showClearAllModal.value = false
 }
 
 function resetView() {
@@ -1173,26 +1122,25 @@ function editEmoji(id: string) {
 function handleRotationChange(angle: number | undefined) {
   if (angle === undefined) return
   
-  console.log('🔄 Rotation change:', angle, 'Selected emoji:', selectedEmojiId.value)
   rotationAngle.value = angle
   
   // Update emoji rotation
   if (selectedEmojiId.value) {
     const emoji = getEmojiById(selectedEmojiId.value)
-    console.log('🎨 Found emoji for rotation:', emoji)
     if (emoji) {
       emoji.rotation = angle
-      console.log('🎨 Updating emoji rotation to:', angle)
       updateEmoji(selectedEmojiId.value, { rotation: angle })
     }
   }
   
   // Update shape rotation
   if (selectedShapeId.value) {
-    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const allShapesArray = allShapes.value
     const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
     if (shape) {
       shape.rotation = angle
+      // Persist rotation to database
+      updateShape(selectedShapeId.value, { rotation: angle })
     }
   }
 }
@@ -1204,12 +1152,10 @@ function resetRotation() {
 
 async function deleteSelectedItem() {
   if (selectedEmojiId.value) {
-    console.log('🗑️ Deleting selected emoji:', selectedEmojiId.value)
     await deleteEmoji(selectedEmojiId.value)
     selectedEmojiId.value = null
     rotationAngle.value = 0
   } else if (selectedShapeId.value) {
-    console.log('🗑️ Deleting selected shape:', selectedShapeId.value)
     await deleteShape(selectedShapeId.value)
     selectedShapeId.value = null
     rotationAngle.value = 0
@@ -1219,17 +1165,11 @@ async function deleteSelectedItem() {
 async function handleColorChange(color: string | undefined) {
   if (!color || !selectedShapeId.value) return
   
-  console.log('🎨 Color change:', color, 'Selected shape:', selectedShapeId.value)
   selectedShapeColor.value = color
   
   // Update the selected shape's color using the persistent update function
   try {
-    const success = await updateShape(selectedShapeId.value, { fill: color })
-    if (success) {
-      console.log('🎨 Successfully updated shape color in database:', selectedShapeId.value, color)
-    } else {
-      console.error('❌ Failed to update shape color in database')
-    }
+    await updateShape(selectedShapeId.value, { fill: color })
   } catch (error) {
     console.error('❌ Error updating shape color:', error)
   }
@@ -1243,7 +1183,7 @@ function updateRotationFromSelection() {
       rotationAngle.value = emoji.rotation || 0
     }
   } else if (selectedShapeId.value) {
-    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const allShapesArray = allShapes.value
     const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
     if (shape) {
       rotationAngle.value = shape.rotation || 0
@@ -1256,11 +1196,10 @@ function updateRotationFromSelection() {
 function updateColorFromSelection() {
   // Update color picker when selection changes
   if (selectedShapeId.value) {
-    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const allShapesArray = allShapes.value
     const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
     if (shape && shape.fill) {
       selectedShapeColor.value = shape.fill
-      console.log('🎨 Updated color picker to:', shape.fill)
     }
   } else {
     selectedShapeColor.value = '#3B82F6' // Reset to default blue
@@ -1269,7 +1208,7 @@ function updateColorFromSelection() {
 
 function getSelectedShape() {
   if (selectedShapeId.value) {
-    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const allShapesArray = allShapes.value
     return allShapesArray.find(s => s.id === selectedShapeId.value)
   }
   return null
@@ -1299,9 +1238,10 @@ function startRotation(event: MouseEvent) {
   document.addEventListener('mouseup', handleMouseUp)
 }
 
+
 // Keyboard shortcuts
 onMounted(() => {
-  const handleKeyDown = (event: KeyboardEvent) => {
+  const handleKeyDown = async (event: KeyboardEvent) => {
     // AI chat toggle (Cmd/Ctrl + K)
     if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
       event.preventDefault()
@@ -1311,7 +1251,6 @@ onMounted(() => {
     // Deselect all items (Escape key)
     if (event.key === 'Escape') {
       event.preventDefault()
-      console.log('⌨️ Escape pressed - deselecting all items')
       selectedEmojiId.value = null
       selectedShapeId.value = null
       rotationAngle.value = 0
@@ -1321,12 +1260,10 @@ onMounted(() => {
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault()
       if (selectedEmojiId.value) {
-        console.log('🗑️ Deleting selected emoji:', selectedEmojiId.value)
         await deleteEmoji(selectedEmojiId.value)
         selectedEmojiId.value = null
         rotationAngle.value = 0
       } else if (selectedShapeId.value) {
-        console.log('🗑️ Deleting selected shape:', selectedShapeId.value)
         await deleteShape(selectedShapeId.value)
         selectedShapeId.value = null
         rotationAngle.value = 0
@@ -1339,6 +1276,12 @@ onMounted(() => {
   onUnmounted(() => {
     document.removeEventListener('keydown', handleKeyDown)
   })
+})
+
+// Cleanup real-time features on unmount
+onUnmounted(() => {
+  stopCursorTracking()
+  cleanupRealtimeSync()
 })
 </script>
 
@@ -1377,9 +1320,11 @@ onMounted(() => {
   transform: translateZ(0);
 }
 
-/* Smooth pen tool rendering */
-.pen-stroke {
-  shape-rendering: geometricPrecision;
-  vector-effect: non-scaling-stroke;
+
+/* Smooth drawing performance */
+.canvas-container {
+  contain: layout style paint;
+  transform: translateZ(0);
+  will-change: transform;
 }
 </style>

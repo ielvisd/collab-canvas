@@ -103,27 +103,23 @@ export const usePresence = () => {
     
     // Prevent multiple simultaneous connection attempts
     if (isConnecting) {
-      console.log('🔄 Presence connection already in progress, skipping...')
       return
     }
     
     // If already connected, don't start again
     if (isConnected.value && presenceChannel) {
-      console.log('✅ Presence already connected, skipping...')
       return
     }
     
     // Rate limiting: prevent too frequent connection attempts
     const now = Date.now()
     if (now - lastConnectionAttempt < minConnectionInterval) {
-      console.log('🔄 Connection attempt too soon, skipping...')
       return
     }
     lastConnectionAttempt = now
     
     // Clean up any existing connection
     if (presenceChannel) {
-      console.log('🧹 Cleaning up existing presence channel...')
       presenceChannel.unsubscribe()
       presenceChannel = null
     }
@@ -137,7 +133,6 @@ export const usePresence = () => {
     try {
       // Create presence channel
       const channelName = `canvas-presence-${getCanvasId()}`
-      console.log('🔗 Creating presence channel:', channelName)
       
       presenceChannel = $supabase.channel(channelName, {
         config: {
@@ -159,7 +154,6 @@ export const usePresence = () => {
           updateOnlineUsers(state)
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }: { key: string, newPresences: any[] }) => {
-          console.log('👋 User joined:', key)
           // If we're receiving presence events, we're connected
           if (!isConnected.value) {
             isConnected.value = true
@@ -168,7 +162,6 @@ export const usePresence = () => {
           updateOnlineUsers(presenceChannel.presenceState())
         })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }: { key: string, leftPresences: any[] }) => {
-          console.log('👋 User left:', key)
           // If we're receiving presence events, we're connected
           if (!isConnected.value) {
             isConnected.value = true
@@ -178,13 +171,9 @@ export const usePresence = () => {
         })
       
       // Subscribe to channel
-      console.log('📡 Subscribing to presence channel...')
-      
       const response = await presenceChannel.subscribe(async (status: string) => {
-        console.log('📡 Presence channel status:', status)
-        
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Connected to presence channel')
+          console.log('✅ Presence connected')
           isConnected.value = true
           error.value = null
           isConnecting = false
@@ -211,7 +200,6 @@ export const usePresence = () => {
               online: true
             })
             
-            console.log('✅ User presence tracked successfully')
             // Ensure we're marked as connected after successful tracking
             isConnected.value = true
           } catch (trackError) {
@@ -220,25 +208,24 @@ export const usePresence = () => {
             isConnecting = false
           }
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Presence channel error')
+          console.error('❌ Presence connection failed')
           error.value = 'Failed to connect to presence channel'
           isConnected.value = false
           isConnecting = false
           scheduleRetry()
         } else if (status === 'TIMED_OUT') {
-          console.error('❌ Presence channel timed out')
+          console.error('❌ Presence connection timed out')
           error.value = 'Presence channel connection timed out'
           isConnected.value = false
           isConnecting = false
           scheduleRetry()
         } else if (status === 'CLOSED') {
-          console.error('❌ Presence channel closed')
+          console.error('❌ Presence connection closed')
           error.value = 'Presence channel connection closed'
           isConnected.value = false
           isConnecting = false
           scheduleRetry()
         } else {
-          console.warn('⚠️ Unknown presence channel status:', status)
           isConnecting = false
         }
       })
@@ -246,7 +233,7 @@ export const usePresence = () => {
       // Set a timeout to detect if subscription is hanging
       connectionTimeout = setTimeout(() => {
         if (!isConnected.value && isConnecting) {
-          console.error('❌ Presence subscription timeout - not connected after 15 seconds')
+          console.error('❌ Presence connection timeout')
           error.value = 'Presence subscription timed out'
           isConnecting = false
           scheduleRetry()
@@ -279,8 +266,6 @@ export const usePresence = () => {
     retryCount++
     const delay = Math.min(5000 * Math.pow(2, retryCount - 1), 60000) // Exponential backoff, min 5s, max 60s
     
-    console.log(`🔄 Scheduling presence retry ${retryCount}/${maxRetries} in ${delay}ms...`)
-    
     retryTimeout = setTimeout(async () => {
       if (!isConnecting && !isConnected.value) {
         await startPresence()
@@ -290,8 +275,6 @@ export const usePresence = () => {
   
   // Stop presence tracking
   const stopPresence = () => {
-    console.log('🛑 Stopping presence tracking...')
-    
     if (retryTimeout) {
       clearTimeout(retryTimeout)
       retryTimeout = null
@@ -471,11 +454,9 @@ export const usePresence = () => {
       watch(user, async (newUser, oldUser) => {
         if (newUser && !oldUser) {
           // User just logged in
-          console.log('👤 User authenticated, starting presence...')
           await startPresence()
         } else if (!newUser && oldUser) {
           // User just logged out
-          console.log('👤 User logged out, stopping presence...')
           stopPresence()
         }
       }, { immediate: true })

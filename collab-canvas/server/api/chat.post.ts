@@ -46,7 +46,38 @@ export default defineEventHandler(async (event) => {
         height: 80,
         fill: color
       }
-    } else if (userMessage.toLowerCase().includes('circle')) {
+    } else if (userMessage.toLowerCase().includes('pigs around') || userMessage.toLowerCase().includes('around a star') || userMessage.toLowerCase().includes('in a circle')) {
+      // Handle circular arrangements like "5 pigs around a star"
+      const centerX = 400
+      const centerY = 300
+      const radius = 120
+      const numPigs = 5
+      
+      // Create star in center
+      const emojis = [
+        { emoji: '⭐', x: centerX, y: centerY, size: 60, layer: 1 } // Star in center
+      ]
+      
+      // Add pigs in a circle around the star
+      for (let i = 0; i < numPigs; i++) {
+        const angle = (i / numPigs) * 2 * Math.PI
+        const x = centerX + radius * Math.cos(angle)
+        const y = centerY + radius * Math.sin(angle)
+        emojis.push({
+          emoji: '🐷',
+          x: Math.round(x),
+          y: Math.round(y),
+          size: 40,
+          layer: 2
+        })
+      }
+      
+      command = {
+        action: 'create-emoji-story',
+        story: '5 pigs around a star in a circle',
+        emojis: emojis
+      }
+    } else if (userMessage.toLowerCase().includes('circle') && !userMessage.toLowerCase().includes('pigs') && !userMessage.toLowerCase().includes('around')) {
       // Determine color based on message content
       let color = '#0000ff' // default blue
       if (userMessage.toLowerCase().includes('pink')) color = '#ffc0cb'
@@ -81,7 +112,11 @@ export default defineEventHandler(async (event) => {
         layout: 'horizontal',
         spacing: 20
       }
-    } else if (userMessage.toLowerCase().includes('clear') || userMessage.toLowerCase().includes('delete all')) {
+    } else if (userMessage.toLowerCase().includes('clear') || 
+               userMessage.toLowerCase().includes('delete all') || 
+               userMessage.toLowerCase().includes('remove all') ||
+               userMessage.toLowerCase().includes('delete all emojis') ||
+               userMessage.toLowerCase().includes('delete all shapes')) {
       command = {
         action: 'clear-all'
       }
@@ -95,6 +130,73 @@ export default defineEventHandler(async (event) => {
           { emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 }, // Pig 1
           { emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 }, // Pig 2
           { emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 }, // Pig 3
+        ]
+      }
+    } else if (userMessage.toLowerCase().includes('in a triangle') || userMessage.toLowerCase().includes('triangle')) {
+      // Handle triangular arrangements
+      const centerX = 400
+      const centerY = 300
+      const radius = 100
+      const count = userMessage.match(/\d+/)?.[0] ? parseInt(userMessage.match(/\d+/)[0]) : 3
+      const emoji = userMessage.includes('heart') ? '❤️' : userMessage.includes('star') ? '⭐' : '🐷'
+      
+      const emojis = []
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI
+        const x = centerX + radius * Math.cos(angle)
+        const y = centerY + radius * Math.sin(angle)
+        emojis.push({
+          emoji: emoji,
+          x: Math.round(x),
+          y: Math.round(y),
+          size: 40,
+          layer: 2
+        })
+      }
+      
+      command = {
+        action: 'create-emoji-story',
+        story: `${count} ${emoji} in a triangle`,
+        emojis: emojis
+      }
+    } else if (userMessage.toLowerCase().includes('in a square') || userMessage.toLowerCase().includes('square')) {
+      // Handle square arrangements
+      const centerX = 400
+      const centerY = 300
+      const radius = 100
+      const count = Math.min(userMessage.match(/\d+/)?.[0] ? parseInt(userMessage.match(/\d+/)[0]) : 4, 4)
+      const emoji = userMessage.includes('heart') ? '❤️' : userMessage.includes('star') ? '⭐' : '🐷'
+      
+      const emojis = []
+      for (let i = 0; i < count; i++) {
+        let x, y
+        if (i === 0) { x = centerX - radius; y = centerY - radius }
+        else if (i === 1) { x = centerX + radius; y = centerY - radius }
+        else if (i === 2) { x = centerX + radius; y = centerY + radius }
+        else { x = centerX - radius; y = centerY + radius }
+        
+        emojis.push({
+          emoji: emoji,
+          x: x,
+          y: y,
+          size: 40,
+          layer: 2
+        })
+      }
+      
+      command = {
+        action: 'create-emoji-story',
+        story: `${count} ${emoji} in a square`,
+        emojis: emojis
+      }
+    } else if (userMessage.toLowerCase().includes('house with tree') || userMessage.toLowerCase().includes('house and tree')) {
+      // Specific pattern for house with tree
+      command = {
+        action: 'create-emoji-story',
+        story: 'A house with a tree next to it',
+        emojis: [
+          { emoji: '🏠', x: 300, y: 200, size: 60, layer: 1 }, // House
+          { emoji: '🌳', x: 400, y: 200, size: 50, layer: 2 }  // Tree next to house
         ]
       }
     } else if (userMessage.toLowerCase().includes('story') || userMessage.toLowerCase().includes('scene') || userMessage.toLowerCase().includes('characters')) {
@@ -175,6 +277,10 @@ export default defineEventHandler(async (event) => {
 
 IMPORTANT: When users ask for stories, characters, scenes, or visual content, ALWAYS use the createEmojiStory tool instead of individual createShape commands. This creates better visual compositions.
 
+For DELETE/CLEAR requests:
+- When users ask to "delete all", "clear all", "remove all", "delete all emojis", or "delete all shapes", use the clearAllShapes tool
+- NEVER create empty shapes or malformed commands for delete requests
+
 For story creation with createEmojiStory:
 - Use large emojis (size 60-80) for main elements like islands, houses, backgrounds
 - Use medium emojis (size 40-50) for characters and important objects  
@@ -182,13 +288,20 @@ For story creation with createEmojiStory:
 - Arrange emojis in layers (background elements on layer 1, characters on layer 2, details on layer 3+)
 - Position emojis to create meaningful compositions
 
+For geometric arrangements, use arrangeEmojisInShape:
+- "5 pigs around a star" → Use arrangeEmojisInShape with emoji: '🐷', count: 5, shape: 'circle', then add star in center
+- "3 hearts in a triangle" → Use arrangeEmojisInShape with emoji: '❤️', count: 3, shape: 'triangle'
+- "4 stars in a square" → Use arrangeEmojisInShape with emoji: '⭐', count: 4, shape: 'square'
+- "6 flowers in a circle" → Use arrangeEmojisInShape with emoji: '🌸', count: 6, shape: 'circle'
+
 Examples:
 - "Three little pigs on an island" → Use createEmojiStory with: large island emoji (🏝️) at center, 3 pig emojis (🐷) positioned on top
+- "5 pigs around a star" → Use arrangeEmojisInShape for pigs in circle, then add star in center
 - "A house with a tree" → Use createEmojiStory with: house emoji (🏠) and tree emoji (🌳) positioned side by side
 - "Ocean scene" → Use createEmojiStory with: wave emojis (🌊), fish emojis (🐟), and boat emoji (⛵)
-- "Robot typing on a computer" → Use createEmojiStory with: robot emoji (🤖) and computer emoji (💻) positioned together
+- "Delete all emojis and shapes" → Use clearAllShapes tool
 
-NEVER use individual createShape commands for stories. Always use createEmojiStory for visual storytelling.`
+NEVER use individual createShape commands for stories. Always use createEmojiStory or arrangeEmojisInShape for visual storytelling.`
       },
       ...messages
     ],
@@ -284,6 +397,118 @@ NEVER use individual createShape commands for stories. Always use createEmojiSto
             emojis
           })
         }
+      },
+      {
+        name: 'arrangeEmojisInShape',
+        description: 'Arrange multiple emojis in geometric patterns like circles, triangles, squares, etc. Use this when users want emojis arranged in specific shapes.',
+        parameters: {
+          type: 'object',
+          properties: {
+            emoji: { type: 'string', description: 'The emoji character to arrange' },
+            count: { type: 'number', description: 'Number of emojis to create' },
+            shape: { 
+              type: 'string', 
+              enum: ['circle', 'triangle', 'square', 'line', 'diamond', 'heart'],
+              description: 'Geometric shape to arrange emojis in'
+            },
+            centerX: { type: 'number', description: 'X coordinate of the center point', default: 400 },
+            centerY: { type: 'number', description: 'Y coordinate of the center point', default: 300 },
+            radius: { type: 'number', description: 'Radius or size of the shape', default: 120 },
+            size: { type: 'number', description: 'Size of each emoji', default: 40 },
+            layer: { type: 'number', description: 'Layer order', default: 2 }
+          },
+          required: ['emoji', 'count', 'shape']
+        },
+        function: async ({ emoji, count, shape, centerX = 400, centerY = 300, radius = 120, size = 40, layer = 2 }: Record<string, unknown>) => {
+          const emojis = []
+          
+          // Type assertions for the parameters
+          const emojiStr = emoji as string
+          const countNum = count as number
+          const shapeStr = shape as string
+          const centerXNum = centerX as number
+          const centerYNum = centerY as number
+          const radiusNum = radius as number
+          const sizeNum = size as number
+          const layerNum = layer as number
+          
+          for (let i = 0; i < countNum; i++) {
+            let x, y
+            
+            switch (shapeStr) {
+              case 'circle':
+                const angle = (i / countNum) * 2 * Math.PI
+                x = centerXNum + radiusNum * Math.cos(angle)
+                y = centerYNum + radiusNum * Math.sin(angle)
+                break
+                
+              case 'triangle':
+                const triAngle = (i / countNum) * 2 * Math.PI
+                x = centerXNum + radiusNum * Math.cos(triAngle)
+                y = centerYNum + radiusNum * Math.sin(triAngle)
+                break
+                
+              case 'square':
+                const side = Math.floor(i / 4)
+                const pos = i % 4
+                if (pos === 0) { x = centerXNum - radiusNum; y = centerYNum - radiusNum }
+                else if (pos === 1) { x = centerXNum + radiusNum; y = centerYNum - radiusNum }
+                else if (pos === 2) { x = centerXNum + radiusNum; y = centerYNum + radiusNum }
+                else { x = centerXNum - radiusNum; y = centerYNum + radiusNum }
+                break
+                
+              case 'line':
+                x = centerXNum + (i - Math.floor(countNum/2)) * (radiusNum / 2)
+                y = centerYNum
+                break
+                
+              case 'diamond':
+                const diamondAngle = (i / countNum) * 2 * Math.PI + Math.PI/4
+                x = centerXNum + radiusNum * Math.cos(diamondAngle)
+                y = centerYNum + radiusNum * Math.sin(diamondAngle)
+                break
+                
+              case 'heart':
+                // Heart shape approximation
+                const heartAngle = (i / countNum) * 2 * Math.PI
+                x = centerXNum + radiusNum * Math.cos(heartAngle) * 0.8
+                y = centerYNum + radiusNum * Math.sin(heartAngle) * 0.6 - Math.abs(Math.cos(heartAngle)) * radiusNum * 0.3
+                break
+                
+              default:
+                x = centerXNum + (i * 50)
+                y = centerYNum
+            }
+            
+            emojis.push({
+              emoji: emojiStr,
+              x: Math.round(x),
+              y: Math.round(y),
+              size: sizeNum,
+              layer: layerNum
+            })
+          }
+          
+          return JSON.stringify({
+            action: 'create-emoji-story',
+            story: `${countNum} ${emojiStr} arranged in a ${shapeStr}`,
+            emojis
+          })
+        }
+      },
+      {
+        name: 'clearAllShapes',
+        description: 'Clear all shapes and emojis from the canvas. Use this when users want to delete everything.',
+        parameters: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
+        function: async () => {
+          return JSON.stringify({
+            action: 'clear-all'
+          })
+        }
       }
     ]
   })
@@ -301,6 +526,24 @@ NEVER use individual createShape commands for stories. Always use createEmojiSto
         }
       } else if (toolCall.name === 'createEmojiStory') {
         const args = toolCall.arguments as Record<string, unknown>
+        console.log('🔍 createEmojiStory args:', JSON.stringify(args, null, 2))
+        let emojis = args.emojis
+        if (typeof emojis === 'string') {
+          try {
+            emojis = JSON.parse(emojis)
+          } catch (e) {
+            console.error('Failed to parse emojis JSON:', emojis)
+            emojis = []
+          }
+        }
+        console.log('🔍 Processed emojis:', emojis)
+        return {
+          action: 'create-emoji-story',
+          story: args.story,
+          emojis: emojis
+        }
+      } else if (toolCall.name === 'arrangeEmojisInShape') {
+        const args = toolCall.arguments as Record<string, unknown>
         let emojis = args.emojis
         if (typeof emojis === 'string') {
           try {
@@ -314,6 +557,10 @@ NEVER use individual createShape commands for stories. Always use createEmojiSto
           action: 'create-emoji-story',
           story: args.story,
           emojis: emojis
+        }
+      } else if (toolCall.name === 'clearAllShapes') {
+        return {
+          action: 'clear-all'
         }
       }
       // Add other tool types as needed

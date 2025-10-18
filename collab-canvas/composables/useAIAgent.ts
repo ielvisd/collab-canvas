@@ -47,7 +47,7 @@ export const useAIAgent = () => {
 
   // Extract commands from AI message content
   const extractCommandsFromMessage = (content: string): AICommand[] => {
-    console.log('🔍 Extracting commands from:', content)
+    // console.log('🔍 Extracting commands from:', content)
     
     // Ensure content is a string
     if (typeof content !== 'string') {
@@ -58,10 +58,32 @@ export const useAIAgent = () => {
     const commands: AICommand[] = []
     const seenCommands = new Set<string>() // Track seen commands to avoid duplicates
     
-    // Look for JSON command objects in the message (both "action" and "name" formats)
-    const jsonMatches = content.match(/\{[^}]*"(?:action|name)"[^}]*\}/g)
+    // Look for JSON command objects in the message using a more robust approach
+    // First try to find complete JSON objects by looking for balanced braces
+    const jsonMatches = []
+    let start = content.indexOf('{')
+    while (start !== -1) {
+      let braceCount = 0
+      let end = start
+      for (let i = start; i < content.length; i++) {
+        if (content[i] === '{') braceCount++
+        if (content[i] === '}') braceCount--
+        if (braceCount === 0) {
+          end = i
+          break
+        }
+      }
+      if (end > start) {
+        const jsonStr = content.substring(start, end + 1)
+        if (jsonStr.includes('"action"') || jsonStr.includes('"name"')) {
+          jsonMatches.push(jsonStr)
+        }
+      }
+      start = content.indexOf('{', end + 1)
+    }
+    
     console.log('🔍 JSON matches found:', jsonMatches)
-    if (jsonMatches) {
+    if (jsonMatches.length > 0) {
       jsonMatches.forEach(match => {
         try {
           const command = JSON.parse(match)
@@ -80,8 +102,8 @@ export const useAIAgent = () => {
               seenCommands.add(commandKey)
             }
           }
-        } catch {
-          console.warn('Failed to parse command JSON:', match)
+        } catch (e) {
+          console.warn('Failed to parse command JSON:', match, e)
         }
       })
     }
@@ -151,7 +173,7 @@ export const useAIAgent = () => {
       }
     }
     
-    console.log('🔍 Final commands:', commands)
+    // console.log('🔍 Final commands:', commands)
     return commands
   }
 
@@ -225,7 +247,16 @@ export const useAIAgent = () => {
     console.log('🔧 Raw command received in handleCreateShape:', JSON.stringify(command, null, 2))
     console.log('🎨 Creating shape with command:', { shapeType, x, y, width, height, radius, fill, stroke, emoji, emojiSize })
 
-    // Removed unused options variable
+    // Validate that we have meaningful values for shape creation
+    const isEmptyCommand = !shapeType || 
+      (x === 0 && y === 0 && width === 0 && height === 0 && radius === 0) ||
+      (shapeType === 'emoji' && (!emoji || emojiSize === 0)) ||
+      (shapeType === 'text' && !text)
+
+    if (isEmptyCommand) {
+      console.warn('⚠️ Skipping empty or malformed shape creation command:', command)
+      return false
+    }
 
     try {
       switch (shapeType) {
@@ -271,6 +302,12 @@ export const useAIAgent = () => {
         }
         
         case 'emoji': {
+          // Skip creating emoji if all values are empty/zero (likely a malformed command)
+          if (!emoji || emojiSize === 0 || (x === 0 && y === 0 && width === 0 && height === 0)) {
+            console.warn('⚠️ Skipping empty emoji shape creation - likely malformed command')
+            return false
+          }
+          
           // For emoji shapes, we need to use the emoji composable
           console.log('🎨 Creating emoji shape:', { emoji, x, y, size: emojiSize, layer })
           const { addEmoji } = useEmojis()
@@ -474,11 +511,17 @@ export const useAIAgent = () => {
   // Handle clear all shapes command
   const handleClearAll = async (_command: AICommand): Promise<boolean> => {
     try {
+      // Clear regular shapes
       await clearAllShapes()
-      console.log('✅ Cleared all shapes from canvas')
+      
+      // Also clear emojis
+      const { clearAllEmojis } = useEmojis()
+      await clearAllEmojis()
+      
+      console.log('✅ Cleared all shapes and emojis from canvas')
       return true
     } catch (err) {
-      console.error('❌ Failed to clear all shapes:', err)
+      console.error('❌ Failed to clear all shapes and emojis:', err)
       return false
     }
   }
@@ -510,12 +553,12 @@ export const useAIAgent = () => {
           rotation: emojiData.rotation || 0
         }
         
-        console.log('🎨 Adding emoji to story:', emoji)
+        // console.log('🎨 Adding emoji to story:', emoji)
         const result = await addEmoji(emoji)
-        console.log('🎨 Emoji add result:', result)
+        // console.log('🎨 Emoji add result:', result)
         
         // Add a small delay between emoji additions for better visual effect
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise(resolve => setTimeout(resolve, 50))
       }
       
       console.log(`✅ Emoji story "${story}" created successfully with ${emojis.length} emojis`)
@@ -561,10 +604,19 @@ export const useAIAgent = () => {
         assistantMessage = String(response.content) // Ensure it's a string
         
         // Check if we have structured commands from AI
+        console.log('🔍 Response structure:', Object.keys(response))
+        console.log('🔍 Commands in response:', response.commands)
+        console.log('🔍 Commands is array:', Array.isArray(response.commands))
+        console.log('🔍 Full response:', JSON.stringify(response, null, 2))
+        console.log('🔍 Full response:', JSON.stringify(response, null, 2))
+        
         if ('commands' in response && Array.isArray(response.commands)) {
+          console.log('🎯 Using structured commands from AI')
           commands = response.commands as AICommand[]
           console.log('🎯 Received structured commands from AI:', commands)
+          console.log('🔍 First command details:', JSON.stringify(commands[0], null, 2))
         } else {
+          console.log('🎯 Using fallback command extraction from message')
           // Extract commands from text response (fallback mode)
           commands = extractCommandsFromMessage(assistantMessage)
         }
@@ -578,8 +630,19 @@ export const useAIAgent = () => {
       })
       
       // Execute commands from the response
+      console.log('🔧 About to execute commands:', commands.length, 'commands')
       for (const command of commands) {
         console.log('🔧 Executing command:', JSON.stringify(command, null, 2))
+        console.log('🔧 Command keys:', Object.keys(command))
+        
+        // Skip malformed commands that might be causing issues
+        if (command.action === 'create-shape' && 
+            (!command.shapeType || 
+             (command.x === 0 && command.y === 0 && command.width === 0 && command.height === 0 && command.radius === 0))) {
+          console.warn('⚠️ Skipping malformed create-shape command:', command)
+          continue
+        }
+        
         await executeCommand(command)
       }
       

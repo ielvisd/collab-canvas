@@ -190,9 +190,7 @@ export const useRealtimeSync = (
       //   return
       // }
       
-      console.log('Starting real-time sync...')
-      console.log('Current user ID:', user.value?.id)
-      console.log('Canvas ID:', getCanvasId())
+      console.log('🔄 Starting real-time sync...')
       error.value = null
       
       const canvasId = getCanvasId()
@@ -209,9 +207,6 @@ export const useRealtimeSync = (
             filter: `canvas_id=eq.${canvasId}`
           },
           (payload) => {
-            console.log('Received INSERT event:', payload)
-            console.log('INSERT payload.new:', payload.new)
-            console.log('INSERT payload.old:', payload.old)
             handleShapeInsert(payload.new)
           }
         )
@@ -224,29 +219,17 @@ export const useRealtimeSync = (
             table: 'canvas_objects'
           },
           (payload) => {
-            console.log('📡 Received ANY event on canvas_objects:', payload)
-            console.log('📡 ANY event type:', payload.eventType)
-            console.log('📡 ANY event timestamp:', new Date().toISOString())
-            console.log('📡 ANY event canvas_id:', (payload.old as any)?.canvas_id || (payload.new as any)?.canvas_id)
-            console.log('📡 Expected canvas_id:', canvasId)
-            
             // If it's a DELETE event, also call the handler directly
             if (payload.eventType === 'DELETE') {
-              console.log('📡 Processing DELETE via ANY event handler')
               const shapeId = payload.old?.id
               const shapeUserId = payload.old?.user_id
               if (shapeId) {
-                console.log('📡 Calling handleShapeDelete via ANY event:', shapeId, shapeUserId)
                 handleShapeDelete(shapeId, shapeUserId)
               }
             }
             // If it's an UPDATE event, also call the handler directly
             else if (payload.eventType === 'UPDATE') {
-              console.log('📡 Processing UPDATE via ANY event handler')
-              console.log('📡 UPDATE via ANY - payload.new:', payload.new)
-              console.log('📡 UPDATE via ANY - payload.old:', payload.old)
               if (payload.new) {
-                console.log('📡 Calling handleShapeUpdate via ANY event:', payload.new.id)
                 handleShapeUpdate(payload.new)
               }
             }
@@ -261,14 +244,6 @@ export const useRealtimeSync = (
             filter: `canvas_id=eq.${canvasId}`
           },
           (payload) => {
-            console.log('🔄 Received UPDATE event (filtered):', payload)
-            console.log('🔄 UPDATE payload.new:', payload.new)
-            console.log('🔄 UPDATE payload.old:', payload.old)
-            console.log('🔄 UPDATE payload.new.user_id:', payload.new?.user_id)
-            console.log('🔄 UPDATE payload.old.user_id:', payload.old?.user_id)
-            console.log('🔄 UPDATE event timestamp:', new Date().toISOString())
-            console.log('🔄 Canvas ID filter:', canvasId)
-            console.log('🔄 Payload canvas_id:', payload.new?.canvas_id)
             handleShapeUpdate(payload.new)
           }
         )
@@ -281,41 +256,26 @@ export const useRealtimeSync = (
             filter: `canvas_id=eq.${canvasId}`
           },
           (payload) => {
-            console.log('🗑️ Received DELETE event (filtered):', payload)
-            console.log('🗑️ DELETE payload.old:', payload.old)
-            console.log('🗑️ DELETE payload.new:', payload.new)
-            console.log('🗑️ DELETE event timestamp:', new Date().toISOString())
-            console.log('🗑️ Canvas ID filter:', canvasId)
-            console.log('🗑️ Payload canvas_id:', payload.old?.canvas_id)
-            
             const shapeId = payload.old?.id
             const shapeUserId = payload.old?.user_id
-            console.log('🗑️ Extracted shapeId:', shapeId, 'shapeUserId:', shapeUserId)
             
             if (shapeId) {
-              console.log('🗑️ Calling handleShapeDelete with:', shapeId, shapeUserId)
               handleShapeDelete(shapeId, shapeUserId)
-            } else {
-              console.error('🗑️ No shape ID found in DELETE payload:', payload)
             }
           }
         )
         .subscribe((status) => {
-          console.log('Subscription status:', status)
-          console.log('Canvas ID for subscription:', canvasId)
-          console.log('Current user ID:', user.value?.id)
-          console.log('Subscription timestamp:', new Date().toISOString())
           isConnected.value = status === 'SUBSCRIBED'
           if (status === 'CHANNEL_ERROR') {
             error.value = 'Failed to connect to real-time updates'
-            console.error('Channel error - check RLS policies and Realtime configuration')
+            console.error('❌ Real-time sync connection failed')
           } else if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to real-time updates for canvas:', canvasId)
+            console.log('✅ Real-time sync connected')
           } else if (status === 'TIMED_OUT') {
-            console.error('Subscription timed out')
+            console.error('❌ Real-time sync timed out')
             error.value = 'Real-time subscription timed out'
           } else if (status === 'CLOSED') {
-            console.error('Subscription closed')
+            console.error('❌ Real-time sync closed')
             error.value = 'Real-time subscription closed'
           }
         })
@@ -331,7 +291,6 @@ export const useRealtimeSync = (
   
   // Stop real-time sync
   const stopSync = () => {
-    console.log('Stopping real-time sync...')
     const channel = (window as any).__realtimeChannel
     if (channel) {
       $supabase.removeChannel(channel)
@@ -349,10 +308,10 @@ export const useRealtimeSync = (
     }, 5000)
   }
   
-  // Cleanup on unmount
-  onUnmounted(() => {
+  // Cleanup function - call this from component onUnmounted
+  const cleanup = () => {
     stopSync()
-  })
+  }
   
   return {
     // State
@@ -366,6 +325,7 @@ export const useRealtimeSync = (
     handleShapeInsert,
     handleShapeUpdate,
     handleShapeDelete,
-    markOurChange
+    markOurChange,
+    cleanup
   }
 }

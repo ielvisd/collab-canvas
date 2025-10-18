@@ -77,26 +77,26 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Convert emoji to database format
   const emojiToDbFormat = (emoji: Emoji) => {
     return {
-      type: 'text' as const,
-      data: {
-        x: emoji.x,
-        y: emoji.y,
-        text: emoji.emoji,
-        fontSize: emoji.size,
-        fill: 'black',
-        stroke: 'transparent',
-        rotation: emoji.rotation || 0,
-        emoji: emoji.emoji,
-        emojiSize: emoji.size,
-        layer: emoji.layer || 1
-      }
+      type: 'emoji' as const,
+      x: emoji.x,
+      y: emoji.y,
+      emoji: emoji.emoji,
+      size: emoji.size,
+      layer: emoji.layer || 1,
+      rotation: emoji.rotation || 0,
+      fill: 'black',
+      stroke: 'transparent'
     }
   }
 
   // Convert database shape to emoji
   const dbShapeToEmoji = (dbShape: any): Emoji | null => {
     try {
-      if (dbShape.type === 'text' && dbShape.data.emoji) {
+      console.log('🔍 Checking shape for emoji conversion:', dbShape)
+      
+      // Check if this is an emoji shape (new format with type: 'text' and emoji in data)
+      if (dbShape.type === 'text' && dbShape.data && dbShape.data.emoji) {
+        console.log('✅ Found emoji shape (new format):', dbShape.data.emoji)
         return {
           id: dbShape.id,
           emoji: dbShape.data.emoji,
@@ -110,6 +110,28 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
           updated_at: dbShape.updated_at
         }
       }
+      
+      // Check if this is an emoji shape (legacy format with type: 'text' and emoji in data)
+      if (dbShape.type === 'text' && dbShape.data && dbShape.data.text) {
+        const text = dbShape.data.text
+        // Check if the text is a single emoji character
+        if (text.length === 1 && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(text)) {
+          console.log('✅ Found emoji in text field (legacy):', text)
+          return {
+            id: dbShape.id,
+            emoji: text,
+            x: dbShape.data.x ?? 0,
+            y: dbShape.data.y ?? 0,
+            size: dbShape.data.fontSize ?? 32,
+            layer: dbShape.data.layer ?? 1,
+            rotation: dbShape.data.rotation ?? 0,
+            user_id: dbShape.user_id,
+            created_at: dbShape.created_at,
+            updated_at: dbShape.updated_at
+          }
+        }
+      }
+      
       return null
     } catch (err) {
       console.error('Error converting database shape to emoji:', err)
@@ -145,11 +167,18 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Update emoji
   const updateEmoji = async (id: string, updates: Partial<Emoji>): Promise<boolean> => {
     try {
+      console.log('🔄 updateEmoji called with:', { id, updates })
       const emojiIndex = emojis.value.findIndex(e => e.id === id)
-      if (emojiIndex === -1) return false
+      if (emojiIndex === -1) {
+        console.log('❌ Emoji not found for update:', id)
+        return false
+      }
 
       const currentEmoji = emojis.value[emojiIndex]
-      if (!currentEmoji) return false
+      if (!currentEmoji) {
+        console.log('❌ Current emoji is null')
+        return false
+      }
       
       const updatedEmoji: Emoji = { 
         ...currentEmoji, 
@@ -164,13 +193,16 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
         updated_at: new Date().toISOString() 
       }
       
+      console.log('🔄 Updated emoji object:', updatedEmoji)
+      
       // Update in database
       const success = await updateShapeInDb(id, emojiToDbFormat(updatedEmoji))
       if (success) {
         emojis.value[emojiIndex] = updatedEmoji
-        console.log('✅ Emoji updated:', updatedEmoji)
+        console.log('✅ Emoji updated in local state:', updatedEmoji)
         return true
       }
+      console.log('❌ Failed to update emoji in database')
       return false
     } catch (err) {
       console.error('Error updating emoji:', err)

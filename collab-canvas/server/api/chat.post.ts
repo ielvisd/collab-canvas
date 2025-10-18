@@ -1,9 +1,4 @@
-import { streamText } from 'ai'
-import { createWorkersAI } from 'workers-ai-provider'
-import { z } from 'zod'
-
-// Type declaration for hubAI() server composable
-declare function hubAI(): any
+// Removed unused imports - using hubAI() directly
 
 export default defineEventHandler(async (event) => {
   const { messages } = await readBody(event)
@@ -13,11 +8,14 @@ export default defineEventHandler(async (event) => {
   try {
     // Try to use hubAI() - if this fails, we're in fallback mode
     const ai = hubAI()
+    if (!ai) {
+      throw new Error('hubAI() returned undefined')
+    }
     isFallbackMode = false
   } catch (error) {
     // Only log in development
     if (process.env.NODE_ENV === 'development') {
-      console.warn('hubAI not available, using fallback. Run "npx nuxthub link" to enable real AI.')
+      console.warn('hubAI not available, using fallback. Run "npx nuxthub link" to enable real AI.', error)
     }
     isFallbackMode = true
   }
@@ -99,6 +97,50 @@ export default defineEventHandler(async (event) => {
           { emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 }, // Pig 3
         ]
       }
+    } else if (userMessage.toLowerCase().includes('story') || userMessage.toLowerCase().includes('scene') || userMessage.toLowerCase().includes('characters')) {
+      // Generic emoji story creation for any story request
+      const storyKeywords = userMessage.toLowerCase()
+      let emojis = []
+      
+      if (storyKeywords.includes('island') || storyKeywords.includes('beach')) {
+        emojis.push({ emoji: '🏝️', x: 300, y: 200, size: 80, layer: 1 })
+        if (storyKeywords.includes('pig') || storyKeywords.includes('pigs')) {
+          emojis.push({ emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 })
+          emojis.push({ emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 })
+          emojis.push({ emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 })
+        }
+      } else if (storyKeywords.includes('house') || storyKeywords.includes('home')) {
+        emojis.push({ emoji: '🏠', x: 300, y: 200, size: 60, layer: 1 })
+        if (storyKeywords.includes('tree')) {
+          emojis.push({ emoji: '🌳', x: 400, y: 200, size: 50, layer: 2 })
+        }
+      } else if (storyKeywords.includes('ocean') || storyKeywords.includes('sea')) {
+        emojis.push({ emoji: '🌊', x: 300, y: 200, size: 60, layer: 1 })
+        if (storyKeywords.includes('fish')) {
+          emojis.push({ emoji: '🐟', x: 280, y: 180, size: 30, layer: 2 })
+          emojis.push({ emoji: '🐠', x: 320, y: 190, size: 30, layer: 2 })
+        }
+      } else if (storyKeywords.includes('space') || storyKeywords.includes('rocket')) {
+        emojis.push({ emoji: '🚀', x: 300, y: 200, size: 60, layer: 1 })
+        emojis.push({ emoji: '🌍', x: 400, y: 150, size: 40, layer: 2 })
+        emojis.push({ emoji: '⭐', x: 200, y: 100, size: 20, layer: 3 })
+        emojis.push({ emoji: '⭐', x: 450, y: 120, size: 20, layer: 3 })
+      } else {
+        // Default story with some generic elements
+        emojis = [
+          { emoji: '🎭', x: 300, y: 200, size: 60, layer: 1 },
+          { emoji: '✨', x: 280, y: 180, size: 30, layer: 2 },
+          { emoji: '✨', x: 320, y: 180, size: 30, layer: 2 }
+        ]
+      }
+      
+      if (emojis.length > 0) {
+        command = {
+          action: 'create-emoji-story',
+          story: userMessage,
+          emojis: emojis
+        }
+      }
     } else if (userMessage.toLowerCase().includes('emoji') || userMessage.toLowerCase().includes('smile')) {
       command = {
         action: 'create-shape',
@@ -121,34 +163,76 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Real AI mode - use hubAI()
-  const workersAI = createWorkersAI({ binding: hubAI() })
+  // Real AI mode - use hubAI() directly
+  const ai = hubAI()
+  
+  // Use hubAI().run() directly as per NuxtHub documentation
+  const response = await ai.run('@cf/meta/llama-3.1-8b-instruct' as any, {
+    messages: [
+      {
+        role: 'system',
+        content: `You are an AI assistant that helps create visual stories on a collaborative canvas. 
 
-  return streamText({
-    model: workersAI('@cf/meta/llama-3.1-8b-instruct'),
-    messages,
-    tools: {
-      createShape: {
-        description: 'Create a new shape on the canvas',
-        inputSchema: z.object({
-          shapeType: z.enum(['rectangle', 'circle', 'text', 'emoji', 'pen']),
-          x: z.number().describe('X position of the shape'),
-          y: z.number().describe('Y position of the shape'),
-          width: z.number().optional().describe('Width of the shape (for rectangles)'),
-          height: z.number().optional().describe('Height of the shape (for rectangles)'),
-          radius: z.number().optional().describe('Radius of the shape (for circles)'),
-          text: z.string().optional().describe('Text content (for text shapes)'),
-          fontSize: z.number().optional().describe('Font size (for text shapes)'),
-          fill: z.string().optional().describe('Fill color of the shape'),
-          stroke: z.string().optional().describe('Stroke color of the shape'),
-          emoji: z.string().optional().describe('Emoji character (for emoji shapes)'),
-          emojiSize: z.number().optional().describe('Size of the emoji'),
-          layer: z.number().optional().describe('Layer order (higher numbers appear on top)'),
-          penPath: z.string().optional().describe('SVG path for pen strokes'),
-          penColor: z.string().optional().describe('Color of pen strokes'),
-          penWidth: z.number().optional().describe('Width of pen strokes')
-        }),
-        execute: async ({ shapeType, x, y, width, height, radius, text, fontSize, fill, stroke, emoji, emojiSize, layer, penPath, penColor, penWidth }) => {
+IMPORTANT: When users ask for stories, characters, scenes, or visual content, ALWAYS use the createEmojiStory tool instead of individual createShape commands. This creates better visual compositions.
+
+For story creation with createEmojiStory:
+- Use large emojis (size 60-80) for main elements like islands, houses, backgrounds
+- Use medium emojis (size 40-50) for characters and important objects  
+- Use small emojis (size 20-30) for details and decorations
+- Arrange emojis in layers (background elements on layer 1, characters on layer 2, details on layer 3+)
+- Position emojis to create meaningful compositions
+
+Examples:
+- "Three little pigs on an island" → Use createEmojiStory with: large island emoji (🏝️) at center, 3 pig emojis (🐷) positioned on top
+- "A house with a tree" → Use createEmojiStory with: house emoji (🏠) and tree emoji (🌳) positioned side by side
+- "Ocean scene" → Use createEmojiStory with: wave emojis (🌊), fish emojis (🐟), and boat emoji (⛵)
+
+NEVER use individual createShape commands for stories. Always use createEmojiStory for visual storytelling.`
+      },
+      ...messages
+    ],
+    tools: [
+      {
+        name: 'createShape',
+        description: 'Create a new shape on the canvas. For stories and visual content, ALWAYS prefer emoji shapes over text shapes.',
+        parameters: {
+          type: 'object',
+          properties: {
+            shapeType: {
+              type: 'string',
+              enum: ['rectangle', 'circle', 'text', 'emoji', 'pen'],
+              description: 'Type of shape to create. Use "emoji" for visual stories and characters.'
+            },
+            x: { type: 'number', description: 'X position of the shape' },
+            y: { type: 'number', description: 'Y position of the shape' },
+            width: { type: 'number', description: 'Width of the shape (for rectangles)' },
+            height: { type: 'number', description: 'Height of the shape (for rectangles)' },
+            radius: { type: 'number', description: 'Radius of the shape (for circles)' },
+            text: { type: 'string', description: 'Text content (for text shapes) - avoid for stories' },
+            fontSize: { type: 'number', description: 'Font size (for text shapes)' },
+            fill: { type: 'string', description: 'Fill color of the shape' },
+            stroke: { type: 'string', description: 'Stroke color of the shape' },
+            emoji: { type: 'string', description: 'Emoji character (for emoji shapes) - use for stories' },
+            emojiSize: { type: 'number', description: 'Size of the emoji (60-80 for backgrounds, 40-50 for characters, 20-30 for details)' },
+            layer: { type: 'number', description: 'Layer order (1 for backgrounds, 2 for characters, 3+ for details)' }
+          },
+          required: ['shapeType', 'x', 'y']
+        },
+        function: async ({ shapeType, x, y, width, height, radius, text, fontSize, fill, stroke, emoji, emojiSize, layer }: {
+          shapeType: string;
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          radius?: number;
+          text?: string;
+          fontSize?: number;
+          fill?: string;
+          stroke?: string;
+          emoji?: string;
+          emojiSize?: number;
+          layer?: number;
+        }) => {
           return JSON.stringify({
             action: 'create-shape',
             shapeType,
@@ -163,108 +247,91 @@ export default defineEventHandler(async (event) => {
             stroke,
             emoji,
             emojiSize,
-            layer,
-            penPath,
-            penColor,
-            penWidth
+            layer
           })
         }
       },
-      createEmojiStory: {
-        description: 'Create a story using emojis with proper layering and positioning',
-        inputSchema: z.object({
-          story: z.string().describe('The story to tell with emojis'),
-          emojis: z.array(z.object({
-            emoji: z.string().describe('The emoji character'),
-            x: z.number().describe('X position'),
-            y: z.number().describe('Y position'),
-            size: z.number().describe('Size of the emoji'),
-            layer: z.number().describe('Layer order (higher numbers appear on top)'),
-            rotation: z.number().optional().describe('Rotation in degrees')
-          })).describe('Array of emojis to place on the canvas')
-        }),
-        execute: async ({ story, emojis }) => {
+      {
+        name: 'createEmojiStory',
+        description: 'Create a complete emoji story with multiple emojis arranged to tell a visual story. Use this for story requests.',
+        parameters: {
+          type: 'object',
+          properties: {
+            story: { type: 'string', description: 'Description of the story being created' },
+            emojis: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  emoji: { type: 'string', description: 'Emoji character' },
+                  x: { type: 'number', description: 'X position' },
+                  y: { type: 'number', description: 'Y position' },
+                  size: { type: 'number', description: 'Size of emoji (60-80 for backgrounds, 40-50 for characters)' },
+                  layer: { type: 'number', description: 'Layer order (1 for backgrounds, 2 for characters)' }
+                },
+                required: ['emoji', 'x', 'y']
+              },
+              description: 'Array of emojis to create for the story'
+            }
+          },
+          required: ['story', 'emojis']
+        },
+        function: async ({ story, emojis }: Record<string, unknown>) => {
           return JSON.stringify({
             action: 'create-emoji-story',
             story,
             emojis
           })
         }
-      },
-      moveShape: {
-        description: 'Move a shape to a new position',
-        inputSchema: z.object({
-          shapeId: z.string().describe('ID of the shape to move'),
-          x: z.number().describe('New X position'),
-          y: z.number().describe('New Y position')
-        }),
-        execute: async ({ shapeId, x, y }) => {
-          return JSON.stringify({
-            action: 'move-shape',
-            shapeId,
-            x,
-            y
-          })
+      }
+    ]
+  })
+
+  // Handle the response structure from hubAI()
+  if (response && typeof response === 'object' && 'tool_calls' in response) {
+    // Extract tool calls and convert to our command format
+    const toolCalls = response.tool_calls || []
+    const commands = toolCalls.map((toolCall: Record<string, unknown>) => {
+      console.log('🔧 Processing tool call:', toolCall.name, 'with args:', toolCall.arguments)
+      if (toolCall.name === 'createShape') {
+        return {
+          action: 'create-shape',
+          ...(toolCall.arguments as Record<string, unknown>)
         }
-      },
-      resizeShape: {
-        description: 'Resize a shape',
-        inputSchema: z.object({
-          shapeId: z.string().describe('ID of the shape to resize'),
-          width: z.number().optional().describe('New width (for rectangles)'),
-          height: z.number().optional().describe('New height (for rectangles)'),
-          radius: z.number().optional().describe('New radius (for circles)')
-        }),
-        execute: async ({ shapeId, width, height, radius }) => {
-          return JSON.stringify({
-            action: 'resize-shape',
-            shapeId,
-            width,
-            height,
-            radius
-          })
+      } else if (toolCall.name === 'createEmojiStory') {
+        const args = toolCall.arguments as Record<string, unknown>
+        let emojis = args.emojis
+        if (typeof emojis === 'string') {
+          try {
+            emojis = JSON.parse(emojis)
+          } catch (e) {
+            console.error('Failed to parse emojis JSON:', emojis)
+            emojis = []
+          }
         }
-      },
-      deleteShape: {
-        description: 'Delete a shape from the canvas',
-        inputSchema: z.object({
-          shapeId: z.string().describe('ID of the shape to delete')
-        }),
-        execute: async ({ shapeId }) => {
-          return JSON.stringify({
-            action: 'delete-shape',
-            shapeId
-          })
-        }
-      },
-      getShapes: {
-        description: 'Get information about all shapes on the canvas',
-        inputSchema: z.object({
-          shapeType: z.enum(['rectangle', 'circle', 'text', 'all']).optional().describe('Type of shapes to get information about')
-        }),
-        execute: async ({ shapeType = 'all' }) => {
-          return JSON.stringify({
-            action: 'get-shapes',
-            shapeType
-          })
-        }
-      },
-      arrangeShapes: {
-        description: 'Arrange multiple shapes in a specific layout',
-        inputSchema: z.object({
-          shapeIds: z.array(z.string()).describe('Array of shape IDs to arrange'),
-          layout: z.enum(['horizontal', 'vertical', 'grid', 'circle']).describe('Layout type for arrangement'),
-          spacing: z.number().optional().describe('Spacing between shapes')
-        }),
-        execute: async ({ shapeIds, layout, spacing = 20 }) => {
-          return JSON.stringify({
-            action: 'arrange-shapes',
-            shapeIds,
-            layout,
-            spacing
-          })
+        return {
+          action: 'create-emoji-story',
+          story: args.story,
+          emojis: emojis
         }
       }
+      // Add other tool types as needed
+      return {
+        action: toolCall.name as string,
+        ...(toolCall.arguments as Record<string, unknown>)
+      }
+    })
+
+    return {
+      content: `AI Response: ${response.response || 'Command executed'}`,
+      commands: commands
     }
-  }).toTextStreamResponse()
+  }
+
+  return {
+    content: response
+  }
 })
+
+
+

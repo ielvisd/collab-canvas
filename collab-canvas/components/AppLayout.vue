@@ -1,32 +1,21 @@
 <template>
   <div class="min-h-screen bg-black flex flex-col">
-    <!-- Header -->
-    <UHeader data-testid="app-header" class="flex-shrink-0" :toggle="false">
-      <template #left>
-        <div class="flex items-center space-x-2 sm:space-x-4">
-          <NuxtLink to="/canvas" class="text-lg sm:text-xl font-bold text-blue-500 hover:text-blue-400 font-display">
-            <span class="hidden sm:inline">EmojiKai</span>
-            <span class="sm:hidden">EK</span>
-          </NuxtLink>
-        </div>
-      </template>
-      
-      <template #right>
-        <div class="flex items-center space-x-1 sm:space-x-2">
-          <!-- User menu -->
-          <UDropdownMenu :items="userMenuItems" :ui="{ content: 'z-[9999] min-w-48' }">
-            <UButton variant="ghost" size="sm" class="p-1 sm:p-2">
-              <UAvatar
-                :src="userAvatarUrl"
-                :alt="userDisplayName"
-                size="sm"
-                class="cursor-pointer"
-              />
-            </UButton>
-          </UDropdownMenu>
-        </div>
-      </template>
-    </UHeader>
+    <!-- Minimal Header with just user menu -->
+    <div class="flex-shrink-0 bg-black/90 backdrop-blur-sm border-b-2 border-pink-500 p-2">
+      <div class="flex items-center justify-end">
+        <!-- User menu -->
+        <UDropdownMenu :items="userMenuItems" :ui="{ content: 'z-[9999] min-w-48' }">
+          <UButton variant="ghost" size="sm" class="p-1 sm:p-2 text-pink-300 hover:text-white">
+            <UAvatar
+              :src="userAvatarUrl"
+              :alt="userDisplayName"
+              size="sm"
+              class="cursor-pointer"
+            />
+          </UButton>
+        </UDropdownMenu>
+      </div>
+    </div>
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col overflow-hidden">
@@ -34,13 +23,11 @@
     </main>
 
     <!-- Footer - Hidden on mobile -->
-    <UFooter class="hidden sm:block flex-shrink-0">
-      <template #left>
-        <p class="text-sm text-white">
-          Built with Nuxt 4, Supabase, and Konva.js
-        </p>
-      </template>
-    </UFooter>
+    <div class="hidden sm:block flex-shrink-0 bg-black/90 backdrop-blur-sm border-t-2 border-pink-500 p-4">
+      <p class="text-sm text-pink-300">
+        Built with Nuxt 4, Supabase, and Konva.js
+      </p>
+    </div>
   </div>
 </template>
 

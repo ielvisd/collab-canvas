@@ -10,9 +10,15 @@ export default defineNuxtConfig({
     '@nuxt/test-utils',
     '@nuxt/ui',
     'nuxt-mcp',
+    '@nuxthub/core',
   ],
 
   css: ['~/assets/css/main.css'],
+
+  // NuxtHub configuration
+  hub: {
+    ai: true
+  },
 
   experimental: {
     componentIslands: {
@@ -23,7 +29,10 @@ export default defineNuxtConfig({
   // Performance optimizations
   nitro: {
     compressPublicAssets: true,
-    minify: true
+    minify: true,
+    experimental: {
+      openAPI: true
+    }
   },
 
   // Route rules for better performance

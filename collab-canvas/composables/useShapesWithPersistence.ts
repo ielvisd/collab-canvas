@@ -434,6 +434,12 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
           circles.value.push(circle)
           console.log('Added circle:', circle)
         } else if (dbShape.type === 'text') {
+          // Skip emoji shapes - they're handled by useEmojis composable
+          if (dbShape.data && dbShape.data.emoji) {
+            console.log('Skipping emoji shape (handled by useEmojis):', dbShape.data.emoji)
+            return
+          }
+          
           const text: Text = {
             id: dbShape.id,
             type: 'text',
@@ -449,6 +455,10 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
           }
           texts.value.push(text)
           console.log('Added text:', text)
+        } else if (dbShape.type === 'emoji') {
+          // Skip emoji shapes - they're handled by useEmojis composable
+          console.log('Skipping emoji shape (handled by useEmojis):', dbShape.data?.emoji || 'emoji')
+          return
         } else {
           console.warn('Unknown shape type:', dbShape.type)
         }

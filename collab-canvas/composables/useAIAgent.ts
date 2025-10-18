@@ -1,9 +1,10 @@
-import { ref, computed, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useShapesWithPersistence } from './useShapesWithPersistence'
+import { useEmojis } from './useEmojis'
 
 export interface AICommand {
   action: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface AIAgentState {
@@ -22,7 +23,7 @@ export interface AIAgentActions {
 
 export const useAIAgent = () => {
   // Custom chat implementation since @ai-sdk/vue useChat has import issues
-  const messages = ref<any[]>([])
+  const messages = ref<Array<{ id: string; role: string; content: string }>>([])
   const input = ref('')
   const isLoading = ref(false)
   const isProcessing = ref(false)
@@ -41,8 +42,7 @@ export const useAIAgent = () => {
     updateShape,
     deleteShape,
     clearAllShapes,
-    getShapeById,
-    getShapeByType
+    getShapeById
   } = useShapesWithPersistence()
 
   // Extract commands from AI message content
@@ -51,14 +51,21 @@ export const useAIAgent = () => {
     const commands: AICommand[] = []
     const seenCommands = new Set<string>() // Track seen commands to avoid duplicates
     
-    // Look for JSON command objects in the message
-    const jsonMatches = content.match(/\{[^}]*"action"[^}]*\}/g)
+    // Look for JSON command objects in the message (both "action" and "name" formats)
+    const jsonMatches = content.match(/\{[^}]*"(?:action|name)"[^}]*\}/g)
     console.log('🔍 JSON matches found:', jsonMatches)
     if (jsonMatches) {
       jsonMatches.forEach(match => {
         try {
           const command = JSON.parse(match)
-          if (command.action) {
+          // Handle both "action" and "name" formats
+          const action = command.action || command.name
+          if (action) {
+            // Convert "name" format to "action" format
+            if (command.name) {
+              command.action = command.name
+              delete command.name
+            }
             const commandKey = JSON.stringify(command)
             if (!seenCommands.has(commandKey)) {
               console.log('✅ Parsed command:', command)
@@ -66,8 +73,34 @@ export const useAIAgent = () => {
               seenCommands.add(commandKey)
             }
           }
-        } catch (e) {
+        } catch {
           console.warn('Failed to parse command JSON:', match)
+        }
+      })
+    }
+    
+    // Also handle semicolon-separated commands
+    if (content.includes(';')) {
+      console.log('🔍 Looking for semicolon-separated commands')
+      const semicolonCommands = content.split(';').map(s => s.trim()).filter(s => s.startsWith('{'))
+      semicolonCommands.forEach(match => {
+        try {
+          const command = JSON.parse(match)
+          const action = command.action || command.name
+          if (action) {
+            if (command.name) {
+              command.action = command.name
+              delete command.name
+            }
+            const commandKey = JSON.stringify(command)
+            if (!seenCommands.has(commandKey)) {
+              console.log('✅ Parsed semicolon command:', command)
+              commands.push(command)
+              seenCommands.add(commandKey)
+            }
+          }
+        } catch {
+          console.warn('Failed to parse semicolon command JSON:', match)
         }
       })
     }
@@ -104,7 +137,7 @@ export const useAIAgent = () => {
                 seenCommands.add(commandKey)
               }
             }
-          } catch (e) {
+          } catch {
             console.warn('Failed to parse fallback command JSON:', jsonString)
           }
         }
@@ -123,6 +156,8 @@ export const useAIAgent = () => {
       error.value = null
 
       console.log('🤖 Executing AI command:', command)
+      console.log('🔍 Command action:', command.action)
+      console.log('🔍 Command keys:', Object.keys(command))
 
       switch (command.action) {
         case 'create-shape':
@@ -146,6 +181,9 @@ export const useAIAgent = () => {
         case 'clear-all':
           return await handleClearAll(command)
         
+        case 'create-emoji-story':
+          return await handleCreateEmojiStory(command)
+        
         default:
           console.warn('Unknown command action:', command.action)
           return false
@@ -161,23 +199,33 @@ export const useAIAgent = () => {
 
   // Handle shape creation
   const handleCreateShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeType, x, y, width, height, radius, text, fontSize, fill, stroke } = command
-    
-    console.log('🎨 Creating shape with command:', { shapeType, x, y, width, height, radius, fill, stroke })
-
-    const options = {
-      x: x || 100,
-      y: y || 100,
-      fill: fill || '#FF6B6B',
-      stroke: stroke || '#000'
+    const { shapeType, x, y, width, height, radius, text, fontSize, fill, stroke, emoji, emojiSize, layer } = command as unknown as {
+      shapeType: string;
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+      radius?: number;
+      text?: string;
+      fontSize?: number;
+      fill?: string;
+      stroke?: string;
+      emoji?: string;
+      emojiSize?: number;
+      layer?: number;
     }
+    
+    console.log('🔧 Raw command received in handleCreateShape:', JSON.stringify(command, null, 2))
+    console.log('🎨 Creating shape with command:', { shapeType, x, y, width, height, radius, fill, stroke, emoji, emojiSize })
+
+    // Removed unused options variable
 
     try {
       switch (shapeType) {
-        case 'rectangle':
+        case 'rectangle': {
           const rectParams = {
-            x: x || 100,
-            y: y || 100,
+            x: x !== undefined ? x : 100,
+            y: y !== undefined ? y : 100,
             width: width || 100,
             height: height || 60,
             fill: fill || '#ff0000',
@@ -188,11 +236,12 @@ export const useAIAgent = () => {
           console.log('🔍 Current rectangles array after creation:', rectangles.value.length)
           console.log('🔍 Rectangles data:', rectangles.value.map(r => ({ id: r.id, x: r.x, y: r.y, fill: r.fill })))
           break
+        }
         
-        case 'circle':
+        case 'circle': {
           await addCircle({
-            x: x || 100,
-            y: y || 100,
+            x: x !== undefined ? x : 100,
+            y: y !== undefined ? y : 100,
             radius: radius || 50,
             fill: fill || '#0000ff',
             stroke: stroke || '#000'
@@ -200,17 +249,35 @@ export const useAIAgent = () => {
           console.log('🔍 Current circles array after creation:', circles.value.length)
           console.log('🔍 Circles data:', circles.value.map(c => ({ id: c.id, x: c.x, y: c.y, fill: c.fill })))
           break
+        }
         
-        case 'text':
+        case 'text': {
           await addText({
-            x: x || 100,
-            y: y || 100,
+            x: x !== undefined ? x : 100,
+            y: y !== undefined ? y : 100,
             text: text || 'AI Generated Text',
             fontSize: fontSize || 24,
             fill: fill || 'black',
             stroke: stroke || '#000'
           })
           break
+        }
+        
+        case 'emoji': {
+          // For emoji shapes, we need to use the emoji composable
+          console.log('🎨 Creating emoji shape:', { emoji, x, y, size: emojiSize, layer })
+          const { addEmoji } = useEmojis()
+          await addEmoji({
+            x: x !== undefined ? x : 100,
+            y: y !== undefined ? y : 100,
+            emoji: emoji || '😊',
+            size: emojiSize || 48,
+            layer: layer || 1,
+            rotation: 0
+          })
+          console.log('✅ Emoji shape created successfully')
+          break
+        }
         
         default:
           throw new Error(`Unknown shape type: ${shapeType}`)
@@ -226,7 +293,7 @@ export const useAIAgent = () => {
 
   // Handle shape movement
   const handleMoveShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeId, x, y } = command
+    const { shapeId, x, y } = command as unknown as { shapeId: string; x: number; y: number }
 
     if (!shapeId) {
       throw new Error('Shape ID is required for move command')
@@ -246,7 +313,7 @@ export const useAIAgent = () => {
 
   // Handle shape resizing
   const handleResizeShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeId, width, height, radius } = command
+    const { shapeId, width, height, radius } = command as unknown as { shapeId: string; width?: number; height?: number; radius?: number }
 
     if (!shapeId) {
       throw new Error('Shape ID is required for resize command')
@@ -258,7 +325,7 @@ export const useAIAgent = () => {
         throw new Error(`Shape ${shapeId} not found`)
       }
 
-      const updates: any = {}
+      const updates: Record<string, unknown> = {}
       if (width !== undefined) updates.width = width
       if (height !== undefined) updates.height = height
       if (radius !== undefined) updates.radius = radius
@@ -276,7 +343,7 @@ export const useAIAgent = () => {
 
   // Handle shape deletion
   const handleDeleteShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeId } = command
+    const { shapeId } = command as unknown as { shapeId: string }
 
     if (!shapeId) {
       throw new Error('Shape ID is required for delete command')
@@ -296,10 +363,10 @@ export const useAIAgent = () => {
 
   // Handle getting shape information
   const handleGetShapes = async (command: AICommand): Promise<boolean> => {
-    const { shapeType = 'all' } = command
+    const { shapeType = 'all' } = command as unknown as { shapeType?: string }
 
     try {
-      let shapes: any[] = []
+      let shapes: Array<Record<string, unknown>> = []
       
       if (shapeType === 'all' || shapeType === 'rectangle') {
         shapes = shapes.concat(rectangles.value.map(r => ({ ...r, type: 'rectangle' })))
@@ -321,14 +388,14 @@ export const useAIAgent = () => {
 
   // Handle shape arrangement
   const handleArrangeShapes = async (command: AICommand): Promise<boolean> => {
-    const { shapeIds, layout, spacing = 20 } = command
+    const { shapeIds, layout, spacing = 20 } = command as unknown as { shapeIds: string[]; layout: string; spacing?: number }
 
     if (!shapeIds || shapeIds.length === 0) {
       throw new Error('Shape IDs are required for arrange command')
     }
 
     try {
-      const shapes = shapeIds.map((id: string) => getShapeById(id)).filter(Boolean)
+      const shapes = shapeIds.map((id: string) => getShapeById(id)).filter(Boolean) as unknown as Array<Record<string, unknown>>
       if (shapes.length === 0) {
         throw new Error('No valid shapes found for arrangement')
       }
@@ -337,33 +404,36 @@ export const useAIAgent = () => {
       let positions: { x: number, y: number }[] = []
 
       switch (layout) {
-        case 'horizontal':
-          positions = shapes.map((_: any, index: number) => ({
+        case 'horizontal': {
+          positions = shapes.map((_, index: number) => ({
             x: 100 + index * (200 + spacing),
             y: 100
           }))
           break
+        }
         
-        case 'vertical':
-          positions = shapes.map((_: any, index: number) => ({
+        case 'vertical': {
+          positions = shapes.map((_, index: number) => ({
             x: 100,
             y: 100 + index * (100 + spacing)
           }))
           break
+        }
         
-        case 'grid':
+        case 'grid': {
           const cols = Math.ceil(Math.sqrt(shapes.length))
-          positions = shapes.map((_: any, index: number) => ({
+          positions = shapes.map((_, index: number) => ({
             x: 100 + (index % cols) * (200 + spacing),
             y: 100 + Math.floor(index / cols) * (100 + spacing)
           }))
           break
+        }
         
-        case 'circle':
+        case 'circle': {
           const centerX = 400
           const centerY = 300
           const radius = 150
-          positions = shapes.map((_: any, index: number) => {
+          positions = shapes.map((_, index: number) => {
             const angle = (index / shapes.length) * 2 * Math.PI
             return {
               x: centerX + radius * Math.cos(angle),
@@ -371,6 +441,7 @@ export const useAIAgent = () => {
             }
           })
           break
+        }
         
         default:
           throw new Error(`Unknown layout type: ${layout}`)
@@ -380,8 +451,8 @@ export const useAIAgent = () => {
       for (let i = 0; i < shapes.length; i++) {
         const shape = shapes[i]
         const position = positions[i]
-        if (position) {
-          await updateShape(shape.id, { x: position.x, y: position.y })
+        if (position && shape && typeof shape === 'object' && 'id' in shape) {
+          await updateShape(shape.id as string, { x: position.x, y: position.y })
         }
       }
 
@@ -394,13 +465,56 @@ export const useAIAgent = () => {
   }
 
   // Handle clear all shapes command
-  const handleClearAll = async (command: AICommand): Promise<boolean> => {
+  const handleClearAll = async (_command: AICommand): Promise<boolean> => {
     try {
       await clearAllShapes()
       console.log('✅ Cleared all shapes from canvas')
       return true
     } catch (err) {
       console.error('❌ Failed to clear all shapes:', err)
+      return false
+    }
+  }
+
+  // Handle emoji story creation
+  const handleCreateEmojiStory = async (command: AICommand): Promise<boolean> => {
+    try {
+      console.log('🔧 Raw command received in handleCreateEmojiStory:', JSON.stringify(command, null, 2))
+      const { story, emojis } = command as unknown as { story: string; emojis: Array<{ emoji: string; x: number; y: number; size?: number; layer?: number; rotation?: number }> }
+      console.log('🎭 Creating emoji story:', { story, emojis })
+      console.log('🔍 Emojis type:', typeof emojis, 'Is array:', Array.isArray(emojis), 'Value:', emojis)
+      
+      if (!emojis || !Array.isArray(emojis)) {
+        console.error('❌ Invalid emojis array in command. Type:', typeof emojis, 'Value:', emojis)
+        return false
+      }
+
+      // Import useEmojis composable
+      const { addEmoji } = useEmojis()
+      
+      // Add each emoji to the canvas with proper positioning and layering
+      for (const emojiData of emojis) {
+        const emoji = {
+          emoji: emojiData.emoji,
+          x: emojiData.x || 100,
+          y: emojiData.y || 100,
+          size: emojiData.size || 40,
+          layer: emojiData.layer || 1,
+          rotation: emojiData.rotation || 0
+        }
+        
+        console.log('🎨 Adding emoji to story:', emoji)
+        const result = await addEmoji(emoji)
+        console.log('🎨 Emoji add result:', result)
+        
+        // Add a small delay between emoji additions for better visual effect
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      console.log(`✅ Emoji story "${story}" created successfully with ${emojis.length} emojis`)
+      return true
+    } catch (err) {
+      console.error('❌ Failed to create emoji story:', err)
       return false
     }
   }
@@ -430,10 +544,23 @@ export const useAIAgent = () => {
       
       // Handle streaming response
       let assistantMessage = ''
+      let commands: AICommand[] = []
+      
       if (typeof response === 'string') {
         assistantMessage = response
+        // Extract commands from text response (fallback mode)
+        commands = extractCommandsFromMessage(assistantMessage)
       } else if (response && typeof response === 'object' && 'content' in response) {
         assistantMessage = response.content as string
+        
+        // Check if we have structured commands from AI
+        if ('commands' in response && Array.isArray(response.commands)) {
+          commands = response.commands as AICommand[]
+          console.log('🎯 Received structured commands from AI:', commands)
+        } else {
+          // Extract commands from text response (fallback mode)
+          commands = extractCommandsFromMessage(assistantMessage)
+        }
       }
       
       // Add assistant message
@@ -444,13 +571,13 @@ export const useAIAgent = () => {
       })
       
       // Execute commands from the response
-      const commands = extractCommandsFromMessage(assistantMessage)
       for (const command of commands) {
+        console.log('🔧 Executing command:', JSON.stringify(command, null, 2))
         await executeCommand(command)
       }
       
-    } catch (err: any) {
-      error.value = err.message || 'Failed to get AI response'
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : 'Failed to get AI response'
       
       // Add error message
       messages.value.push({

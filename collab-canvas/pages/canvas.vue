@@ -1,36 +1,36 @@
 <template>
   <AppLayout>
     <div class="h-full w-full bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
-      <!-- Header -->
-      <div class="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-4 shadow-sm">
+      <!-- Single Professional Header -->
+      <div class="bg-black/90 backdrop-blur-sm border-b-2 border-pink-500 p-4 shadow-lg">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <h1 class="text-3xl font-bold text-gray-900 font-display">EmojiKai 🎨</h1>
-            <div class="flex items-center gap-2 text-sm text-gray-600 font-body">
-              <div class="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"/>
+            <h1 class="text-3xl font-bold text-white font-display">EmojiKai 🎨</h1>
+            <div class="flex items-center gap-2 text-sm text-pink-300 font-body">
+              <div class="w-2 h-2 bg-gradient-to-r from-pink-400 to-pink-600 rounded-full animate-pulse"/>
               <span>Live Sync</span>
             </div>
           </div>
           <div class="flex items-center gap-2">
-      <UButton
+            <!-- AI Status Indicator - Clickable to open chat -->
+            <button 
+              class="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-500/20 to-purple-500/20 rounded-lg border border-pink-400/30 hover:from-pink-500/30 hover:to-purple-500/30 hover:border-pink-400/50 transition-all duration-200 cursor-pointer group"
+              @click="showAIChat = !showAIChat"
+            >
+              <UIcon name="i-heroicons-sparkles" class="w-4 h-4 text-pink-400 animate-pulse group-hover:text-pink-300" />
+              <span class="text-sm font-medium text-pink-300 group-hover:text-white">AI Ready</span>
+            </button>
+            
+            <UButton
               icon="i-lucide-users"
               label="Users"
               color="neutral"
               variant="outline"
-        size="sm"
-              class="font-body"
+              size="sm"
+              class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
               @click="showPresence = !showPresence"
             />
-              <UButton
-              icon="i-lucide-message-circle"
-              label="AI Chat"
-              color="primary"
-              variant="outline"
-                size="sm"
-              class="font-body"
-              @click="showAIChat = !showAIChat"
-              />
-            </div>
+          </div>
         </div>
       </div>
       
@@ -39,7 +39,7 @@
           <!-- Canvas Area -->
           <div class="flex-1 flex flex-col canvas-container">
           <!-- Emoji-First Toolbar -->
-          <div class="bg-white/90 backdrop-blur-sm border-b border-gray-200 p-4 shadow-sm">
+          <div class="bg-black/80 backdrop-blur-sm border-b-2 border-pink-500 p-4 shadow-lg">
             <div class="flex items-center justify-between">
               <!-- Primary Tools (Emoji-First) -->
               <div class="flex items-center gap-3">
@@ -48,7 +48,7 @@
                   color="primary"
             variant="solid"
                   size="lg"
-                  class="font-body bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 shadow-lg"
+                  class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg"
                   @click="showEmojiPicker = true"
                 />
                 
@@ -59,7 +59,7 @@
                   <UButton
                     :variant="currentTool === 'select' ? 'solid' : 'outline'"
                     size="sm"
-                    class="font-body"
+                    class="font-body text-white border-pink-400 hover:bg-pink-500/20"
                     @click="setTool('select')"
                   >
                     <UIcon name="i-lucide-move" class="w-4 h-4 mr-2" />
@@ -69,7 +69,7 @@
             <UButton 
                     :variant="currentTool === 'pen' ? 'solid' : 'outline'"
                     size="sm"
-                    class="font-body"
+                    class="font-body text-white border-pink-400 hover:bg-pink-500/20"
                     @click="setTool('pen')"
                   >
                     <UIcon name="i-lucide-pen-tool" class="w-4 h-4 mr-2" />
@@ -81,7 +81,7 @@
                       color="neutral" 
               variant="outline" 
                       size="sm"
-                      class="font-body"
+                      class="font-body text-white border-pink-400 hover:bg-pink-500/20"
                       trailing-icon="i-heroicons-chevron-down"
             >
                       <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-2" />
@@ -90,8 +90,8 @@
                   </UDropdownMenu>
                   
                   <!-- Rotation Controls -->
-                  <div v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'" class="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
-                    <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-gray-600" />
+                  <div v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'" class="flex items-center gap-2 ml-4 pl-4 border-l border-pink-400/30">
+                    <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-pink-300" />
                     <USlider
                       v-model="rotationAngle"
                       :min="0"
@@ -122,7 +122,7 @@
               color="error" 
               variant="outline" 
                   size="sm"
-                  class="font-body"
+                  class="font-body text-white border-red-400 hover:bg-red-500/20"
               @click="clearCanvas"
                 />
             <UButton 
@@ -131,7 +131,7 @@
               color="neutral" 
               variant="outline" 
                   size="sm"
-                  class="font-body"
+                  class="font-body text-white border-pink-400 hover:bg-pink-500/20"
               @click="resetView"
                 />
         </div>
@@ -142,11 +142,12 @@
           <div class="flex-1 flex items-center justify-center p-4">
       <div 
         ref="canvasContainer"
-              class="border-2 border-gray-300 rounded-xl shadow-lg bg-white relative overflow-hidden"
+              class="border-2 border-pink-500 rounded-xl shadow-lg bg-white relative overflow-hidden"
               :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
               @mousedown="handleCanvasMouseDown"
               @mousemove="handleCanvasMouseMove"
               @mouseup="handleCanvasMouseUp"
+              @click="handleCanvasClick"
             >
               <!-- Emojis (First Class Citizens) -->
               <div
@@ -164,7 +165,9 @@
                   transform: `rotate(${emoji.rotation || 0}deg)`
                 }"
                 @mousedown.stop="startDrag($event, emoji.id)"
+                @click.stop="selectEmoji(emoji.id)"
                 @dblclick="editEmoji(emoji.id)"
+                @mouseup.stop="console.log('🖱️ Emoji mouseup:', emoji.id)"
               >
                 {{ emoji.emoji }}
     </div>
@@ -180,18 +183,19 @@
                 :style="{
                   left: shape.x + 'px',
                   top: shape.y + 'px',
-                  width: shape.width + 'px',
-                  height: shape.height + 'px',
+                  width: shape.type === 'circle' ? (shape as any).radius * 2 + 'px' : (shape as any).width + 'px',
+                  height: shape.type === 'circle' ? (shape as any).radius * 2 + 'px' : (shape as any).height + 'px',
                   backgroundColor: shape.fill,
                   border: `2px solid ${shape.stroke}`,
                   borderRadius: shape.type === 'circle' ? '50%' : '4px',
-                  zIndex: shape.layer || 1,
+                  zIndex: 1,
                   transform: `rotate(${shape.rotation || 0}deg)`
                 }"
                 @mousedown.stop="startShapeDrag($event, shape.id)"
+                @click.stop="selectShape(shape.id)"
               >
                 <div v-if="shape.type === 'text'" class="p-2 text-sm font-body">
-                  {{ shape.text }}
+                  {{ (shape as any).text }}
       </div>
     </div>
 
@@ -238,8 +242,8 @@
                 :style="{
                   left: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.x : getSelectedShape()?.x) + 'px',
                   top: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.y : getSelectedShape()?.y) + 'px',
-                  width: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : getSelectedShape()?.width) + 'px',
-                  height: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : getSelectedShape()?.height) + 'px',
+                  width: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : (getSelectedShape() as any)?.width || (getSelectedShape() as any)?.radius * 2 || 50) + 'px',
+                  height: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : (getSelectedShape() as any)?.height || (getSelectedShape() as any)?.radius * 2 || 50) + 'px',
                   zIndex: 1002
                 }"
               >
@@ -259,13 +263,13 @@
             </div>
             
         <!-- Sidebar -->
-        <div v-if="showPresence" class="w-80 bg-white/90 backdrop-blur-sm border-l border-gray-200 shadow-lg">
+        <div v-if="showPresence" class="w-80 bg-black/90 backdrop-blur-sm border-l-2 border-pink-500 shadow-lg">
           <PresenceSidebar />
             </div>
           </div>
           
       <!-- AI Chat Interface -->
-      <AIChatInterface v-if="showAIChat" />
+      <AIChatInterface v-if="showAIChat" :show-chat="showAIChat" @update:show-chat="showAIChat = $event" />
 
       <!-- Emoji Picker Modal -->
       <UModal v-model:open="showEmojiPicker" title="🎨 Choose an Emoji" :ui="{ title: 'text-xl font-display' }">
@@ -292,6 +296,8 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
+
 // Auth middleware
 definePageMeta({
   middleware: 'auth'
@@ -303,7 +309,7 @@ const canvasHeight = 700
 
 // State
 const showPresence = ref(false)
-const showAIChat = ref(false)
+const showAIChat = ref(false) // AI chat closed by default
 const showEmojiPicker = ref(false)
 const currentTool = ref<'select' | 'pen'>('select')
 const selectedEmojiId = ref<string | null>(null)
@@ -312,34 +318,38 @@ const searchTerm = ref('')
 const rotationAngle = ref(0)
 const isRotating = ref(false)
 
+// Canvas ref
+const canvasContainer = ref<HTMLElement | null>(null)
+
+// Drag state
+const pendingDragShapeId = ref<string | null>(null)
+
 // Emoji system
 const {
   emojis,
-  loading: emojiLoading,
-  saving: emojiSaving,
-  error: emojiError,
   addEmoji: addEmojiToCanvas,
   updateEmoji,
-  deleteEmoji,
   clearAllEmojis,
-  getEmojiById,
-  isRealtimeConnected
+  getEmojiById
 } = useEmojis(canvasWidth, canvasHeight)
 
-// Shape interfaces
-interface Shape {
-  id: string
-  type: 'rectangle' | 'circle' | 'text'
-  x: number
-  y: number
-  width: number
-  height: number
-  fill: string
-  stroke: string
-  layer: number
-  rotation: number
-  text?: string
-}
+// Shape system for AI-created shapes
+const {
+  rectangles,
+  circles,
+  texts,
+  loadShapesFromDatabase,
+  addRectangle: addRectangleToCanvas,
+  addCircle: addCircleToCanvas,
+  addText: addTextToCanvas
+} = useShapesWithPersistence()
+
+// Load shapes when page mounts
+onMounted(async () => {
+  await loadShapesFromDatabase()
+})
+
+// Shape interfaces - removed unused Shape interface
 
 interface PenStroke {
   id: string
@@ -348,14 +358,11 @@ interface PenStroke {
   width: number
 }
 
-// Shape system (simplified)
-const rectangles = ref<Shape[]>([])
-const circles = ref<Shape[]>([])
-const texts = ref<Shape[]>([])
+// Pen strokes
 const penStrokes = ref<PenStroke[]>([])
 
 // Computed - All shapes combined for rendering
-const allShapes = computed((): Shape[] => [
+const allShapes = computed(() => [
   ...rectangles.value,
   ...circles.value,
   ...texts.value
@@ -793,42 +800,53 @@ async function addEmoji(emojiChar: string) {
   showEmojiPicker.value = false
 }
 
-function handleEmojiSelect(item: any) {
-  if (item && item.value) {
-    addEmoji(item.value)
+function handleEmojiSelect(item: { value?: string; label?: string }) {
+  if (item && (item.value || item.label)) {
+    const emoji = item.value || item.label
+    if (emoji) {
+      addEmoji(emoji)
+    }
   }
 }
 
 // Drag functions
 function startDrag(event: MouseEvent, emojiId: string) {
+  console.log('🖱️ startDrag called with:', emojiId)
+  // Always select the emoji first
+  selectedEmojiId.value = emojiId
+  selectedShapeId.value = null
+  updateRotationFromSelection()
+  console.log('🖱️ Selected emoji ID after startDrag:', selectedEmojiId.value)
+  
+  // Only start dragging if select tool is active
   if (currentTool.value === 'select') {
     isDragging.value = true
-    selectedEmojiId.value = emojiId
-    selectedShapeId.value = null
     const emoji = getEmojiById(emojiId)
     if (emoji) {
       originalPosition.value = { x: emoji.x, y: emoji.y }
       dragStart.value = { x: event.clientX, y: event.clientY }
     }
-    updateRotationFromSelection()
   }
 }
 
 function startShapeDrag(event: MouseEvent, shapeId: string) {
+  // Always select the shape first
+  selectedShapeId.value = shapeId
+  selectedEmojiId.value = null
+  updateRotationFromSelection()
+  
+  // Only prepare for dragging if select tool is active
   if (currentTool.value === 'select') {
-    isDragging.value = true
-    selectedShapeId.value = shapeId
-    selectedEmojiId.value = null
-    
-    // Find the shape in any of the arrays
+    // Don't start dragging immediately - wait for mouse movement
     const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
     const shape = allShapesArray.find(s => s.id === shapeId)
     
     if (shape) {
       originalPosition.value = { x: shape.x, y: shape.y }
       dragStart.value = { x: event.clientX, y: event.clientY }
+      // Store the shape ID for potential dragging
+      pendingDragShapeId.value = shapeId
     }
-    updateRotationFromSelection()
   }
 }
 
@@ -884,64 +902,66 @@ async function endDrag() {
 }
 
 // Shape functions
-function addRectangle() {
-  const rect: Shape = {
-    id: generateId(),
-    type: 'rectangle',
+async function addRectangle() {
+  await addRectangleToCanvas({
     x: Math.random() * (canvasWidth - 100),
     y: Math.random() * (canvasHeight - 100),
     width: 100,
     height: 60,
     fill: '#3b82f6',
     stroke: '#1e40af',
-    layer: 1,
     rotation: 0
-  }
-  rectangles.value.push(rect)
+  })
 }
 
-function addCircle() {
-  const circle: Shape = {
-    id: generateId(),
-    type: 'circle',
+async function addCircle() {
+  await addCircleToCanvas({
     x: Math.random() * (canvasWidth - 100),
     y: Math.random() * (canvasHeight - 100),
-    width: 60,
-    height: 60,
+    radius: 30,
     fill: '#8b5cf6',
     stroke: '#7c3aed',
-    layer: 1,
     rotation: 0
-  }
-  circles.value.push(circle)
+  })
 }
 
-function addText() {
-  const text: Shape = {
-    id: generateId(),
-    type: 'text',
+async function addText() {
+  await addTextToCanvas({
     x: Math.random() * (canvasWidth - 100),
     y: Math.random() * (canvasHeight - 100),
-    width: 100,
-    height: 30,
     text: 'Hello!',
+    fontSize: 16,
     fill: '#000000',
     stroke: 'transparent',
-    layer: 1,
     rotation: 0
-  }
-  texts.value.push(text)
+  })
 }
 
 function selectShape(shapeId: string) {
-  if (currentTool.value === 'select') {
-    selectedShapeId.value = shapeId
-    selectedEmojiId.value = null
-    updateRotationFromSelection()
-  }
+  selectedShapeId.value = shapeId
+  selectedEmojiId.value = null
+  updateRotationFromSelection()
+}
+
+function selectEmoji(emojiId: string) {
+  console.log('🎯 selectEmoji called with:', emojiId)
+  selectedEmojiId.value = emojiId
+  selectedShapeId.value = null
+  updateRotationFromSelection()
+  console.log('🎯 Selected emoji ID:', selectedEmojiId.value)
 }
 
 // Canvas mouse handlers
+function handleCanvasClick(event: MouseEvent) {
+  // Only deselect if clicking on empty canvas space (not on an emoji or shape)
+  if (event.target === canvasContainer.value) {
+    console.log('🎯 Canvas clicked - deselecting all items')
+    selectedEmojiId.value = null
+    selectedShapeId.value = null
+    rotationAngle.value = 0
+  }
+}
+
 function handleCanvasMouseDown(event: MouseEvent) {
   if (currentTool.value === 'pen') {
     isDrawing.value = true
@@ -975,6 +995,18 @@ function handleCanvasMouseMove(event: MouseEvent) {
     }
   } else if (isDragging.value) {
     handleDrag(event)
+  } else if (pendingDragShapeId.value && currentTool.value === 'select') {
+    // Start dragging when mouse actually moves
+    const distance = Math.sqrt(
+      Math.pow(event.clientX - dragStart.value.x, 2) + 
+      Math.pow(event.clientY - dragStart.value.y, 2)
+    )
+    
+    if (distance > 5) { // Minimum distance threshold to start dragging
+      isDragging.value = true
+      selectedShapeId.value = pendingDragShapeId.value
+      pendingDragShapeId.value = null
+    }
   }
 }
 
@@ -1002,6 +1034,9 @@ function handleCanvasMouseUp() {
   } else if (isDragging.value) {
     endDrag()
   }
+  
+  // Clear pending drag state
+  pendingDragShapeId.value = null
 }
 
 // Utility functions
@@ -1041,13 +1076,16 @@ function editEmoji(id: string) {
 function handleRotationChange(angle: number | undefined) {
   if (angle === undefined) return
   
+  console.log('🔄 Rotation change:', angle, 'Selected emoji:', selectedEmojiId.value)
   rotationAngle.value = angle
   
   // Update emoji rotation
   if (selectedEmojiId.value) {
     const emoji = getEmojiById(selectedEmojiId.value)
+    console.log('🎨 Found emoji for rotation:', emoji)
     if (emoji) {
       emoji.rotation = angle
+      console.log('🎨 Updating emoji rotation to:', angle)
       updateEmoji(selectedEmojiId.value, { rotation: angle })
     }
   }
@@ -1116,6 +1154,32 @@ function startRotation(event: MouseEvent) {
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
 }
+
+// Keyboard shortcuts
+onMounted(() => {
+  const handleKeyDown = (event: KeyboardEvent) => {
+    // AI chat toggle (Cmd/Ctrl + K)
+    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+      event.preventDefault()
+      showAIChat.value = !showAIChat.value
+    }
+    
+    // Deselect all items (Escape key)
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      console.log('⌨️ Escape pressed - deselecting all items')
+      selectedEmojiId.value = null
+      selectedShapeId.value = null
+      rotationAngle.value = 0
+    }
+  }
+  
+  document.addEventListener('keydown', handleKeyDown)
+  
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeyDown)
+  })
+})
 </script>
 
 <style scoped>

@@ -48,8 +48,8 @@ export const useCanvasDatabase = () => {
       dbType = 'rect'
     } else if (shape.type === 'circle') {
       dbType = 'circle'
-    } else if (shape.type === 'text') {
-      dbType = 'text'
+    } else if (shape.type === 'text' || shape.type === 'emoji') {
+      dbType = 'text' // Emojis are stored as text type in database
     } else if (shape.type === 'line') {
       dbType = 'line'
     } else if (shape.type === 'star') {
@@ -82,6 +82,13 @@ export const useCanvasDatabase = () => {
         ...(shape.type === 'text' && {
           text: shape.text,
           fontSize: shape.fontSize
+        }),
+        ...(shape.type === 'emoji' && {
+          text: shape.emoji, // Store emoji as text
+          fontSize: shape.size, // Store size as fontSize
+          emoji: shape.emoji, // Store emoji property for identification
+          emojiSize: shape.size, // Store emoji size
+          layer: shape.layer || 1 // Store layer
         }),
         ...(shape.type === 'line' && {
           points: shape.points

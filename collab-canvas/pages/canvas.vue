@@ -153,9 +153,21 @@
         
         <!-- Action Buttons -->
               <div class="flex items-center gap-2">
+            <!-- Delete Selected Item Button -->
+            <UButton 
+              v-if="selectedEmojiId || selectedShapeId"
+              icon="i-lucide-trash-2"
+              label="Delete Selected"
+              color="error" 
+              variant="solid" 
+              size="sm"
+              class="font-body text-white bg-red-500 hover:bg-red-600"
+              @click="deleteSelectedItem"
+            />
+            
             <UButton 
                   icon="i-lucide-trash-2"
-                  label="Clear"
+                  label="Clear All"
               color="error" 
               variant="outline" 
                   size="sm"
@@ -383,7 +395,8 @@ const {
   addEmoji: addEmojiToCanvas,
   updateEmoji,
   clearAllEmojis,
-  getEmojiById
+  getEmojiById,
+  deleteEmoji
 } = useEmojis(canvasWidth, canvasHeight)
 
 // Shape system for AI-created shapes
@@ -395,7 +408,8 @@ const {
   addRectangle: addRectangleToCanvas,
   addCircle: addCircleToCanvas,
   addText: addTextToCanvas,
-  updateShape
+  updateShape,
+  deleteShape
 } = useShapesWithPersistence()
 
 // Load shapes when page mounts
@@ -1188,6 +1202,20 @@ function resetRotation() {
   handleRotationChange(0)
 }
 
+async function deleteSelectedItem() {
+  if (selectedEmojiId.value) {
+    console.log('🗑️ Deleting selected emoji:', selectedEmojiId.value)
+    await deleteEmoji(selectedEmojiId.value)
+    selectedEmojiId.value = null
+    rotationAngle.value = 0
+  } else if (selectedShapeId.value) {
+    console.log('🗑️ Deleting selected shape:', selectedShapeId.value)
+    await deleteShape(selectedShapeId.value)
+    selectedShapeId.value = null
+    rotationAngle.value = 0
+  }
+}
+
 async function handleColorChange(color: string | undefined) {
   if (!color || !selectedShapeId.value) return
   
@@ -1287,6 +1315,22 @@ onMounted(() => {
       selectedEmojiId.value = null
       selectedShapeId.value = null
       rotationAngle.value = 0
+    }
+    
+    // Delete selected item (Delete or Backspace key)
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault()
+      if (selectedEmojiId.value) {
+        console.log('🗑️ Deleting selected emoji:', selectedEmojiId.value)
+        await deleteEmoji(selectedEmojiId.value)
+        selectedEmojiId.value = null
+        rotationAngle.value = 0
+      } else if (selectedShapeId.value) {
+        console.log('🗑️ Deleting selected shape:', selectedShapeId.value)
+        await deleteShape(selectedShapeId.value)
+        selectedShapeId.value = null
+        rotationAngle.value = 0
+      }
     }
   }
   

@@ -9,7 +9,7 @@ CREATE TABLE canvas_objects (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   canvas_id UUID NOT NULL, -- For future multi-canvas support
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  type VARCHAR(50) NOT NULL, -- 'rect', 'circle', 'text', etc.
+  type VARCHAR(50) NOT NULL, -- 'rect', 'circle', 'text', 'emoji', 'pen', etc.
   data JSONB NOT NULL, -- Shape properties (x, y, width, height, color, etc.)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

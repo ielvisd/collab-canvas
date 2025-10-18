@@ -4,9 +4,9 @@
     <UHeader data-testid="app-header" class="flex-shrink-0" :toggle="false">
       <template #left>
         <div class="flex items-center space-x-2 sm:space-x-4">
-          <NuxtLink to="/canvas" class="text-lg sm:text-xl font-bold text-pink-500 hover:text-pink-400">
-            <span class="hidden sm:inline">CollabCanvas</span>
-            <span class="sm:hidden">CC</span>
+          <NuxtLink to="/canvas" class="text-lg sm:text-xl font-bold text-blue-500 hover:text-blue-400 font-display">
+            <span class="hidden sm:inline">EmojiKai</span>
+            <span class="sm:hidden">EK</span>
           </NuxtLink>
         </div>
       </template>

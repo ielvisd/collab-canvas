@@ -1,456 +1,756 @@
 <template>
   <AppLayout>
-    <div class="h-full w-full bg-black flex flex-col sm:flex-row">
-      <!-- Presence Sidebar - Hidden on mobile, shown as overlay -->
-      <PresenceSidebar class="hidden sm:block" />
-      
-      <!-- Mobile Presence Toggle Button -->
-      <UButton
-        v-if="!showMobilePresence"
-        class="fixed top-20 right-4 z-40 sm:hidden"
-        size="sm"
-        color="primary"
-        icon="i-heroicons-users"
-        @click="showMobilePresence = true"
-      >
-        Users
-      </UButton>
-      
-      <!-- Mobile Presence Overlay -->
-      <div
-        v-if="showMobilePresence"
-        class="fixed inset-0 z-50 bg-black bg-opacity-50 sm:hidden"
-        @click="showMobilePresence = false"
-      >
-        <div class="absolute right-0 top-0 h-full w-80 bg-white shadow-xl" @click.stop>
-          <div class="p-4 border-b">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">Online Users</h3>
-              <UButton
-                variant="ghost"
-                size="sm"
-                icon="i-heroicons-x-mark"
-                @click="showMobilePresence = false"
-              />
+    <div class="h-full w-full bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+      <!-- Header -->
+      <div class="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-4 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <h1 class="text-3xl font-bold text-gray-900 font-display">EmojiKai 🎨</h1>
+            <div class="flex items-center gap-2 text-sm text-gray-600 font-body">
+              <div class="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"/>
+              <span>Live Sync</span>
             </div>
           </div>
-          <PresenceSidebar class="block" />
+          <div class="flex items-center gap-2">
+      <UButton
+              icon="i-lucide-users"
+              label="Users"
+              color="neutral"
+              variant="outline"
+        size="sm"
+              class="font-body"
+              @click="showPresence = !showPresence"
+            />
+              <UButton
+              icon="i-lucide-message-circle"
+              label="AI Chat"
+              color="primary"
+              variant="outline"
+                size="sm"
+              class="font-body"
+              @click="showAIChat = !showAIChat"
+              />
+            </div>
         </div>
       </div>
       
-      <!-- Main Canvas Area -->
-      <div class="flex-1 flex flex-col relative">
-    <!-- Toolbar -->
-    <div data-testid="canvas-toolbar" class="absolute left-1/2 transform -translate-x-1/2 z-50 bg-gray-800 border-2 border-pink-500 rounded-lg shadow-lg p-2 sm:p-4" :style="{ top: isMobile ? 'calc(var(--ui-header-height, 4rem) + 0.5rem)' : 'calc(var(--ui-header-height, 4rem) + 1rem)' }">
-      <div class="flex flex-wrap gap-1 sm:gap-2 items-center justify-center">
-        <!-- Shape Creation Dropdown -->
-        <UDropdownMenu :items="shapeMenuItems" :ui="{ content: 'w-48' }">
+      <!-- Main Content -->
+      <div class="flex-1 flex relative">
+          <!-- Canvas Area -->
+          <div class="flex-1 flex flex-col canvas-container">
+          <!-- Emoji-First Toolbar -->
+          <div class="bg-white/90 backdrop-blur-sm border-b border-gray-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+              <!-- Primary Tools (Emoji-First) -->
+              <div class="flex items-center gap-3">
           <UButton 
-            color="pink" 
+                  label="🎨 Emoji"
+                  color="primary"
             variant="solid"
-            :size="isMobile ? 'xs' : 'sm'"
-            :loading="saving"
-            :disabled="loading || saving"
-            trailing-icon="i-heroicons-chevron-down"
-          >
-            <UIcon name="i-heroicons-plus" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4 mr-1'" />
-            <span class="hidden sm:inline">Add Shape</span>
+                  size="lg"
+                  class="font-body bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 shadow-lg"
+                  @click="showEmojiPicker = true"
+                />
+                
+                <USeparator orientation="vertical" class="h-8" />
+                
+                <!-- Secondary Tools -->
+                <div class="flex items-center gap-2">
+                  <UButton
+                    :variant="currentTool === 'select' ? 'solid' : 'outline'"
+                    size="sm"
+                    class="font-body"
+                    @click="setTool('select')"
+                  >
+                    <UIcon name="i-lucide-move" class="w-4 h-4 mr-2" />
+                    Select
           </UButton>
-        </UDropdownMenu>
-        
-        <!-- Color Picker -->
-        <div class="flex items-center gap-1 sm:gap-2 border-l border-pink-500 pl-1 sm:pl-2">
-          <label class="text-xs sm:text-sm font-medium text-white hidden sm:inline">Color:</label>
-          <input 
-            v-model="selectedColor"
-            data-testid="color-picker" 
-            type="color"
-            :class="isMobile ? 'w-6 h-6' : 'w-8 h-8'"
-            class="rounded cursor-pointer" 
-            title="Select shape color"
-            :disabled="!selectedShapeId"
-            @input="applyColorToSelected"
-          >
-        </div>
-        
-        <!-- Rotation Controls -->
-        <div v-if="selectedShapeId" class="flex items-center gap-1 sm:gap-2 border-l border-pink-500 pl-1 sm:pl-2">
-          <UTooltip text="Rotate left 45°">
+                  
             <UButton 
-              data-testid="rotate-left-btn"
-              :size="isMobile ? '2xs' : 'xs'"
-              color="pink"
-              variant="outline" 
-              :disabled="!selectedShapeId"
-              @click="rotateSelected(-45)"
-            >
-              <UIcon name="i-heroicons-arrow-uturn-left" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
+                    :variant="currentTool === 'pen' ? 'solid' : 'outline'"
+                    size="sm"
+                    class="font-body"
+                    @click="setTool('pen')"
+                  >
+                    <UIcon name="i-lucide-pen-tool" class="w-4 h-4 mr-2" />
+                    Pen
             </UButton>
-          </UTooltip>
-          <UTooltip text="Rotate right 45°">
+                  
+                  <UDropdownMenu :items="shapeMenuItems" :ui="{ content: 'w-48' }">
             <UButton 
-              data-testid="rotate-right-btn"
-              :size="isMobile ? '2xs' : 'xs'"
-              color="pink"
+                      color="neutral" 
               variant="outline" 
-              :disabled="!selectedShapeId"
-              @click="rotateSelected(45)"
+                      size="sm"
+                      class="font-body"
+                      trailing-icon="i-heroicons-chevron-down"
             >
-              <UIcon name="i-heroicons-arrow-uturn-right" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
+                      <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-2" />
+                      Shapes
             </UButton>
-          </UTooltip>
+                  </UDropdownMenu>
+                  
+                  <!-- Rotation Controls -->
+                  <div v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'" class="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
+                    <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-gray-600" />
+                    <USlider
+                      v-model="rotationAngle"
+                      :min="0"
+                      :max="360"
+                      :step="5"
+                      size="sm"
+                      class="w-24"
+                      tooltip
+                      @update:model-value="handleRotationChange"
+                    />
+                    <UButton
+                      icon="i-lucide-rotate-ccw"
+                      size="xs"
+                      color="neutral"
+                      variant="outline"
+                      class="font-body"
+                      @click="resetRotation"
+                    />
+                  </div>
+                </div>
         </div>
         
         <!-- Action Buttons -->
-        <div class="flex gap-1 sm:gap-2 border-l border-pink-500 pl-1 sm:pl-2">
-          <UTooltip text="Delete selected shape (Delete key)">
+              <div class="flex items-center gap-2">
             <UButton 
-              data-testid="delete-selected-btn"
+                  icon="i-lucide-trash-2"
+                  label="Clear"
               color="error" 
               variant="outline" 
-              :size="isMobile ? 'xs' : 'sm'"
-              :disabled="!selectedShapeId || loading || saving"
-              :loading="saving"
-              @click="handleDeleteSelected"
-            >
-              <UIcon name="i-heroicons-trash" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
-            </UButton>
-          </UTooltip>
-          <UTooltip text="Clear all shapes from canvas">
-            <UButton 
-              data-testid="clear-all-btn" 
-              color="error" 
-              variant="outline" 
-              :size="isMobile ? 'xs' : 'sm'"
-              :disabled="totalShapes === 0 || loading || saving"
-              :loading="saving"
+                  size="sm"
+                  class="font-body"
               @click="clearCanvas"
-            >
-              <UIcon name="i-heroicons-x-mark" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
-            </UButton>
-          </UTooltip>
-          <UTooltip text="Reset zoom and position (Home key)">
+                />
             <UButton 
-              data-testid="reset-view-btn" 
+                  icon="i-lucide-rotate-ccw"
+                  label="Reset View"
               color="neutral" 
               variant="outline" 
-              :size="isMobile ? 'xs' : 'sm'"
+                  size="sm"
+                  class="font-body"
               @click="resetView"
-            >
-              <UIcon name="i-heroicons-home" :class="isMobile ? 'w-3 h-3' : 'w-4 h-4'" />
-            </UButton>
-          </UTooltip>
+                />
         </div>
       </div>
     </div>
 
     <!-- Canvas Container -->
-    <div class="w-full h-full flex items-center justify-center relative p-2 sm:p-4">
+          <div class="flex-1 flex items-center justify-center p-4">
       <div 
         ref="canvasContainer"
-        data-testid="canvas-container" 
-        class="border-3 border-pink-500 rounded-lg shadow-lg bg-white relative"
-        :style="canvasContainerStyle"
-      >
-        <CanvasKonva
-          ref="canvasRef"
-          :stage-config="stageConfig"
-          :rectangles="rectangles"
-          :circles="circles"
-          :texts="texts"
-          @stage-mousedown="handleStageMouseDown"
-          @stage-mousemove="handleStageMouseMove"
-          @stage-mouseup="handleStageMouseUp"
-          @select-shape="selectShape"
-          @update-shape="handleShapeUpdate"
-        />
-        
-        
-        <!-- Cursor Overlay -->
-        <CursorOverlay />
-        
-        <!-- AI Chat Interface -->
-        <AIChatInterface />
+              class="border-2 border-gray-300 rounded-xl shadow-lg bg-white relative overflow-hidden"
+              :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
+              @mousedown="handleCanvasMouseDown"
+              @mousemove="handleCanvasMouseMove"
+              @mouseup="handleCanvasMouseUp"
+            >
+              <!-- Emojis (First Class Citizens) -->
+              <div
+                v-for="emoji in emojis"
+                :key="emoji.id"
+                :class="[
+                  'emoji-item absolute cursor-pointer select-none transition-all duration-200',
+                  { 'selected': selectedEmojiId === emoji.id }
+                ]"
+                :style="{
+                  left: emoji.x + 'px',
+                  top: emoji.y + 'px',
+                  fontSize: emoji.size + 'px',
+                  zIndex: emoji.layer || 1,
+                  transform: `rotate(${emoji.rotation || 0}deg)`
+                }"
+                @mousedown.stop="startDrag($event, emoji.id)"
+                @dblclick="editEmoji(emoji.id)"
+              >
+                {{ emoji.emoji }}
+    </div>
+
+              <!-- Shapes (Secondary) -->
+              <div
+                v-for="shape in allShapes"
+                :key="shape.id"
+                :class="[
+                  'shape-item absolute cursor-pointer select-none',
+                  { 'selected': selectedShapeId === shape.id }
+                ]"
+                :style="{
+                  left: shape.x + 'px',
+                  top: shape.y + 'px',
+                  width: shape.width + 'px',
+                  height: shape.height + 'px',
+                  backgroundColor: shape.fill,
+                  border: `2px solid ${shape.stroke}`,
+                  borderRadius: shape.type === 'circle' ? '50%' : '4px',
+                  zIndex: shape.layer || 1,
+                  transform: `rotate(${shape.rotation || 0}deg)`
+                }"
+                @mousedown.stop="startShapeDrag($event, shape.id)"
+              >
+                <div v-if="shape.type === 'text'" class="p-2 text-sm font-body">
+                  {{ shape.text }}
       </div>
     </div>
 
-    <!-- Debug Info -->
-    <div data-testid="debug-info" class="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10 bg-gray-800 border border-pink-500 rounded-lg shadow-lg p-2 sm:p-4 max-w-xs sm:max-w-none">
-      <div :class="isMobile ? 'text-xs text-white font-medium' : 'text-sm text-white font-medium'">
-        <div class="flex flex-wrap gap-2 sm:gap-4">
-          <div>Shapes: {{ totalShapes }}</div>
-          <div>Zoom: {{ Math.round(zoom * 100) }}%</div>
-        </div>
-        <div v-if="!isMobile" class="mt-1">
-          <div>Selected: {{ selectedShapeId || 'None' }}</div>
-          <div>Position: ({{ Math.round(stageConfig.x) }}, {{ Math.round(stageConfig.y) }})</div>
-          <div>Bounds: X:[-2000,2000] Y:[-2000,2000]</div>
-        </div>
-        <div class="flex items-center gap-1 mt-1">
-          <div class="w-2 h-2 rounded-full" :class="isRealtimeConnected ? 'bg-pink-500' : 'bg-red-500'"/>
-          <span :class="isMobile ? 'text-xs text-white' : 'text-sm text-white'">Real-time: {{ isRealtimeConnected ? 'Connected' : 'Disconnected' }}</span>
-        </div>
-        <div v-if="lastSyncTime && !isMobile" class="text-xs text-gray-300">
-          Last sync: {{ lastSyncTime.toLocaleTimeString() }}
-        </div>
-        <div v-if="loading" :class="isMobile ? 'text-xs text-blue-600 font-semibold' : 'text-sm text-blue-600 font-semibold'">Loading...</div>
-        <div v-if="saving" :class="isMobile ? 'text-xs text-yellow-600 font-semibold' : 'text-sm text-yellow-600 font-semibold'">Saving...</div>
-        <div v-if="error" :class="isMobile ? 'text-xs text-red-600 font-semibold' : 'text-sm text-red-600 font-semibold'">Error: {{ error }}</div>
-      </div>
-    </div>
+              <!-- Pen Strokes -->
+              <svg
+                v-if="penStrokes.length > 0"
+                class="absolute inset-0 pointer-events-none"
+                :style="{ zIndex: 1000 }"
+              >
+                <path
+                  v-for="stroke in penStrokes"
+                  :key="stroke.id"
+                  :d="stroke.path"
+                  :stroke="stroke.color"
+                  :stroke-width="stroke.width"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="pen-stroke"
+                />
+              </svg>
 
-    <!-- Notifications removed - causing hydration issues -->
-    
-    <!-- Loading Overlay -->
-    <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 flex items-center gap-4">
-        <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-blue-600" />
-        <span class="text-lg font-medium">Loading canvas...</span>
-      </div>
-    </div>
-    
-    <!-- Saving Overlay -->
-    <div v-if="saving" class="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 flex items-center gap-3 z-50">
-      <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-yellow-600" />
-      <span class="text-sm font-medium text-gray-700">Saving changes...</span>
-    </div>
-    
-    <!-- Error Toast - Using Nuxt UI Alert component -->
-    <UAlert
-      v-if="error"
-      color="error"
-      variant="soft"
-      title="Error"
-      :description="error"
-      class="fixed top-4 right-4 z-50 max-w-md"
-      close
-      @update:open="(open) => !open && clearError()"
-    />
-    
-    <!-- Help Modal -->
-    <UModal v-model="showHelpModal" title="Keyboard Shortcuts">
-      <template #content>
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <h4 class="font-medium text-gray-900">Shape Creation</h4>
-              <div class="space-y-1 text-sm text-gray-600">
-                <div class="flex justify-between">
-                  <span>Rectangle</span>
-                  <UKbd>R</UKbd>
+              <!-- Current Pen Stroke -->
+              <svg
+                v-if="currentPenStroke"
+                class="absolute inset-0 pointer-events-none"
+                :style="{ zIndex: 1001 }"
+              >
+                <path
+                  :d="currentPenStroke"
+                  :stroke="penColor"
+                  :stroke-width="penWidth"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="pen-stroke"
+                />
+              </svg>
+
+              <!-- Rotation Handles -->
+              <div
+                v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'"
+                class="absolute pointer-events-none"
+                :style="{
+                  left: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.x : getSelectedShape()?.x) + 'px',
+                  top: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.y : getSelectedShape()?.y) + 'px',
+                  width: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : getSelectedShape()?.width) + 'px',
+                  height: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : getSelectedShape()?.height) + 'px',
+                  zIndex: 1002
+                }"
+              >
+                <!-- Rotation Handle -->
+                <div
+                  class="absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg cursor-pointer pointer-events-auto flex items-center justify-center"
+                  @mousedown.stop="startRotation"
+                >
+                  <UIcon name="i-lucide-rotate-3d" class="w-3 h-3 text-white" />
                 </div>
-                <div class="flex justify-between">
-                  <span>Circle</span>
-                  <UKbd>C</UKbd>
-                </div>
-                <div class="flex justify-between">
-                  <span>Text</span>
-                  <UKbd>T</UKbd>
-                </div>
-                <div class="flex justify-between">
-                  <span>Line</span>
-                  <UKbd>L</UKbd>
-                </div>
-                <div class="flex justify-between">
-                  <span>Star</span>
-                  <UKbd>S</UKbd>
-                </div>
+                
+                <!-- Center Point -->
+                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full border border-white"/>
+              </div>
+            </div>
               </div>
             </div>
             
-            <div class="space-y-2">
-              <h4 class="font-medium text-gray-900">Actions</h4>
-              <div class="space-y-1 text-sm text-gray-600">
-                <div class="flex justify-between">
-                  <span>Delete Selected</span>
-                  <UKbd>Delete</UKbd>
-                </div>
-                <div class="flex justify-between">
-                  <span>Deselect</span>
-                  <UKbd>Esc</UKbd>
-                </div>
-                <div class="flex justify-between">
-                  <span>Reset View</span>
-                  <UKbd>Home</UKbd>
-                </div>
-              </div>
+        <!-- Sidebar -->
+        <div v-if="showPresence" class="w-80 bg-white/90 backdrop-blur-sm border-l border-gray-200 shadow-lg">
+          <PresenceSidebar />
             </div>
           </div>
           
-          <div class="border-t pt-4">
-            <h4 class="font-medium text-gray-900 mb-2">Canvas Controls</h4>
-            <div class="text-sm text-gray-600 space-y-1">
-              <div>• <strong>Pan:</strong> Click and drag on empty canvas</div>
-              <div>• <strong>Zoom:</strong> Mouse wheel or pinch gesture</div>
-              <div>• <strong>Select:</strong> Click on shapes</div>
-              <div>• <strong>Resize:</strong> Drag the corner handles of selected shapes</div>
-              <div>• <strong>Rotate:</strong> Use the rotation buttons in the toolbar</div>
-            </div>
-          </div>
+      <!-- AI Chat Interface -->
+      <AIChatInterface v-if="showAIChat" />
+
+      <!-- Emoji Picker Modal -->
+      <UModal v-model:open="showEmojiPicker" title="🎨 Choose an Emoji" :ui="{ title: 'text-xl font-display' }">
+        <template #content>
+          <div class="p-4">
+            <UCommandPalette
+              v-model:search-term="searchTerm"
+              :groups="emojiGroups"
+              placeholder="Search emojis... 🔍"
+              icon="i-lucide-smile"
+              class="h-96"
+              :ui="{ 
+                input: '[&>input]:h-12 [&>input]:text-lg',
+                item: 'group relative w-full flex items-center gap-3 p-3 text-base select-none outline-none before:absolute before:z-[-1] before:inset-px before:rounded-lg data-disabled:cursor-not-allowed data-disabled:opacity-75',
+                itemLabel: 'text-lg font-body'
+              }"
+              @update:model-value="handleEmojiSelect"
+            />
         </div>
       </template>
     </UModal>
-    
-    <!-- Clear All Confirmation Modal -->
-    <UModal v-model:open="showClearModal" title="Clear All Shapes" description="This action cannot be undone">
-      <template #body>
-        <div class="space-y-4">
-          <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-8 h-8 text-pink-500" />
-            <div>
-              <h3 class="text-lg font-medium text-white">Are you sure?</h3>
-              <p class="text-sm text-gray-300">This will permanently delete all {{ totalShapes }} shape{{ totalShapes === 1 ? '' : 's' }} from the canvas.</p>
-            </div>
-          </div>
-        </div>
-      </template>
-      
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <UButton 
-            color="neutral" 
-            variant="outline" 
-            @click="showClearModal = false"
-          >
-            Cancel
-          </UButton>
-          <UButton 
-            color="error" 
-            :loading="saving"
-            @click="confirmClearCanvas"
-          >
-            Clear All Shapes
-          </UButton>
-        </div>
-      </template>
-    </UModal>
-      </div>
     </div>
   </AppLayout>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useShapesWithPersistence } from '~/composables/useShapesWithPersistence'
-
-// Define page meta
+<script setup lang="ts">
+// Auth middleware
 definePageMeta({
   middleware: 'auth'
 })
 
-// Auth composable for user info
-// const { } = useAuth()
-
-// Presence composable
-const { stopPresence } = usePresence()
-
-// Cursor tracking composable
-const { startTracking: startCursorTracking, stopTracking: stopCursorTracking } = useCursorTracking()
-
 // Canvas dimensions
-const canvasWidth = 800
-const canvasHeight = 600
+const canvasWidth = 1000
+const canvasHeight = 700
 
-// Mobile detection
-const isMobile = ref(false)
-const showMobilePresence = ref(false)
+// State
+const showPresence = ref(false)
+const showAIChat = ref(false)
+const showEmojiPicker = ref(false)
+const currentTool = ref<'select' | 'pen'>('select')
+const selectedEmojiId = ref<string | null>(null)
+const selectedShapeId = ref<string | null>(null)
+const searchTerm = ref('')
+const rotationAngle = ref(0)
+const isRotating = ref(false)
 
-// Use shapes composable with persistence
+// Emoji system
 const {
-  rectangles,
-  circles,
-  texts,
-  selectedShapeId,
-  totalShapes,
-  loading,
-  saving,
-  error,
-  addRectangle: addRect,
-  addCircle: addCirc,
-  addText: addTxt,
-  selectShape,
-  updateShape,
-  deleteSelectedShape,
-  clearAllShapes,
-  getShapeById,
-  loadShapesFromDatabase,
-  clearError,
-  startRealtimeSync,
-  stopRealtimeSync,
-  isRealtimeConnected,
-  lastSyncTime
-} = useShapesWithPersistence(canvasWidth, canvasHeight)
+  emojis,
+  loading: emojiLoading,
+  saving: emojiSaving,
+  error: emojiError,
+  addEmoji: addEmojiToCanvas,
+  updateEmoji,
+  deleteEmoji,
+  clearAllEmojis,
+  getEmojiById,
+  isRealtimeConnected
+} = useEmojis(canvasWidth, canvasHeight)
 
-// Watch for shape array changes and force canvas refresh
-watch([rectangles, circles, texts], async ([newRects, newCircles, newTexts], [oldRects, oldCircles, oldTexts]) => {
-    console.log('🔄 Canvas page - shape arrays changed, forcing refresh')
-    console.log('🔄 Canvas page - rectangles:', newRects.length, 'circles:', newCircles.length, 'texts:', newTexts.length)
-    
-    // Use nextTick to ensure DOM has been updated before refreshing canvas
-    await nextTick()
-    
-    // Force refresh the canvas to ensure shapes appear immediately
-    if (canvasRef.value && canvasRef.value.forceRefresh) {
-      console.log('🔄 Canvas page - calling forceRefresh after nextTick')
-      canvasRef.value.forceRefresh()
-    }
-}, { deep: true })
+// Shape interfaces
+interface Shape {
+  id: string
+  type: 'rectangle' | 'circle' | 'text'
+  x: number
+  y: number
+  width: number
+  height: number
+  fill: string
+  stroke: string
+  layer: number
+  rotation: number
+  text?: string
+}
 
-// Initialize canvas on mount
-onMounted(async () => {
-  // Canvas is ready
-})
+interface PenStroke {
+  id: string
+  path: string
+  color: string
+  width: number
+}
 
-// Stage configuration
-const stageConfig = ref({
-  width: canvasWidth,
-  height: canvasHeight,
-  draggable: true,
-  scaleX: 1,
-  scaleY: 1,
-  x: 0,
-  y: 0
-})
+// Shape system (simplified)
+const rectangles = ref<Shape[]>([])
+const circles = ref<Shape[]>([])
+const texts = ref<Shape[]>([])
+const penStrokes = ref<PenStroke[]>([])
 
-// Interaction state
+// Computed - All shapes combined for rendering
+const allShapes = computed((): Shape[] => [
+  ...rectangles.value,
+  ...circles.value,
+  ...texts.value
+])
+
+// Drag state
 const isDragging = ref(false)
-const lastPointerPosition = ref({ x: 0, y: 0 })
-  const canvasRef = ref(null)
-const selectedColor = ref('#FF6B6B') // Default color
-const showHelpModal = ref(false)
-const showClearModal = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const originalPosition = ref({ x: 0, y: 0 })
 
-// Watch for selected shape changes to update color picker
-watch(selectedShapeId, (newShapeId) => {
-  console.log('🎯 selectedShapeId changed to:', newShapeId)
-  if (newShapeId) {
-    const shape = getShapeById(newShapeId)
-    console.log('🎯 Selected shape:', shape)
-    if (shape && shape.fill) {
-      selectedColor.value = shape.fill
-    }
+// Pen drawing state
+const isDrawing = ref(false)
+const currentPenStroke = ref('')
+const penColor = ref('#000000')
+const penWidth = ref(3)
+const lastPenPosition = ref({ x: 0, y: 0 })
+const penPoints = ref<Array<{x: number, y: number}>>([])
+
+// Emoji picker data
+const emojiGroups = ref([
+  {
+    id: 'faces',
+    label: 'Faces & Emotions',
+    items: [
+      { label: '😀', value: '😀' },
+      { label: '😃', value: '😃' },
+      { label: '😄', value: '😄' },
+      { label: '😁', value: '😁' },
+      { label: '😆', value: '😆' },
+      { label: '😅', value: '😅' },
+      { label: '🤣', value: '🤣' },
+      { label: '😂', value: '😂' },
+      { label: '🙂', value: '🙂' },
+      { label: '🙃', value: '🙃' },
+      { label: '😉', value: '😉' },
+      { label: '😊', value: '😊' },
+      { label: '😇', value: '😇' },
+      { label: '🥰', value: '🥰' },
+      { label: '😍', value: '😍' },
+      { label: '🤩', value: '🤩' },
+      { label: '😘', value: '😘' },
+      { label: '😗', value: '😗' },
+      { label: '😚', value: '😚' },
+      { label: '😙', value: '😙' },
+      { label: '😋', value: '😋' },
+      { label: '😛', value: '😛' },
+      { label: '😜', value: '😜' },
+      { label: '🤪', value: '🤪' },
+      { label: '😝', value: '😝' },
+      { label: '🤑', value: '🤑' },
+      { label: '🤗', value: '🤗' },
+      { label: '🤭', value: '🤭' },
+      { label: '🤫', value: '🤫' },
+      { label: '🤔', value: '🤔' },
+      { label: '🤐', value: '🤐' },
+      { label: '🤨', value: '🤨' },
+      { label: '😐', value: '😐' },
+      { label: '😑', value: '😑' },
+      { label: '😶', value: '😶' },
+      { label: '😏', value: '😏' },
+      { label: '😒', value: '😒' },
+      { label: '🙄', value: '🙄' },
+      { label: '😬', value: '😬' },
+      { label: '🤥', value: '🤥' },
+      { label: '😔', value: '😔' },
+      { label: '😕', value: '😕' },
+      { label: '🙁', value: '🙁' },
+      { label: '☹️', value: '☹️' },
+      { label: '😣', value: '😣' },
+      { label: '😖', value: '😖' },
+      { label: '😫', value: '😫' },
+      { label: '😩', value: '😩' },
+      { label: '🥺', value: '🥺' },
+      { label: '😢', value: '😢' },
+      { label: '😭', value: '😭' },
+      { label: '😤', value: '😤' },
+      { label: '😠', value: '😠' },
+      { label: '😡', value: '😡' },
+      { label: '🤬', value: '🤬' },
+      { label: '🤯', value: '🤯' },
+      { label: '😳', value: '😳' },
+      { label: '🥵', value: '🥵' },
+      { label: '🥶', value: '🥶' },
+      { label: '😱', value: '😱' },
+      { label: '😨', value: '😨' },
+      { label: '😰', value: '😰' },
+      { label: '😥', value: '😥' },
+      { label: '😓', value: '😓' },
+      { label: '🤗', value: '🤗' },
+      { label: '🤔', value: '🤔' },
+      { label: '🤭', value: '🤭' },
+      { label: '🤫', value: '🤫' },
+      { label: '🤥', value: '🤥' },
+      { label: '🤐', value: '🤐' },
+      { label: '🤨', value: '🤨' },
+      { label: '😐', value: '😐' },
+      { label: '😑', value: '😑' },
+      { label: '😶', value: '😶' },
+      { label: '😏', value: '😏' },
+      { label: '😒', value: '😒' },
+      { label: '🙄', value: '🙄' },
+      { label: '😬', value: '😬' },
+      { label: '🤥', value: '🤥' },
+      { label: '😔', value: '😔' },
+      { label: '😕', value: '😕' },
+      { label: '🙁', value: '🙁' },
+      { label: '☹️', value: '☹️' },
+      { label: '😣', value: '😣' },
+      { label: '😖', value: '😖' },
+      { label: '😫', value: '😫' },
+      { label: '😩', value: '😩' },
+      { label: '🥺', value: '🥺' },
+      { label: '😢', value: '😢' },
+      { label: '😭', value: '😭' },
+      { label: '😤', value: '😤' },
+      { label: '😠', value: '😠' },
+      { label: '😡', value: '😡' },
+      { label: '🤬', value: '🤬' },
+      { label: '🤯', value: '🤯' },
+      { label: '😳', value: '😳' },
+      { label: '🥵', value: '🥵' },
+      { label: '🥶', value: '🥶' },
+      { label: '😱', value: '😱' },
+      { label: '😨', value: '😨' },
+      { label: '😰', value: '😰' },
+      { label: '😥', value: '😥' },
+      { label: '😓', value: '😓' }
+    ]
+  },
+  {
+    id: 'animals',
+    label: 'Animals & Nature',
+    items: [
+      { label: '🐶', value: '🐶' },
+      { label: '🐱', value: '🐱' },
+      { label: '🐭', value: '🐭' },
+      { label: '🐹', value: '🐹' },
+      { label: '🐰', value: '🐰' },
+      { label: '🦊', value: '🦊' },
+      { label: '🐻', value: '🐻' },
+      { label: '🐼', value: '🐼' },
+      { label: '🐨', value: '🐨' },
+      { label: '🐯', value: '🐯' },
+      { label: '🦁', value: '🦁' },
+      { label: '🐮', value: '🐮' },
+      { label: '🐷', value: '🐷' },
+      { label: '🐸', value: '🐸' },
+      { label: '🐵', value: '🐵' },
+      { label: '🙈', value: '🙈' },
+      { label: '🙉', value: '🙉' },
+      { label: '🙊', value: '🙊' },
+      { label: '🐒', value: '🐒' },
+      { label: '🐔', value: '🐔' },
+      { label: '🐧', value: '🐧' },
+      { label: '🐦', value: '🐦' },
+      { label: '🐤', value: '🐤' },
+      { label: '🐣', value: '🐣' },
+      { label: '🐥', value: '🐥' },
+      { label: '🦆', value: '🦆' },
+      { label: '🦅', value: '🦅' },
+      { label: '🦉', value: '🦉' },
+      { label: '🦇', value: '🦇' },
+      { label: '🐺', value: '🐺' },
+      { label: '🐗', value: '🐗' },
+      { label: '🐴', value: '🐴' },
+      { label: '🦄', value: '🦄' },
+      { label: '🐝', value: '🐝' },
+      { label: '🐛', value: '🐛' },
+      { label: '🦋', value: '🦋' },
+      { label: '🐌', value: '🐌' },
+      { label: '🐞', value: '🐞' },
+      { label: '🐜', value: '🐜' },
+      { label: '🦟', value: '🦟' },
+      { label: '🦗', value: '🦗' },
+      { label: '🕷️', value: '🕷️' },
+      { label: '🕸️', value: '🕸️' },
+      { label: '🦂', value: '🦂' },
+      { label: '🐢', value: '🐢' },
+      { label: '🐍', value: '🐍' },
+      { label: '🦎', value: '🦎' },
+      { label: '🦖', value: '🦖' },
+      { label: '🦕', value: '🦕' },
+      { label: '🐙', value: '🐙' },
+      { label: '🦑', value: '🦑' },
+      { label: '🦐', value: '🦐' },
+      { label: '🦞', value: '🦞' },
+      { label: '🦀', value: '🦀' },
+      { label: '🐡', value: '🐡' },
+      { label: '🐠', value: '🐠' },
+      { label: '🐟', value: '🐟' },
+      { label: '🐬', value: '🐬' },
+      { label: '🐳', value: '🐳' },
+      { label: '🐋', value: '🐋' },
+      { label: '🦈', value: '🦈' },
+      { label: '🐊', value: '🐊' },
+      { label: '🐅', value: '🐅' },
+      { label: '🐆', value: '🐆' },
+      { label: '🦓', value: '🦓' },
+      { label: '🦍', value: '🦍' },
+      { label: '🐘', value: '🐘' },
+      { label: '🦏', value: '🦏' },
+      { label: '🦛', value: '🦛' },
+      { label: '🐪', value: '🐪' },
+      { label: '🐫', value: '🐫' },
+      { label: '🦒', value: '🦒' },
+      { label: '🦘', value: '🦘' },
+      { label: '🐃', value: '🐃' },
+      { label: '🐂', value: '🐂' },
+      { label: '🐄', value: '🐄' },
+      { label: '🐎', value: '🐎' },
+      { label: '🐖', value: '🐖' },
+      { label: '🐏', value: '🐏' },
+      { label: '🐑', value: '🐑' },
+      { label: '🐐', value: '🐐' },
+      { label: '🦌', value: '🦌' },
+      { label: '🐕', value: '🐕' },
+      { label: '🐩', value: '🐩' },
+      { label: '🐈', value: '🐈' },
+      { label: '🐓', value: '🐓' },
+      { label: '🦃', value: '🦃' },
+      { label: '🦚', value: '🦚' },
+      { label: '🦜', value: '🦜' },
+      { label: '🦢', value: '🦢' },
+      { label: '🦩', value: '🦩' },
+      { label: '🕊️', value: '🕊️' },
+      { label: '🐇', value: '🐇' },
+      { label: '🦝', value: '🦝' },
+      { label: '🦨', value: '🦨' },
+      { label: '🦡', value: '🦡' },
+      { label: '🦦', value: '🦦' },
+      { label: '🦥', value: '🦥' },
+      { label: '🐁', value: '🐁' },
+      { label: '🐀', value: '🐀' },
+      { label: '🐿️', value: '🐿️' },
+      { label: '🦔', value: '🦔' },
+      { label: '🐾', value: '🐾' },
+      { label: '🐉', value: '🐉' },
+      { label: '🐲', value: '🐲' }
+    ]
+  },
+  {
+    id: 'objects',
+    label: 'Objects & Things',
+    items: [
+      { label: '🎨', value: '🎨' },
+      { label: '🎭', value: '🎭' },
+      { label: '🎪', value: '🎪' },
+      { label: '🎯', value: '🎯' },
+      { label: '🎲', value: '🎲' },
+      { label: '🎳', value: '🎳' },
+      { label: '🎮', value: '🎮' },
+      { label: '🕹️', value: '🕹️' },
+      { label: '🎰', value: '🎰' },
+      { label: '🧩', value: '🧩' },
+      { label: '🎲', value: '🎲' },
+      { label: '♠️', value: '♠️' },
+      { label: '♥️', value: '♥️' },
+      { label: '♦️', value: '♦️' },
+      { label: '♣️', value: '♣️' },
+      { label: '🃏', value: '🃏' },
+      { label: '🀄', value: '🀄' },
+      { label: '🎴', value: '🎴' },
+      { label: '🎭', value: '🎭' },
+      { label: '🎨', value: '🎨' },
+      { label: '🎬', value: '🎬' },
+      { label: '🎤', value: '🎤' },
+      { label: '🎧', value: '🎧' },
+      { label: '🎼', value: '🎼' },
+      { label: '🎵', value: '🎵' },
+      { label: '🎶', value: '🎶' },
+      { label: '🎹', value: '🎹' },
+      { label: '🥁', value: '🥁' },
+      { label: '🎷', value: '🎷' },
+      { label: '🎺', value: '🎺' },
+      { label: '🎸', value: '🎸' },
+      { label: '🪕', value: '🪕' },
+      { label: '🎻', value: '🎻' },
+      { label: '🪗', value: '🪗' },
+      { label: '🎲', value: '🎲' },
+      { label: '🎯', value: '🎯' },
+      { label: '🎳', value: '🎳' },
+      { label: '🎮', value: '🎮' },
+      { label: '🕹️', value: '🕹️' },
+      { label: '🎰', value: '🎰' },
+      { label: '🧩', value: '🧩' },
+      { label: '🎲', value: '🎲' },
+      { label: '♠️', value: '♠️' },
+      { label: '♥️', value: '♥️' },
+      { label: '♦️', value: '♦️' },
+      { label: '♣️', value: '♣️' },
+      { label: '🃏', value: '🃏' },
+      { label: '🀄', value: '🀄' },
+      { label: '🎴', value: '🎴' }
+    ]
+  },
+  {
+    id: 'food',
+    label: 'Food & Drink',
+    items: [
+      { label: '🍎', value: '🍎' },
+      { label: '🍊', value: '🍊' },
+      { label: '🍋', value: '🍋' },
+      { label: '🍌', value: '🍌' },
+      { label: '🍉', value: '🍉' },
+      { label: '🍇', value: '🍇' },
+      { label: '🍓', value: '🍓' },
+      { label: '🫐', value: '🫐' },
+      { label: '🍈', value: '🍈' },
+      { label: '🍒', value: '🍒' },
+      { label: '🍑', value: '🍑' },
+      { label: '🥭', value: '🥭' },
+      { label: '🍍', value: '🍍' },
+      { label: '🥥', value: '🥥' },
+      { label: '🥝', value: '🥝' },
+      { label: '🍅', value: '🍅' },
+      { label: '🍆', value: '🍆' },
+      { label: '🥑', value: '🥑' },
+      { label: '🥦', value: '🥦' },
+      { label: '🥬', value: '🥬' },
+      { label: '🥒', value: '🥒' },
+      { label: '🌶️', value: '🌶️' },
+      { label: '🫒', value: '🫒' },
+      { label: '🌽', value: '🌽' },
+      { label: '🥕', value: '🥕' },
+      { label: '🫑', value: '🫑' },
+      { label: '🥔', value: '🥔' },
+      { label: '🍠', value: '🍠' },
+      { label: '🥐', value: '🥐' },
+      { label: '🥖', value: '🥖' },
+      { label: '🍞', value: '🍞' },
+      { label: '🥨', value: '🥨' },
+      { label: '🥯', value: '🥯' },
+      { label: '🧀', value: '🧀' },
+      { label: '🥚', value: '🥚' },
+      { label: '🍳', value: '🍳' },
+      { label: '🧈', value: '🧈' },
+      { label: '🥞', value: '🥞' },
+      { label: '🧇', value: '🧇' },
+      { label: '🥓', value: '🥓' },
+      { label: '🥩', value: '🥩' },
+      { label: '🍗', value: '🍗' },
+      { label: '🍖', value: '🍖' },
+      { label: '🦴', value: '🦴' },
+      { label: '🌭', value: '🌭' },
+      { label: '🍔', value: '🍔' },
+      { label: '🍟', value: '🍟' },
+      { label: '🍕', value: '🍕' },
+      { label: '🥪', value: '🥪' },
+      { label: '🥙', value: '🥙' },
+      { label: '🌮', value: '🌮' },
+      { label: '🌯', value: '🌯' },
+      { label: '🫔', value: '🫔' },
+      { label: '🥗', value: '🥗' },
+      { label: '🥘', value: '🥘' },
+      { label: '🫕', value: '🫕' },
+      { label: '🥫', value: '🥫' },
+      { label: '🍝', value: '🍝' },
+      { label: '🍜', value: '🍜' },
+      { label: '🍲', value: '🍲' },
+      { label: '🍛', value: '🍛' },
+      { label: '🍣', value: '🍣' },
+      { label: '🍱', value: '🍱' },
+      { label: '🥟', value: '🥟' },
+      { label: '🦪', value: '🦪' },
+      { label: '🍤', value: '🍤' },
+      { label: '🍙', value: '🍙' },
+      { label: '🍚', value: '🍚' },
+      { label: '🍘', value: '🍘' },
+      { label: '🍥', value: '🍥' },
+      { label: '🥠', value: '🥠' },
+      { label: '🥮', value: '🥮' },
+      { label: '🍢', value: '🍢' },
+      { label: '🍡', value: '🍡' },
+      { label: '🍧', value: '🍧' },
+      { label: '🍨', value: '🍨' },
+      { label: '🍦', value: '🍦' },
+      { label: '🥧', value: '🥧' },
+      { label: '🧁', value: '🧁' },
+      { label: '🍰', value: '🍰' },
+      { label: '🎂', value: '🎂' },
+      { label: '🍮', value: '🍮' },
+      { label: '🍭', value: '🍭' },
+      { label: '🍬', value: '🍬' },
+      { label: '🍫', value: '🍫' },
+      { label: '🍿', value: '🍿' },
+      { label: '🍩', value: '🍩' },
+      { label: '🍪', value: '🍪' },
+      { label: '🌰', value: '🌰' },
+      { label: '🥜', value: '🥜' },
+      { label: '🍯', value: '🍯' }
+    ]
   }
-})
+])
 
-// Computed properties
-const zoom = computed(() => stageConfig.value.scaleX || 1)
-
-const canvasContainerStyle = computed(() => {
-  if (isMobile.value) {
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 800
-    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 600
-    return {
-      width: Math.min(canvasWidth, windowWidth - 32) + 'px',
-      height: Math.min(canvasHeight, windowHeight - 200) + 'px'
-    }
-  }
-  return {
-    width: canvasWidth + 'px',
-    height: canvasHeight + 'px'
-  }
-})
-
-// Shape menu items for dropdown
+// Shape menu items
 const shapeMenuItems = computed(() => [
   [{
     label: 'Basic Shapes',
@@ -459,300 +759,403 @@ const shapeMenuItems = computed(() => [
   [{
     label: 'Rectangle',
     icon: 'i-heroicons-square-3-stack-3d',
-    kbds: ['R'],
     onSelect: () => addRectangle()
   }, {
     label: 'Circle',
     icon: 'i-heroicons-circle-stack',
-    kbds: ['C'],
     onSelect: () => addCircle()
   }, {
     label: 'Text',
     icon: 'i-heroicons-document-text',
-    kbds: ['T'],
     onSelect: () => addText()
-  }],
+  }]
 ])
 
-// Shape creation methods (now using composable with selected color and persistence)
-const addRectangle = async () => {
-  const shape = await addRect({ fill: selectedColor.value })
-  if (shape && canvasRef.value) {
-    console.log('Rectangle added, forcing canvas refresh')
-    canvasRef.value.forceRefresh()
+// Tool functions
+function setTool(tool: 'select' | 'pen') {
+  currentTool.value = tool
+  selectedEmojiId.value = null
+  selectedShapeId.value = null
+}
+
+// Emoji functions
+async function addEmoji(emojiChar: string) {
+  const emojiData = {
+    emoji: emojiChar,
+    x: Math.random() * (canvasWidth - 100),
+    y: Math.random() * (canvasHeight - 100),
+    size: 48,
+    layer: 1,
+    rotation: 0
+  }
+  
+  await addEmojiToCanvas(emojiData)
+  showEmojiPicker.value = false
+}
+
+function handleEmojiSelect(item: any) {
+  if (item && item.value) {
+    addEmoji(item.value)
   }
 }
 
-const addCircle = async () => {
-  const shape = await addCirc({ fill: selectedColor.value })
-  if (shape && canvasRef.value) {
-    console.log('Circle added, forcing canvas refresh')
-    canvasRef.value.forceRefresh()
+// Drag functions
+function startDrag(event: MouseEvent, emojiId: string) {
+  if (currentTool.value === 'select') {
+    isDragging.value = true
+    selectedEmojiId.value = emojiId
+    selectedShapeId.value = null
+    const emoji = getEmojiById(emojiId)
+    if (emoji) {
+      originalPosition.value = { x: emoji.x, y: emoji.y }
+      dragStart.value = { x: event.clientX, y: event.clientY }
+    }
+    updateRotationFromSelection()
   }
 }
 
-const addText = async () => {
-  const shape = await addTxt({ fill: selectedColor.value })
-  if (shape && canvasRef.value) {
-    console.log('Text added, forcing canvas refresh')
-    canvasRef.value.forceRefresh()
-  }
-}
-
-
-
-const clearCanvas = () => {
-  showClearModal.value = true
-}
-
-const confirmClearCanvas = async () => {
-  try {
-    await clearAllShapes()
+function startShapeDrag(event: MouseEvent, shapeId: string) {
+  if (currentTool.value === 'select') {
+    isDragging.value = true
+    selectedShapeId.value = shapeId
+    selectedEmojiId.value = null
     
-    // Force refresh the canvas to ensure shapes are removed
-    if (canvasRef.value) {
-      canvasRef.value.forceRefresh()
+    // Find the shape in any of the arrays
+    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const shape = allShapesArray.find(s => s.id === shapeId)
+    
+    if (shape) {
+      originalPosition.value = { x: shape.x, y: shape.y }
+      dragStart.value = { x: event.clientX, y: event.clientY }
+    }
+    updateRotationFromSelection()
+  }
+}
+
+function handleDrag(event: MouseEvent) {
+  if (isDragging.value) {
+    const deltaX = event.clientX - dragStart.value.x
+    const deltaY = event.clientY - dragStart.value.y
+    
+    // Handle emoji dragging
+    if (selectedEmojiId.value) {
+      const emoji = getEmojiById(selectedEmojiId.value)
+      if (emoji) {
+        emoji.x = originalPosition.value.x + deltaX
+        emoji.y = originalPosition.value.y + deltaY
+      }
     }
     
-    showClearModal.value = false
-  } catch (error) {
-    console.error('Error clearing canvas:', error)
-    showClearModal.value = false
-  }
-}
-
-const applyColorToSelected = async () => {
+    // Handle shape dragging
   if (selectedShapeId.value) {
-    // Applying color to shape
-    
-    // Get the current shape to see its current color
-    const currentShape = getShapeById(selectedShapeId.value)
-    // Current shape before color change
-    
-    const result = await updateShape(selectedShapeId.value, { fill: selectedColor.value })
-    // Color update completed
-  }
-}
-
-const rotateSelected = async (degrees) => {
-  if (selectedShapeId.value) {
-    const currentShape = getShapeById(selectedShapeId.value)
-    if (currentShape) {
-      const currentRotation = currentShape.rotation || 0
-      const newRotation = (currentRotation + degrees) % 360
-      await updateShape(selectedShapeId.value, { rotation: newRotation })
-    }
-  }
-}
-
-const handleDeleteSelected = async () => {
-  if (selectedShapeId.value) {
-    const confirmed = confirm('Are you sure you want to delete the selected shape?')
-    if (confirmed) {
-      try {
-        const success = await deleteSelectedShape()
-        if (success && canvasRef.value) {
-          // Force refresh the canvas to ensure deleted shape is removed
-          canvasRef.value.forceRefresh()
-          console.log('Shape deleted successfully')
-        } else {
-          console.error('Failed to delete shape')
-          // You could show a toast notification here
-        }
-      } catch (error) {
-        console.error('Error deleting shape:', error)
-        // You could show a toast notification here
+      const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+      const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+      if (shape) {
+        shape.x = originalPosition.value.x + deltaX
+        shape.y = originalPosition.value.y + deltaY
       }
     }
   }
 }
 
-
-
-const resetView = () => {
-  // Reset stage configuration to default
-  stageConfig.value = {
-    width: canvasWidth,
-    height: canvasHeight,
-    draggable: true,
-    scaleX: 1,
-    scaleY: 1,
-    x: 0,
-    y: 0
+async function endDrag() {
+  if (isDragging.value) {
+    // Handle emoji drag end
+    if (selectedEmojiId.value) {
+      const emoji = getEmojiById(selectedEmojiId.value)
+      if (emoji) {
+        await updateEmoji(selectedEmojiId.value, {
+          x: emoji.x,
+          y: emoji.y
+        })
+      }
+    }
+    
+    // Handle shape drag end - shapes are local state, no persistence needed
+    if (selectedShapeId.value) {
+      // Shapes are already updated in handleDrag, no additional action needed
+      console.log('Shape drag completed')
+    }
+    
+    isDragging.value = false
+    selectedEmojiId.value = null
+    selectedShapeId.value = null
   }
-  
-  // Also call the component's reset method
-  if (canvasRef.value) {
-    canvasRef.value.resetView()
+}
+
+// Shape functions
+function addRectangle() {
+  const rect: Shape = {
+    id: generateId(),
+    type: 'rectangle',
+    x: Math.random() * (canvasWidth - 100),
+    y: Math.random() * (canvasHeight - 100),
+    width: 100,
+    height: 60,
+    fill: '#3b82f6',
+    stroke: '#1e40af',
+    layer: 1,
+    rotation: 0
+  }
+  rectangles.value.push(rect)
+}
+
+function addCircle() {
+  const circle: Shape = {
+    id: generateId(),
+    type: 'circle',
+    x: Math.random() * (canvasWidth - 100),
+    y: Math.random() * (canvasHeight - 100),
+    width: 60,
+    height: 60,
+    fill: '#8b5cf6',
+    stroke: '#7c3aed',
+    layer: 1,
+    rotation: 0
+  }
+  circles.value.push(circle)
+}
+
+function addText() {
+  const text: Shape = {
+    id: generateId(),
+    type: 'text',
+    x: Math.random() * (canvasWidth - 100),
+    y: Math.random() * (canvasHeight - 100),
+    width: 100,
+    height: 30,
+    text: 'Hello!',
+    fill: '#000000',
+    stroke: 'transparent',
+    layer: 1,
+    rotation: 0
+  }
+  texts.value.push(text)
+}
+
+function selectShape(shapeId: string) {
+  if (currentTool.value === 'select') {
+    selectedShapeId.value = shapeId
+    selectedEmojiId.value = null
+    updateRotationFromSelection()
   }
 }
 
-// Shape update handler
-  const handleShapeUpdate = (shapeId, updates) => {
-  // updates is already an object with x, y, etc.
-  console.log('Canvas handleShapeUpdate called for:', shapeId, 'with updates:', updates)
-  updateShape(shapeId, updates)
-  console.log('Canvas updateShape called')
-}
-
-// Stage interaction handlers
-  const handleStageMouseDown = (e) => {
-  isDragging.value = true
-  const pos = e.evt
-  lastPointerPosition.value = { x: pos.clientX, y: pos.clientY }
-}
-
-  const handleStageMouseMove = (e) => {
-  if (!isDragging.value) return
-  
-  const pos = e.evt
-  const dx = pos.clientX - lastPointerPosition.value.x
-  const dy = pos.clientY - lastPointerPosition.value.y
-  
-  stageConfig.value.x += dx
-  stageConfig.value.y += dy
-  
-  lastPointerPosition.value = { x: pos.clientX, y: pos.clientY }
-}
-
-const handleStageMouseUp = () => {
-  isDragging.value = false
-}
-
-// Keyboard shortcuts
-  const handleKeyDown = async (e) => {
-  // Prevent shortcuts when typing in input fields
-  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
-    return
+// Canvas mouse handlers
+function handleCanvasMouseDown(event: MouseEvent) {
+  if (currentTool.value === 'pen') {
+    isDrawing.value = true
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    // Initialize pen stroke
+    currentPenStroke.value = `M ${x} ${y}`
+    lastPenPosition.value = { x, y }
+    penPoints.value = [{ x, y }]
   }
-  
-  switch (e.key) {
-    case 'Delete':
-    case 'Backspace':
-      if (selectedShapeId.value) {
-        e.preventDefault()
-        try {
-          const success = await deleteSelectedShape()
-          if (success && canvasRef.value) {
-            canvasRef.value.forceRefresh()
-            console.log('Shape deleted successfully via keyboard')
+}
+
+function handleCanvasMouseMove(event: MouseEvent) {
+  if (isDrawing.value && currentTool.value === 'pen') {
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    // Only add point if it's far enough from the last point (performance optimization)
+    const distance = Math.sqrt(
+      Math.pow(x - lastPenPosition.value.x, 2) + 
+      Math.pow(y - lastPenPosition.value.y, 2)
+    )
+    
+    if (distance > 2) { // Minimum distance threshold
+      currentPenStroke.value += ` L ${x} ${y}`
+      lastPenPosition.value = { x, y }
+      penPoints.value.push({ x, y })
+    }
+  } else if (isDragging.value) {
+    handleDrag(event)
+  }
+}
+
+function handleCanvasMouseUp() {
+  if (isDrawing.value && currentTool.value === 'pen') {
+    isDrawing.value = false
+    if (currentPenStroke.value && penPoints.value.length > 1) {
+      // Use requestAnimationFrame for smooth rendering
+      requestAnimationFrame(() => {
+        const stroke: PenStroke = {
+          id: generateId(),
+          path: currentPenStroke.value,
+          color: penColor.value,
+          width: penWidth.value
+        }
+        penStrokes.value.push(stroke)
+        currentPenStroke.value = ''
+        penPoints.value = []
+      })
           } else {
-            console.error('Failed to delete shape via keyboard')
-          }
-        } catch (error) {
-          console.error('Error deleting shape via keyboard:', error)
-        }
-      }
-      break
-    case 'Escape':
-      e.preventDefault()
-      // Deselect current shape
-      if (selectedShapeId.value) {
-        selectShape(null)
-      }
-      break
-    case 'r':
-    case 'R':
-      if (!e.ctrlKey && !e.metaKey) {
-        e.preventDefault()
-        await addRectangle()
-      }
-      break
-    case 'c':
-    case 'C':
-      if (!e.ctrlKey && !e.metaKey) {
-        e.preventDefault()
-        await addCircle()
-      }
-      break
-    case 't':
-    case 'T':
-      if (!e.ctrlKey && !e.metaKey) {
-        e.preventDefault()
-        await addText()
-      }
-      break
-    case 's':
-    case 'S':
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        // Manual save (if we implement this feature)
-        console.log('Manual save')
-      }
-      break
-    case 'Home':
-      e.preventDefault()
-      resetView()
-      break
-    case 'a':
-    case 'A':
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        // Select all shapes (if we implement this feature)
-        console.log('Select all shapes')
-      }
-      break
+      // Clear if not enough points
+      currentPenStroke.value = ''
+      penPoints.value = []
+    }
+  } else if (isDragging.value) {
+    endDrag()
   }
 }
 
-// Mobile detection function
-const checkMobile = () => {
-  isMobile.value = window.innerWidth < 640 // sm breakpoint
+// Utility functions
+function generateId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
 }
 
-// Lifecycle
-onMounted(async () => {
-  // Check mobile on mount and resize
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-  window.addEventListener('keydown', handleKeyDown)
-  
-  // Load shapes from database
-  try {
-    await loadShapesFromDatabase()
-    console.log('Shapes loaded from database:', { 
-      rectangles: rectangles.value.length, 
-      circles: circles.value.length, 
-      texts: texts.value.length 
-    })
-  } catch (error) {
-    console.error('Failed to load shapes from database:', error)
-    // Don't add test shapes - start with empty canvas
-  }
-  
-  // Start real-time sync
-  try {
-    await startRealtimeSync()
-    console.log('Real-time sync started')
-  } catch (error) {
-    console.error('Failed to start real-time sync:', error)
-  }
-  
-  // Presence tracking will auto-start when user is authenticated
-  console.log('Presence tracking will auto-start when user is authenticated')
-  
-  // Start cursor tracking
-  try {
-    startCursorTracking()
-    console.log('Cursor tracking started')
-  } catch (error) {
-    console.error('Failed to start cursor tracking:', error)
-  }
-})
+async function clearCanvas() {
+  await clearAllEmojis()
+  rectangles.value = []
+  circles.value = []
+  texts.value = []
+  penStrokes.value = []
+  selectedEmojiId.value = null
+  selectedShapeId.value = null
+}
 
-// Cleanup
-onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
-  window.removeEventListener('keydown', handleKeyDown)
-  stopRealtimeSync()
-  stopPresence()
-  stopCursorTracking()
-})
+function resetView() {
+  // Reset view logic here
+  console.log('Reset view')
+}
+
+function editEmoji(id: string) {
+  // Cycle through sizes
+  const emoji = getEmojiById(id)
+  if (emoji) {
+    const newSize = emoji.size === 32 ? 48 : emoji.size === 48 ? 64 : 32
+    updateEmoji(id, { size: newSize })
+  }
+}
+
+// Rotation functions
+function handleRotationChange(angle: number | undefined) {
+  if (angle === undefined) return
+  
+  rotationAngle.value = angle
+  
+  // Update emoji rotation
+  if (selectedEmojiId.value) {
+    const emoji = getEmojiById(selectedEmojiId.value)
+    if (emoji) {
+      emoji.rotation = angle
+      updateEmoji(selectedEmojiId.value, { rotation: angle })
+    }
+  }
+  
+  // Update shape rotation
+  if (selectedShapeId.value) {
+    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+    if (shape) {
+      shape.rotation = angle
+    }
+  }
+}
+
+function resetRotation() {
+  rotationAngle.value = 0
+  handleRotationChange(0)
+}
+
+function updateRotationFromSelection() {
+  // Update rotation slider when selection changes
+  if (selectedEmojiId.value) {
+    const emoji = getEmojiById(selectedEmojiId.value)
+    if (emoji) {
+      rotationAngle.value = emoji.rotation || 0
+    }
+  } else if (selectedShapeId.value) {
+    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+    if (shape) {
+      rotationAngle.value = shape.rotation || 0
+    }
+  } else {
+    rotationAngle.value = 0
+  }
+}
+
+function getSelectedShape() {
+  if (selectedShapeId.value) {
+    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    return allShapesArray.find(s => s.id === selectedShapeId.value)
+  }
+  return null
+}
+
+function startRotation(event: MouseEvent) {
+  isRotating.value = true
+  const rect = (event.target as HTMLElement).getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isRotating.value) {
+      const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
+      const normalizedAngle = (angle + 360) % 360
+      handleRotationChange(Math.round(normalizedAngle))
+    }
+  }
+  
+  const handleMouseUp = () => {
+    isRotating.value = false
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }
+  
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+}
 </script>
 
 <style scoped>
-/* Ensure the canvas container is properly sized */
-canvas {
-  display: block;
+.emoji-item {
+  transition: all 0.2s ease;
+  will-change: transform;
+}
+
+.emoji-item:hover {
+  transform: scale(1.1);
+}
+
+.emoji-item.selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.shape-item {
+  transition: all 0.2s ease;
+  will-change: transform;
+}
+
+.shape-item:hover {
+  transform: scale(1.05);
+}
+
+.shape-item.selected {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+/* Performance optimizations for canvas */
+.canvas-container {
+  contain: layout style paint;
+  transform: translateZ(0);
+}
+
+/* Smooth pen tool rendering */
+.pen-stroke {
+  shape-rendering: geometricPrecision;
+  vector-effect: non-scaling-stroke;
 }
 </style>

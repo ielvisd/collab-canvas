@@ -21,7 +21,7 @@
       <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-sparkles" class="w-5 h-5 text-primary-500" />
-          <h3 class="text-lg font-semibold">AI Assistant</h3>
+          <h3 class="text-lg font-semibold font-display">🤖 AI Storyteller</h3>
         </div>
         <UButton
           variant="ghost"
@@ -146,12 +146,17 @@ const showChat = ref(false)
 
 // Quick action commands
 const quickActions = [
-  { label: 'Red Rectangle', command: 'Create a red rectangle at position 100, 200' },
-  { label: 'Blue Circle', command: 'Make a blue circle with radius 50' },
-  { label: 'Text Label', command: 'Add text that says "Hello World" at position 200, 300' },
-  { label: 'Arrange Shapes', command: 'Arrange all shapes in a horizontal row' },
-  { label: 'Login Form', command: 'Create a login form with username and password fields' },
-  { label: 'Clear Canvas', command: 'Delete all shapes from the canvas' }
+  { label: '🐷 Three Little Pigs', command: 'Create a story with three little pigs on an island' },
+  { label: '😊 Happy Face', command: 'Add a happy face emoji' },
+  { label: '🏠 House & Tree', command: 'Create a house with a tree next to it' },
+  { label: '🎉 Party Scene', command: 'Create a party scene with balloons and cake' },
+  { label: '🌊 Ocean Adventure', command: 'Create an ocean scene with fish and waves' },
+  { label: '🚀 Space Journey', command: 'Create a space scene with rockets and planets' },
+  { label: '🎭 Theater Story', command: 'Tell a theater story with actors and stage' },
+  { label: '🍕 Food Scene', command: 'Create a food scene with pizza and drinks' },
+  { label: '🔵 Blue Circle', command: 'Add a blue circle shape' },
+  { label: '📝 Text Label', command: 'Add a text label that says "Hello World"' },
+  { label: '🧹 Clear Canvas', command: 'Delete all emojis and shapes from the canvas' }
 ]
 
 // Handle form submission

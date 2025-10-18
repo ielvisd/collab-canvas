@@ -87,6 +87,28 @@ export default defineEventHandler(async (event) => {
       command = {
         action: 'clear-all'
       }
+    } else if (userMessage.toLowerCase().includes('three little pigs') || userMessage.toLowerCase().includes('pigs on island')) {
+      // Emoji story example: Three little pigs on an island
+      command = {
+        action: 'create-emoji-story',
+        story: 'Three little pigs on an island',
+        emojis: [
+          { emoji: '🏝️', x: 300, y: 200, size: 80, layer: 1 }, // Island (background)
+          { emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 }, // Pig 1
+          { emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 }, // Pig 2
+          { emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 }, // Pig 3
+        ]
+      }
+    } else if (userMessage.toLowerCase().includes('emoji') || userMessage.toLowerCase().includes('smile')) {
+      command = {
+        action: 'create-shape',
+        shapeType: 'emoji',
+        x: 200,
+        y: 200,
+        emoji: '😊',
+        emojiSize: 48,
+        layer: 1
+      }
     }
     
     console.log('🤖 Fallback API: Generated command:', command)
@@ -109,7 +131,7 @@ export default defineEventHandler(async (event) => {
       createShape: {
         description: 'Create a new shape on the canvas',
         inputSchema: z.object({
-          shapeType: z.enum(['rectangle', 'circle', 'text']),
+          shapeType: z.enum(['rectangle', 'circle', 'text', 'emoji', 'pen']),
           x: z.number().describe('X position of the shape'),
           y: z.number().describe('Y position of the shape'),
           width: z.number().optional().describe('Width of the shape (for rectangles)'),
@@ -118,9 +140,15 @@ export default defineEventHandler(async (event) => {
           text: z.string().optional().describe('Text content (for text shapes)'),
           fontSize: z.number().optional().describe('Font size (for text shapes)'),
           fill: z.string().optional().describe('Fill color of the shape'),
-          stroke: z.string().optional().describe('Stroke color of the shape')
+          stroke: z.string().optional().describe('Stroke color of the shape'),
+          emoji: z.string().optional().describe('Emoji character (for emoji shapes)'),
+          emojiSize: z.number().optional().describe('Size of the emoji'),
+          layer: z.number().optional().describe('Layer order (higher numbers appear on top)'),
+          penPath: z.string().optional().describe('SVG path for pen strokes'),
+          penColor: z.string().optional().describe('Color of pen strokes'),
+          penWidth: z.number().optional().describe('Width of pen strokes')
         }),
-        execute: async ({ shapeType, x, y, width, height, radius, text, fontSize, fill, stroke }) => {
+        execute: async ({ shapeType, x, y, width, height, radius, text, fontSize, fill, stroke, emoji, emojiSize, layer, penPath, penColor, penWidth }) => {
           return JSON.stringify({
             action: 'create-shape',
             shapeType,
@@ -132,7 +160,34 @@ export default defineEventHandler(async (event) => {
             text,
             fontSize,
             fill,
-            stroke
+            stroke,
+            emoji,
+            emojiSize,
+            layer,
+            penPath,
+            penColor,
+            penWidth
+          })
+        }
+      },
+      createEmojiStory: {
+        description: 'Create a story using emojis with proper layering and positioning',
+        inputSchema: z.object({
+          story: z.string().describe('The story to tell with emojis'),
+          emojis: z.array(z.object({
+            emoji: z.string().describe('The emoji character'),
+            x: z.number().describe('X position'),
+            y: z.number().describe('Y position'),
+            size: z.number().describe('Size of the emoji'),
+            layer: z.number().describe('Layer order (higher numbers appear on top)'),
+            rotation: z.number().optional().describe('Rotation in degrees')
+          })).describe('Array of emojis to place on the canvas')
+        }),
+        execute: async ({ story, emojis }) => {
+          return JSON.stringify({
+            action: 'create-emoji-story',
+            story,
+            emojis
           })
         }
       },

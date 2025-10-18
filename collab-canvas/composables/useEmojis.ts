@@ -263,27 +263,6 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       
       emojis.value = emojiShapes
       console.log('✅ Loaded emojis:', emojiShapes.length)
-      
-      // If no emojis found, add some test emojis
-      if (emojiShapes.length === 0) {
-        console.log('🎨 No emojis found, adding test emojis')
-        await addEmoji({
-          emoji: '🎨',
-          x: 100,
-          y: 100,
-          size: 48,
-          layer: 1,
-          rotation: 0
-        })
-        await addEmoji({
-          emoji: '✨',
-          x: 200,
-          y: 150,
-          size: 32,
-          layer: 2,
-          rotation: 0
-        })
-      }
     } catch (err) {
       console.error('Error loading emojis:', err)
     }

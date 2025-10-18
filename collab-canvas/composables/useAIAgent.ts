@@ -48,6 +48,13 @@ export const useAIAgent = () => {
   // Extract commands from AI message content
   const extractCommandsFromMessage = (content: string): AICommand[] => {
     console.log('🔍 Extracting commands from:', content)
+    
+    // Ensure content is a string
+    if (typeof content !== 'string') {
+      console.warn('⚠️ Content is not a string:', typeof content, content)
+      return []
+    }
+    
     const commands: AICommand[] = []
     const seenCommands = new Set<string>() // Track seen commands to avoid duplicates
     
@@ -551,7 +558,7 @@ export const useAIAgent = () => {
         // Extract commands from text response (fallback mode)
         commands = extractCommandsFromMessage(assistantMessage)
       } else if (response && typeof response === 'object' && 'content' in response) {
-        assistantMessage = response.content as string
+        assistantMessage = String(response.content) // Ensure it's a string
         
         // Check if we have structured commands from AI
         if ('commands' in response && Array.isArray(response.commands)) {

@@ -111,6 +111,43 @@
                       @click="resetRotation"
                     />
                   </div>
+                  
+                  <!-- Color Picker for Shapes -->
+                  <div v-if="selectedShapeId && currentTool === 'select'" class="flex items-center gap-2 ml-4 pl-4 border-l border-pink-400/30">
+                    <UIcon name="i-lucide-palette" class="w-4 h-4 text-pink-300" />
+                    <UPopover>
+                      <UButton 
+                        size="sm" 
+                        color="neutral" 
+                        variant="outline"
+                        class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+                      >
+                        <template #leading>
+                          <span :style="{ backgroundColor: selectedShapeColor }" class="size-3 rounded-full border border-pink-400" />
+                        </template>
+                        Color
+                      </UButton>
+                      
+                      <template #content>
+                        <div class="p-4 bg-black/90 border border-pink-500 rounded-lg">
+                          <UColorPicker 
+                            v-model="selectedShapeColor" 
+                            class="p-2"
+                            :ui="{
+                              root: 'data-[disabled]:opacity-75',
+                              picker: 'flex gap-4',
+                              selector: 'rounded-md touch-none',
+                              selectorBackground: 'w-full h-full relative rounded-md',
+                              selectorThumb: '-translate-y-1/2 -translate-x-1/2 absolute size-4 ring-2 ring-white rounded-full cursor-pointer data-[disabled]:cursor-not-allowed',
+                              track: 'w-[8px] relative rounded-md touch-none',
+                              trackThumb: 'absolute transform -translate-y-1/2 -translate-x-[4px] rtl:translate-x-[4px] size-4 rounded-full ring-2 ring-white cursor-pointer data-[disabled]:cursor-not-allowed'
+                            }"
+                            @update:model-value="handleColorChange"
+                          />
+                        </div>
+                      </template>
+                    </UPopover>
+                  </div>
                 </div>
         </div>
         
@@ -164,10 +201,8 @@
                   zIndex: emoji.layer || 1,
                   transform: `rotate(${emoji.rotation || 0}deg)`
                 }"
-                @mousedown.stop="startDrag($event, emoji.id)"
-                @click.stop="selectEmoji(emoji.id)"
+                @mousedown.stop="startEmojiDrag($event, emoji.id)"
                 @dblclick="editEmoji(emoji.id)"
-                @mouseup.stop="console.log('🖱️ Emoji mouseup:', emoji.id)"
               >
                 {{ emoji.emoji }}
     </div>
@@ -272,9 +307,20 @@
       <AIChatInterface v-if="showAIChat" :show-chat="showAIChat" @update:show-chat="showAIChat = $event" />
 
       <!-- Emoji Picker Modal -->
-      <UModal v-model:open="showEmojiPicker" title="🎨 Choose an Emoji" :ui="{ title: 'text-xl font-display' }">
+      <UModal 
+        v-model:open="showEmojiPicker" 
+        title="🎨 Choose an Emoji" 
+        :ui="{ 
+          overlay: 'fixed inset-0 bg-black/75',
+          content: 'fixed bg-black/90 border-2 border-pink-500 rounded-xl shadow-2xl',
+          header: 'bg-black/90 border-b-2 border-pink-500',
+          title: 'text-xl font-display text-pink-300',
+          body: 'bg-black/90',
+          close: 'text-pink-300 hover:text-white hover:bg-pink-500/20'
+        }"
+      >
         <template #content>
-          <div class="p-4">
+          <div class="p-4 bg-black/90">
             <UCommandPalette
               v-model:search-term="searchTerm"
               :groups="emojiGroups"
@@ -282,9 +328,10 @@
               icon="i-lucide-smile"
               class="h-96"
               :ui="{ 
-                input: '[&>input]:h-12 [&>input]:text-lg',
-                item: 'group relative w-full flex items-center gap-3 p-3 text-base select-none outline-none before:absolute before:z-[-1] before:inset-px before:rounded-lg data-disabled:cursor-not-allowed data-disabled:opacity-75',
-                itemLabel: 'text-lg font-body'
+                input: '[&>input]:h-12 [&>input]:text-lg [&>input]:bg-black/50 [&>input]:border-pink-400 [&>input]:text-pink-100 [&>input]:placeholder-pink-300',
+                item: 'group relative w-full flex items-center gap-3 p-3 text-base select-none outline-none before:absolute before:z-[-1] before:inset-px before:rounded-lg data-disabled:cursor-not-allowed data-disabled:opacity-75 hover:bg-pink-500/20 text-pink-100',
+                itemLabel: 'text-lg font-body text-pink-100',
+                empty: 'text-pink-300'
               }"
               @update:model-value="handleEmojiSelect"
             />
@@ -296,7 +343,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+
+// Composables
+import { useEmojis } from '~/composables/useEmojis'
+import { useShapesWithPersistence } from '~/composables/useShapesWithPersistence'
 
 // Auth middleware
 definePageMeta({
@@ -317,12 +368,14 @@ const selectedShapeId = ref<string | null>(null)
 const searchTerm = ref('')
 const rotationAngle = ref(0)
 const isRotating = ref(false)
+const selectedShapeColor = ref('#3B82F6') // Default blue color
 
 // Canvas ref
 const canvasContainer = ref<HTMLElement | null>(null)
 
 // Drag state
 const pendingDragShapeId = ref<string | null>(null)
+const pendingDragEmojiId = ref<string | null>(null)
 
 // Emoji system
 const {
@@ -341,7 +394,8 @@ const {
   loadShapesFromDatabase,
   addRectangle: addRectangleToCanvas,
   addCircle: addCircleToCanvas,
-  addText: addTextToCanvas
+  addText: addTextToCanvas,
+  updateShape
 } = useShapesWithPersistence()
 
 // Load shapes when page mounts
@@ -810,21 +864,21 @@ function handleEmojiSelect(item: { value?: string; label?: string }) {
 }
 
 // Drag functions
-function startDrag(event: MouseEvent, emojiId: string) {
-  console.log('🖱️ startDrag called with:', emojiId)
+function startEmojiDrag(event: MouseEvent, emojiId: string) {
   // Always select the emoji first
   selectedEmojiId.value = emojiId
   selectedShapeId.value = null
   updateRotationFromSelection()
-  console.log('🖱️ Selected emoji ID after startDrag:', selectedEmojiId.value)
   
-  // Only start dragging if select tool is active
+  // Only prepare for dragging if select tool is active
   if (currentTool.value === 'select') {
-    isDragging.value = true
+    // Don't start dragging immediately - wait for mouse movement
     const emoji = getEmojiById(emojiId)
     if (emoji) {
       originalPosition.value = { x: emoji.x, y: emoji.y }
       dragStart.value = { x: event.clientX, y: event.clientY }
+      // Store the emoji ID for potential dragging
+      pendingDragEmojiId.value = emojiId
     }
   }
 }
@@ -889,10 +943,25 @@ async function endDrag() {
       }
     }
     
-    // Handle shape drag end - shapes are local state, no persistence needed
+    // Handle shape drag end - persist position changes to database
     if (selectedShapeId.value) {
-      // Shapes are already updated in handleDrag, no additional action needed
-      console.log('Shape drag completed')
+      const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+      const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+      if (shape) {
+        try {
+          const success = await updateShape(selectedShapeId.value, {
+            x: shape.x,
+            y: shape.y
+          })
+          if (success) {
+            console.log('🎯 Successfully updated shape position in database:', selectedShapeId.value)
+          } else {
+            console.error('❌ Failed to update shape position in database')
+          }
+        } catch (error) {
+          console.error('❌ Error updating shape position:', error)
+        }
+      }
     }
     
     isDragging.value = false
@@ -941,6 +1010,7 @@ function selectShape(shapeId: string) {
   selectedShapeId.value = shapeId
   selectedEmojiId.value = null
   updateRotationFromSelection()
+  updateColorFromSelection()
 }
 
 function selectEmoji(emojiId: string) {
@@ -1007,6 +1077,18 @@ function handleCanvasMouseMove(event: MouseEvent) {
       selectedShapeId.value = pendingDragShapeId.value
       pendingDragShapeId.value = null
     }
+  } else if (pendingDragEmojiId.value && currentTool.value === 'select') {
+    // Start dragging emoji when mouse actually moves
+    const distance = Math.sqrt(
+      Math.pow(event.clientX - dragStart.value.x, 2) + 
+      Math.pow(event.clientY - dragStart.value.y, 2)
+    )
+    
+    if (distance > 5) { // Minimum distance threshold to start dragging
+      isDragging.value = true
+      selectedEmojiId.value = pendingDragEmojiId.value
+      pendingDragEmojiId.value = null
+    }
   }
 }
 
@@ -1037,6 +1119,7 @@ function handleCanvasMouseUp() {
   
   // Clear pending drag state
   pendingDragShapeId.value = null
+  pendingDragEmojiId.value = null
 }
 
 // Utility functions
@@ -1105,6 +1188,25 @@ function resetRotation() {
   handleRotationChange(0)
 }
 
+async function handleColorChange(color: string | undefined) {
+  if (!color || !selectedShapeId.value) return
+  
+  console.log('🎨 Color change:', color, 'Selected shape:', selectedShapeId.value)
+  selectedShapeColor.value = color
+  
+  // Update the selected shape's color using the persistent update function
+  try {
+    const success = await updateShape(selectedShapeId.value, { fill: color })
+    if (success) {
+      console.log('🎨 Successfully updated shape color in database:', selectedShapeId.value, color)
+    } else {
+      console.error('❌ Failed to update shape color in database')
+    }
+  } catch (error) {
+    console.error('❌ Error updating shape color:', error)
+  }
+}
+
 function updateRotationFromSelection() {
   // Update rotation slider when selection changes
   if (selectedEmojiId.value) {
@@ -1120,6 +1222,20 @@ function updateRotationFromSelection() {
     }
   } else {
     rotationAngle.value = 0
+  }
+}
+
+function updateColorFromSelection() {
+  // Update color picker when selection changes
+  if (selectedShapeId.value) {
+    const allShapesArray = [...rectangles.value, ...circles.value, ...texts.value]
+    const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+    if (shape && shape.fill) {
+      selectedShapeColor.value = shape.fill
+      console.log('🎨 Updated color picker to:', shape.fill)
+    }
+  } else {
+    selectedShapeColor.value = '#3B82F6' // Reset to default blue
   }
 }
 

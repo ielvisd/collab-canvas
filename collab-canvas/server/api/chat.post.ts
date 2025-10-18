@@ -186,6 +186,7 @@ Examples:
 - "Three little pigs on an island" → Use createEmojiStory with: large island emoji (🏝️) at center, 3 pig emojis (🐷) positioned on top
 - "A house with a tree" → Use createEmojiStory with: house emoji (🏠) and tree emoji (🌳) positioned side by side
 - "Ocean scene" → Use createEmojiStory with: wave emojis (🌊), fish emojis (🐟), and boat emoji (⛵)
+- "Robot typing on a computer" → Use createEmojiStory with: robot emoji (🤖) and computer emoji (💻) positioned together
 
 NEVER use individual createShape commands for stories. Always use createEmojiStory for visual storytelling.`
       },

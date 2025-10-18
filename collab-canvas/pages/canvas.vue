@@ -226,8 +226,8 @@
                   top: shape.y + 'px',
                   width: shape.type === 'circle' ? (shape as any).radius * 2 + 'px' : (shape as any).width + 'px',
                   height: shape.type === 'circle' ? (shape as any).radius * 2 + 'px' : (shape as any).height + 'px',
-                  backgroundColor: shape.fill,
-                  border: `2px solid ${shape.stroke}`,
+                  backgroundColor: shape.type === 'text' ? 'transparent' : shape.fill,
+                  border: shape.type === 'text' ? 'none' : `2px solid ${shape.stroke}`,
                   borderRadius: shape.type === 'circle' ? '50%' : '4px',
                   zIndex: 1,
                   transform: `rotate(${shape.rotation || 0}deg)`
@@ -235,8 +235,18 @@
                 @mousedown.stop="startShapeDrag($event, shape.id)"
                 @click.stop="selectShape(shape.id)"
               >
-                <div v-if="shape.type === 'text'" class="p-2 text-sm font-body">
-                  {{ (shape as any).text }}
+                <div v-if="shape.type === 'text'" class="text-sm font-body cursor-pointer select-none" :style="{ color: shape.fill }" @dblclick="startEditText(shape.id)">
+                  <input 
+                    v-if="editingTextId === shape.id"
+                    ref="textInput"
+                    v-model="editingTextValue"
+                    class="bg-transparent border-none outline-none text-sm font-body w-full"
+                    :style="{ color: shape.fill }"
+                    @blur="finishEditText"
+                    @keydown.enter="finishEditText"
+                    @keydown.escape="cancelEditText"
+                  >
+                  <span v-else>{{ (shape as any).text }}</span>
       </div>
     </div>
 
@@ -352,7 +362,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 
 // Composables
 import { useEmojis } from '~/composables/useEmojis'
@@ -381,9 +391,12 @@ const searchTerm = ref('')
 const rotationAngle = ref(0)
 const isRotating = ref(false)
 const selectedShapeColor = ref('#3B82F6')
+const editingTextId = ref<string | null>(null)
+const editingTextValue = ref('')
 
 // Canvas ref
 const canvasContainer = ref<HTMLElement | null>(null)
+const textInput = ref<HTMLInputElement | null>(null)
 
 // Drag state
 const pendingDragShapeId = ref<string | null>(null)
@@ -1018,7 +1031,7 @@ async function addText() {
   await addTextToCanvas({
     x: Math.random() * (canvasWidth - 100),
     y: Math.random() * (canvasHeight - 100),
-    text: 'Hello!',
+    text: 'hola! 👋',
     fontSize: 16,
     fill: '#000000',
     stroke: 'transparent',
@@ -1116,6 +1129,34 @@ function editEmoji(id: string) {
     const newSize = emoji.size === 32 ? 48 : emoji.size === 48 ? 64 : 32
     updateEmoji(id, { size: newSize })
   }
+}
+
+function startEditText(shapeId: string) {
+  const shape = allShapes.value.find(s => s.id === shapeId)
+  if (shape && shape.type === 'text') {
+    const textShape = shape as { text: string }
+    editingTextId.value = shapeId
+    editingTextValue.value = textShape.text
+    
+    // Focus the input after the next tick to ensure it's rendered
+    nextTick(() => {
+      textInput.value?.focus()
+      textInput.value?.select()
+    })
+  }
+}
+
+function finishEditText() {
+  if (editingTextId.value && editingTextValue.value.trim() !== '') {
+    updateShape(editingTextId.value, { text: editingTextValue.value.trim() } as any)
+  }
+  editingTextId.value = null
+  editingTextValue.value = ''
+}
+
+function cancelEditText() {
+  editingTextId.value = null
+  editingTextValue.value = ''
 }
 
 // Rotation functions

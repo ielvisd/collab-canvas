@@ -21,7 +21,7 @@ export interface PersistentShapeActions {
   addCircle: (options?: Partial<Omit<Circle, 'id' | 'type'>>) => Promise<Circle | null>
   addText: (options?: Partial<Omit<Text, 'id' | 'type'>>) => Promise<Text | null>
   selectShape: (shapeId: string | null) => void
-  updateShape: (shapeId: string, updates: Partial<Shape>) => Promise<boolean>
+  updateShape: (shapeId: string, updates: Partial<Shape> & { text?: string; fontSize?: number; width?: number; height?: number; radius?: number }) => Promise<boolean>
   deleteShape: (shapeId: string) => Promise<boolean>
   deleteSelectedShape: () => Promise<boolean>
   clearAllShapes: () => Promise<void>
@@ -196,7 +196,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     selectedShapeId.value = shapeId
   }
 
-  const updateShape = async (shapeId: string, updates: Partial<Shape>): Promise<boolean> => {
+  const updateShape = async (shapeId: string, updates: Partial<Shape> & { text?: string; fontSize?: number; width?: number; height?: number; radius?: number }): Promise<boolean> => {
     try {
       // Skip database update if this is from real-time sync
       if (isUpdatingFromRealtime.value) {
@@ -217,7 +217,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         
         // Pass the complete updated shape data instead of just updates
         console.log('🔄 Calling updateShapeInDb for rectangle:', shapeId, rectangles.value[rectIndex])
-        const updateResult = await updateShapeInDb(shapeId, rectangles.value[rectIndex] as Partial<Shape>)
+        const updateResult = await updateShapeInDb(shapeId, rectangles.value[rectIndex])
         console.log('🔄 Rectangle update completed:', updateResult)
         return updateResult
       }
@@ -231,7 +231,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         
         // Pass the complete updated shape data instead of just updates
         console.log('🔄 Calling updateShapeInDb for circle:', shapeId, circles.value[circleIndex])
-        const updateResult = await updateShapeInDb(shapeId, circles.value[circleIndex] as Partial<Shape>)
+        const updateResult = await updateShapeInDb(shapeId, circles.value[circleIndex])
         console.log('🔄 Circle update completed:', updateResult)
         return updateResult
       }
@@ -244,7 +244,7 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         
         
         // Pass the complete updated shape data instead of just updates
-        const updateResult = await updateShapeInDb(shapeId, texts.value[textIndex] as Partial<Shape>)
+        const updateResult = await updateShapeInDb(shapeId, texts.value[textIndex])
         console.log('Text update completed:', updateResult)
         return updateResult
       }

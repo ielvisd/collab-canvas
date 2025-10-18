@@ -32,6 +32,9 @@ export interface PersistentShapeActions {
   deleteShapeFromDatabase: (shapeId: string) => Promise<boolean>
   setAutoSave: (enabled: boolean) => void
   clearError: () => void
+  // Drag operations
+  startDrag: (shapeId: string) => void
+  endDrag: (shapeId: string) => Promise<void>
   // Real-time sync
   startRealtimeSync: () => Promise<void>
   stopRealtimeSync: () => void
@@ -53,12 +56,61 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     clearError: clearDbError
   } = useCanvasDatabase()
 
+  // Undo/Redo composable
+  const { recordAction, isUndoRedoInProgress } = useUndoRedo()
+
   // State - Use useState for shared state across components with performance optimization
   const rectangles = useState<Rectangle[]>('canvas-rectangles', () => [])
   const circles = useState<Circle[]>('canvas-circles', () => [])
   const texts = useState<Text[]>('canvas-texts', () => [])
   const selectedShapeId = useState<string | null>('canvas-selected-shape', () => null)
   const autoSave = ref(true)
+  
+  // Drag operation tracking for undo/redo batching
+  const dragStartState = ref<{ [shapeId: string]: any }>({})
+  const isDragging = ref(false)
+  
+  // Start drag operation
+  const startDrag = (shapeId: string) => {
+    isDragging.value = true
+    
+    // Capture the initial state immediately when drag starts
+    const currentShape = rectangles.value.find(r => r.id === shapeId) ||
+                        circles.value.find(c => c.id === shapeId) ||
+                        texts.value.find(t => t.id === shapeId)
+    
+    if (currentShape) {
+      dragStartState.value[shapeId] = { ...currentShape }
+      console.log('🎯 Drag operation started for', shapeId, 'with initial state:', dragStartState.value[shapeId])
+    }
+  }
+  
+  // End drag operation and record final action
+  const endDrag = async (shapeId: string) => {
+    if (isDragging.value && dragStartState.value[shapeId]) {
+      // Find the current shape to get the final state
+      const currentShape = rectangles.value.find(r => r.id === shapeId) ||
+                          circles.value.find(c => c.id === shapeId) ||
+                          texts.value.find(t => t.id === shapeId)
+      
+      if (currentShape && !isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+        // Record the complete drag operation (from start to end)
+        const objectType = currentShape.type as 'rectangle' | 'circle' | 'text'
+        console.log('🎯 Drag operation completed - recording action:', {
+          shapeId,
+          objectType,
+          startState: dragStartState.value[shapeId],
+          endState: currentShape
+        })
+        await recordAction('update', objectType, shapeId, dragStartState.value[shapeId], currentShape)
+        console.log('🎯 Drag operation completed - recorded final action for', shapeId)
+      }
+      
+      // Clean up
+      delete dragStartState.value[shapeId]
+    }
+    isDragging.value = false
+  }
   
   // Real-time sync
   const {
@@ -137,6 +189,11 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     // Auto-save to database
     await autoSaveShape(rectangle)
     
+    // Record action for undo/redo (only if not from real-time sync or undo/redo)
+    if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+      await recordAction('add', 'rectangle', rectangle.id, null, rectangle)
+    }
+    
     return rectangle
   }
 
@@ -160,6 +217,11 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     
     // Auto-save to database
     await autoSaveShape(circle)
+    
+    // Record action for undo/redo (only if not from real-time sync or undo/redo)
+    if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+      await recordAction('add', 'circle', circle.id, null, circle)
+    }
     
     return circle
   }
@@ -186,6 +248,11 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     // Auto-save to database
     await autoSaveShape(text)
     
+    // Record action for undo/redo (only if not from real-time sync or undo/redo)
+    if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+      await recordAction('add', 'text', text.id, null, text)
+    }
+    
     return text
   }
 
@@ -207,48 +274,87 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
       console.log('🔄 Updating shape:', shapeId, 'with updates:', updates)
       console.log('🔄 isUpdatingFromRealtime:', isUpdatingFromRealtime.value)
       
-      // Update local state
+      // Check if this is a position update during dragging
+      const isPositionUpdate = updates.hasOwnProperty('x') || updates.hasOwnProperty('y')
+      const isDragUpdate = isPositionUpdate && isDragging.value
+      
+      // Update local state and capture before/after states for undo/redo
       const rectIndex = rectangles.value.findIndex(r => r.id === shapeId)
       if (rectIndex !== -1) {
-        const oldRect = rectangles.value[rectIndex]
+        // Capture the state BEFORE any modifications
+        const oldRect = { ...rectangles.value[rectIndex] } as Rectangle
         rectangles.value[rectIndex] = { ...rectangles.value[rectIndex], ...updates } as Rectangle
         console.log('Updated rectangle:', { old: oldRect, new: rectangles.value[rectIndex] })
-        
         
         // Pass the complete updated shape data instead of just updates
         console.log('🔄 Calling updateShapeInDb for rectangle:', shapeId, rectangles.value[rectIndex])
         const updateResult = await updateShapeInDb(shapeId, rectangles.value[rectIndex])
         console.log('🔄 Rectangle update completed:', updateResult)
+        
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+          // For drag operations, don't record intermediate positions
+          if (isDragUpdate) {
+            console.log('🎯 Drag in progress - skipping action recording for', shapeId)
+          } else {
+            // Record non-drag updates immediately
+            await recordAction('update', 'rectangle', shapeId, oldRect, rectangles.value[rectIndex])
+          }
+        }
+        
         return updateResult
       }
 
       const circleIndex = circles.value.findIndex(c => c.id === shapeId)
       if (circleIndex !== -1) {
-        const oldCircle = circles.value[circleIndex]
+        // Capture the state BEFORE any modifications
+        const oldCircle = { ...circles.value[circleIndex] } as Circle
         circles.value[circleIndex] = { ...circles.value[circleIndex], ...updates } as Circle
         console.log('Updated circle:', { old: oldCircle, new: circles.value[circleIndex] })
-        
         
         // Pass the complete updated shape data instead of just updates
         console.log('🔄 Calling updateShapeInDb for circle:', shapeId, circles.value[circleIndex])
         const updateResult = await updateShapeInDb(shapeId, circles.value[circleIndex])
         console.log('🔄 Circle update completed:', updateResult)
+        
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+          // For drag operations, don't record intermediate positions
+          if (isDragUpdate) {
+            console.log('🎯 Drag in progress - skipping action recording for circle', shapeId)
+          } else {
+            // Record non-drag updates immediately
+            await recordAction('update', 'circle', shapeId, oldCircle, circles.value[circleIndex])
+          }
+        }
+        
         return updateResult
       }
 
       const textIndex = texts.value.findIndex(t => t.id === shapeId)
       if (textIndex !== -1) {
-        const oldText = texts.value[textIndex]
+        // Capture the state BEFORE any modifications
+        const oldText = { ...texts.value[textIndex] } as Text
         texts.value[textIndex] = { ...texts.value[textIndex], ...updates } as Text
         console.log('Updated text:', { old: oldText, new: texts.value[textIndex] })
-        
         
         // Pass the complete updated shape data instead of just updates
         const updateResult = await updateShapeInDb(shapeId, texts.value[textIndex])
         console.log('Text update completed:', updateResult)
+        
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+          // For drag operations, don't record intermediate positions
+          if (isDragUpdate) {
+            console.log('🎯 Drag in progress - skipping action recording for text', shapeId)
+          } else {
+            // Record non-drag updates immediately
+            await recordAction('update', 'text', shapeId, oldText, texts.value[textIndex])
+          }
+        }
+        
         return updateResult
       }
-
 
       console.warn('Shape not found for update:', shapeId)
       return false
@@ -267,6 +373,28 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
         texts: texts.value.length
       })
       
+      // Get shape before deletion for undo/redo
+      let shapeToDelete: any = null
+      let objectType: 'rectangle' | 'circle' | 'text' = 'rectangle'
+      
+      const rectIndex = rectangles.value.findIndex(r => r.id === shapeId)
+      if (rectIndex !== -1) {
+        shapeToDelete = rectangles.value[rectIndex]
+        objectType = 'rectangle'
+      } else {
+        const circleIndex = circles.value.findIndex(c => c.id === shapeId)
+        if (circleIndex !== -1) {
+          shapeToDelete = circles.value[circleIndex]
+          objectType = 'circle'
+        } else {
+          const textIndex = texts.value.findIndex(t => t.id === shapeId)
+          if (textIndex !== -1) {
+            shapeToDelete = texts.value[textIndex]
+            objectType = 'text'
+          }
+        }
+      }
+      
       // First, try to delete from database
       const dbDeleteSuccess = await deleteShapeFromDatabase(shapeId)
       if (!dbDeleteSuccess) {
@@ -275,7 +403,6 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
       }
       
       // Only remove from local state after successful database deletion
-      const rectIndex = rectangles.value.findIndex(r => r.id === shapeId)
       if (rectIndex !== -1) {
         console.log('Deleting rectangle at index:', rectIndex)
         rectangles.value.splice(rectIndex, 1)
@@ -283,33 +410,33 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
           selectedShapeId.value = null
         }
         console.log('Rectangle deleted successfully')
-        return true
-      }
-
-      const circleIndex = circles.value.findIndex(c => c.id === shapeId)
-      if (circleIndex !== -1) {
+      } else if (circles.value.findIndex(c => c.id === shapeId) !== -1) {
+        const circleIndex = circles.value.findIndex(c => c.id === shapeId)
         console.log('Deleting circle at index:', circleIndex)
         circles.value.splice(circleIndex, 1)
         if (selectedShapeId.value === shapeId) {
           selectedShapeId.value = null
         }
         console.log('Circle deleted successfully')
-        return true
-      }
-
-      const textIndex = texts.value.findIndex(t => t.id === shapeId)
-      if (textIndex !== -1) {
+      } else if (texts.value.findIndex(t => t.id === shapeId) !== -1) {
+        const textIndex = texts.value.findIndex(t => t.id === shapeId)
         console.log('Deleting text at index:', textIndex)
         texts.value.splice(textIndex, 1)
         if (selectedShapeId.value === shapeId) {
           selectedShapeId.value = null
         }
         console.log('Text deleted successfully')
-        return true
+      } else {
+        console.log('Shape not found for deletion:', shapeId)
+        return false
       }
-
-      console.log('Shape not found for deletion:', shapeId)
-      return false
+      
+      // Record action for undo/redo (only if not from real-time sync or undo/redo)
+      if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value && shapeToDelete) {
+        await recordAction('delete', objectType, shapeId, shapeToDelete, null)
+      }
+      
+      return true
     } catch (error) {
       console.error('Error deleting shape:', error)
       return false
@@ -531,6 +658,9 @@ export const useShapesWithPersistence = (canvasWidth: number = 800, canvasHeight
     deleteShapeFromDatabase,
     setAutoSave,
     clearError,
+    // Drag operations
+    startDrag,
+    endDrag,
     // Real-time sync
     startRealtimeSync: startRealtimeSync,
     stopRealtimeSync: stopRealtimeSync,

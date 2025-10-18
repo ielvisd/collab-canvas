@@ -45,6 +45,9 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     clearError: clearDbError
   } = useCanvasDatabase()
 
+  // Undo/Redo composable
+  const { recordAction, isUndoRedoInProgress } = useUndoRedo()
+
   // Real-time sync - we'll handle this differently for emojis
   const isRealtimeConnected = ref(false)
   const lastSyncTime = ref<Date | null>(null)
@@ -154,6 +157,12 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       if (dbShape) {
         // Update local state
         emojis.value.push(emoji)
+        
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+          await recordAction('add', 'emoji', emoji.id, null, emoji)
+        }
+        
         // console.log('✅ Emoji added:', emoji)
         return emoji
       }
@@ -199,6 +208,12 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       const success = await updateShapeInDb(id, emojiToDbFormat(updatedEmoji))
       if (success) {
         emojis.value[emojiIndex] = updatedEmoji
+        
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+          await recordAction('update', 'emoji', id, currentEmoji, updatedEmoji)
+        }
+        
         console.log('✅ Emoji updated in local state:', updatedEmoji)
         return true
       }
@@ -213,12 +228,21 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Delete emoji
   const deleteEmoji = async (id: string): Promise<boolean> => {
     try {
+      // Get emoji before deletion for undo/redo
+      const emojiToDelete = emojis.value.find(e => e.id === id)
+      
       const success = await deleteShapeFromDb(id)
       if (success) {
         emojis.value = emojis.value.filter(e => e.id !== id)
         if (selectedEmojiId.value === id) {
           selectedEmojiId.value = null
         }
+        
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value && emojiToDelete) {
+          await recordAction('delete', 'emoji', id, emojiToDelete, null)
+        }
+        
         console.log('✅ Emoji deleted:', id)
         return true
       }

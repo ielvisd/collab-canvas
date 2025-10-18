@@ -145,6 +145,32 @@
         
         <!-- Action Buttons -->
               <div class="flex items-center gap-2">
+            <!-- Undo/Redo Buttons -->
+            <UButton 
+              icon="i-lucide-undo"
+              label="Undo"
+              :disabled="!canUndo"
+              color="neutral" 
+              variant="outline" 
+              size="sm"
+              class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="undo-button"
+              @click="undo"
+            />
+            <UButton 
+              icon="i-lucide-redo"
+              label="Redo"
+              :disabled="!canRedo"
+              color="neutral" 
+              variant="outline" 
+              size="sm"
+              class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="redo-button"
+              @click="redo"
+            />
+            
+            <USeparator orientation="vertical" class="h-8" />
+            
             <!-- Delete Selected Item Button -->
             <UButton 
               v-if="selectedEmojiId || selectedShapeId"
@@ -246,7 +272,7 @@
                     @keydown.enter="finishEditText"
                     @keydown.escape="cancelEditText"
                   >
-                  <span v-else>{{ (shape as any).text }}</span>
+                  <span v-else>{{ (shape as { text: string }).text }}</span>
       </div>
     </div>
 
@@ -362,13 +388,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, onScopeDispose } from 'vue'
 
 // Composables
 import { useEmojis } from '~/composables/useEmojis'
 import { useShapesWithPersistence } from '~/composables/useShapesWithPersistence'
 import { useCursorTracking } from '~/composables/useCursorTracking'
 import { useRealtimeSync } from '~/composables/useRealtimeSync'
+import { useUndoRedo } from '~/composables/useUndoRedo'
 
 // Auth middleware
 definePageMeta({
@@ -426,7 +453,9 @@ const {
   addCircle: addCircleToCanvas,
   addText: addTextToCanvas,
   updateShape,
-  deleteShape
+  deleteShape,
+  startDrag: startShapeDragOperation,
+  endDrag: endShapeDragOperation
 } = useShapesWithPersistence()
 
 // Cursor tracking for real-time collaboration
@@ -442,10 +471,25 @@ const { startSync: startRealtimeSync, cleanup: cleanupRealtimeSync } = useRealti
   }
 )
 
+// Undo/Redo functionality
+const { canUndo, canRedo, undo: undoAction, redo: redoAction, loadHistory, undoStack, redoStack } = useUndoRedo()
+
+// Wrapper functions for click handlers
+const undo = async () => {
+  await undoAction()
+}
+
+const redo = async () => {
+  await redoAction()
+}
+
 // Load shapes when page mounts
 onMounted(async () => {
   await loadShapesFromDatabase()
   await initializeEmojis()
+  
+  // Load undo/redo history
+  await loadHistory()
   
   // Start real-time collaboration features
   await startRealtimeSync()
@@ -931,7 +975,7 @@ function startShapeDrag(event: MouseEvent, shapeId: string) {
   if (currentTool.value === 'select') {
     // Don't start dragging immediately - wait for mouse movement
     const allShapesArray = allShapes.value
-    const shape = allShapesArray.find(s => s.id === shapeId)
+      const shape = allShapesArray.find(s => s.id === shapeId) as any
     
     if (shape) {
       originalPosition.value = { x: shape.x, y: shape.y }
@@ -987,6 +1031,9 @@ async function endDrag() {
       const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
       if (shape) {
         try {
+          // End drag operation for undo/redo batching
+          await endShapeDragOperation(selectedShapeId.value)
+          
           await updateShape(selectedShapeId.value, {
             x: shape.x,
             y: shape.y
@@ -1074,6 +1121,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
     if (distance > 5) { // Minimum distance threshold to start dragging
       isDragging.value = true
       selectedShapeId.value = pendingDragShapeId.value
+      startShapeDragOperation(pendingDragShapeId.value) // Start drag operation for undo/redo batching
       pendingDragShapeId.value = null
     }
   } else if (pendingDragEmojiId.value && currentTool.value === 'select') {
@@ -1289,6 +1337,23 @@ onMounted(() => {
       showAIChat.value = !showAIChat.value
     }
     
+    // Undo (Cmd/Ctrl + Z)
+    if ((event.metaKey || event.ctrlKey) && event.key === 'z' && !event.shiftKey) {
+      event.preventDefault()
+      if (canUndo.value) {
+        await undoAction()
+      }
+    }
+    
+    // Redo (Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y)
+    if (((event.metaKey || event.ctrlKey) && event.key === 'z' && event.shiftKey) || 
+        ((event.metaKey || event.ctrlKey) && event.key === 'y')) {
+      event.preventDefault()
+      if (canRedo.value) {
+        await redoAction()
+      }
+    }
+    
     // Deselect all items (Escape key)
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -1320,7 +1385,7 @@ onMounted(() => {
 })
 
 // Cleanup real-time features on unmount
-onUnmounted(() => {
+onScopeDispose(() => {
   stopCursorTracking()
   cleanupRealtimeSync()
 })

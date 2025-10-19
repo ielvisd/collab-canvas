@@ -24,58 +24,39 @@
     </template>
 
     <div class="space-y-3">
-      <!-- Primary Tools -->
-      <div class="flex items-center gap-2">
-        <UButton 
-          label="🎨 Emoji"
-          color="primary"
-          variant="solid"
-          size="sm"
-          class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg flex-1"
-          @click="$emit('show-emoji-picker')"
-        />
-        
-        <UButton
-          :variant="currentTool === 'select' ? 'solid' : 'outline'"
-          size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-          @click="$emit('set-tool', 'select')"
-        >
-          <UIcon name="i-lucide-move" class="w-4 h-4 mr-1" />
-          Select
-        </UButton>
-      </div>
-
-      <!-- Shapes Dropdown -->
-      <div class="flex items-center gap-2">
-        <UDropdownMenu :items="shapeMenuItems" :ui="{ content: 'w-48' }">
-          <UButton 
-            color="neutral" 
-            variant="outline" 
-            size="sm"
-            class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1"
-            trailing-icon="i-heroicons-chevron-down"
-          >
-            <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
-            Shapes
-          </UButton>
-        </UDropdownMenu>
-      </div>
-
-      <!-- Multi-select Badge -->
-      <div v-if="selectedItemCount > 1" class="flex items-center justify-center">
-        <UBadge 
-          color="primary" 
-          variant="solid" 
-          size="sm"
-          class="font-body"
-        >
-          {{ selectedItemCount }} items selected
-        </UBadge>
-      </div>
+              <!-- Primary Tools -->
+              <div class="flex items-center gap-2">
+                <UButton 
+                  label="🎨 Emoji"
+                  color="primary"
+                  variant="solid"
+                  size="sm"
+                  class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg flex-1"
+                  @click="$emit('show-emoji-picker')"
+                />
+                
+                <UButton
+                  icon="i-heroicons-sparkles"
+                  label="AI"
+                  color="primary"
+                  variant="outline"
+                  size="sm"
+                  class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+                  @click="$emit('show-ai-chat')"
+                />
+                
+                <UButton
+                  :variant="snapToGridEnabled ? 'solid' : 'outline'"
+                  size="sm"
+                  class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+                  @click="$emit('toggle-grid')"
+                >
+                  <UIcon name="i-lucide-grid-3x3" class="w-4 h-4" />
+                </UButton>
+              </div>
 
       <!-- Contextual Controls -->
-      <div v-if="(selectedEmojiId || selectedShapeId || selectedItemCount > 0) && currentTool === 'select'" class="space-y-2 pt-2 border-t border-pink-400/30">
+      <div v-if="(selectedEmojiId || selectedItemCount > 0)" class="space-y-2 pt-2 border-t border-pink-400/30">
         <!-- Rotation Controls -->
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-pink-300" />
@@ -97,43 +78,6 @@
             class="font-body"
             @click="$emit('reset-rotation')"
           />
-        </div>
-        
-        <!-- Color Picker for Shapes -->
-        <div v-if="selectedShapeId" class="flex items-center gap-2">
-          <UIcon name="i-lucide-palette" class="w-4 h-4 text-pink-300" />
-          <UPopover>
-            <UButton 
-              size="sm" 
-              color="neutral" 
-              variant="outline"
-              class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1"
-            >
-              <template #leading>
-                <span :style="{ backgroundColor: selectedShapeColor }" class="size-3 rounded-full border border-pink-400" />
-              </template>
-              Color
-            </UButton>
-            
-            <template #content>
-              <div class="p-4 bg-black/90 border border-pink-500 rounded-lg">
-                <UColorPicker 
-                  :model-value="selectedShapeColor" 
-                  class="p-2"
-                  :ui="{
-                    root: 'data-[disabled]:opacity-75',
-                    picker: 'flex gap-4',
-                    selector: 'rounded-md touch-none',
-                    selectorBackground: 'w-full h-full relative rounded-md',
-                    selectorThumb: '-translate-y-1/2 -translate-x-1/2 absolute size-4 ring-2 ring-white rounded-full cursor-pointer data-[disabled]:cursor-not-allowed',
-                    track: 'w-[8px] relative rounded-md touch-none',
-                    trackThumb: 'absolute transform -translate-y-1/2 -translate-x-[4px] rtl:translate-x-[4px] size-4 rounded-full ring-2 ring-white cursor-pointer data-[disabled]:cursor-not-allowed'
-                  }"
-                  @update:model-value="$emit('color-change', $event)"
-                />
-              </div>
-            </template>
-          </UPopover>
         </div>
       </div>
 
@@ -157,6 +101,32 @@
           class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="$emit('redo')"
         />
+        
+        <USeparator orientation="vertical" class="h-6" />
+        
+        <UButton 
+          v-if="selectedItemCount > 0"
+          icon="i-lucide-copy"
+          color="neutral" 
+          variant="outline" 
+          size="xs"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+          @click="$emit('copy')"
+        >
+          Copy
+        </UButton>
+        
+        <UButton 
+          v-if="clipboardHasData"
+          icon="i-lucide-clipboard"
+          color="neutral" 
+          variant="outline" 
+          size="xs"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+          @click="$emit('paste')"
+        >
+          Paste
+        </UButton>
         
         <USeparator orientation="vertical" class="h-6" />
         
@@ -219,58 +189,39 @@
     </template>
 
     <div class="space-y-4">
-      <!-- Primary Tools Row -->
-      <div class="flex items-center gap-2">
-        <UButton 
-          label="🎨 Emoji"
-          color="primary"
-          variant="solid"
-          size="lg"
-          class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg flex-1 h-12"
-          @click="$emit('show-emoji-picker'); isOpen = false"
-        />
-        
-        <UButton
-          :variant="currentTool === 'select' ? 'solid' : 'outline'"
-          size="lg"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 h-12"
-          @click="$emit('set-tool', 'select')"
-        >
-          <UIcon name="i-lucide-move" class="w-5 h-5 mr-2" />
-          Select
-        </UButton>
-      </div>
-
-      <!-- Shapes Row -->
-      <div class="flex items-center gap-2">
-        <UDropdownMenu :items="shapeMenuItems" :ui="{ content: 'w-48' }">
-          <UButton 
-            color="neutral" 
-            variant="outline" 
-            size="lg"
-            class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1 h-12"
-            trailing-icon="i-heroicons-chevron-down"
-          >
-            <UIcon name="i-heroicons-plus" class="w-5 h-5 mr-2" />
-            Shapes
-          </UButton>
-        </UDropdownMenu>
-      </div>
-
-      <!-- Multi-select Badge for Mobile -->
-      <div v-if="selectedItemCount > 1" class="flex items-center justify-center">
-        <UBadge 
-          color="primary" 
-          variant="solid" 
-          size="md"
-          class="font-body"
-        >
-          {{ selectedItemCount }} items selected
-        </UBadge>
-      </div>
+              <!-- Primary Tools Row -->
+              <div class="flex items-center gap-2">
+                <UButton 
+                  label="🎨 Emoji"
+                  color="primary"
+                  variant="solid"
+                  size="lg"
+                  class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg flex-1 h-12"
+                  @click="$emit('show-emoji-picker'); isOpen = false"
+                />
+                
+                <UButton
+                  icon="i-heroicons-sparkles"
+                  label="AI"
+                  color="primary"
+                  variant="outline"
+                  size="lg"
+                  class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10 h-12"
+                  @click="$emit('show-ai-chat'); isOpen = false"
+                />
+                
+                <UButton
+                  :variant="snapToGridEnabled ? 'solid' : 'outline'"
+                  size="lg"
+                  class="font-body text-white border-pink-400 hover:bg-pink-500/20 h-12"
+                  @click="$emit('toggle-grid')"
+                >
+                  <UIcon name="i-lucide-grid-3x3" class="w-5 h-5" />
+                </UButton>
+              </div>
 
       <!-- Contextual Controls for Mobile -->
-      <div v-if="(selectedEmojiId || selectedShapeId || selectedItemCount > 0) && currentTool === 'select'" class="space-y-3 pt-3 border-t border-pink-400/30">
+      <div v-if="(selectedEmojiId || selectedItemCount > 0)" class="space-y-3 pt-3 border-t border-pink-400/30">
         <!-- Rotation Controls -->
         <div class="space-y-2">
           <div class="flex items-center gap-2">
@@ -298,46 +249,6 @@
             />
           </div>
         </div>
-        
-        <!-- Color Picker for Shapes -->
-        <div v-if="selectedShapeId" class="space-y-2">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-palette" class="w-5 h-5 text-pink-300" />
-            <span class="text-sm text-pink-300">Color</span>
-          </div>
-          <UPopover>
-            <UButton 
-              size="lg" 
-              color="neutral" 
-              variant="outline"
-              class="font-body text-white border-pink-400 hover:bg-pink-500/20 w-full h-12"
-            >
-              <template #leading>
-                <span :style="{ backgroundColor: selectedShapeColor }" class="size-4 rounded-full border border-pink-400" />
-              </template>
-              Choose Color
-            </UButton>
-            
-            <template #content>
-              <div class="p-4 bg-black/90 border border-pink-500 rounded-lg">
-                <UColorPicker 
-                  :model-value="selectedShapeColor" 
-                  class="p-2"
-                  :ui="{
-                    root: 'data-[disabled]:opacity-75',
-                    picker: 'flex gap-4',
-                    selector: 'rounded-md touch-none',
-                    selectorBackground: 'w-full h-full relative rounded-md',
-                    selectorThumb: '-translate-y-1/2 -translate-x-1/2 absolute size-4 ring-2 ring-white rounded-full cursor-pointer data-[disabled]:cursor-not-allowed',
-                    track: 'w-[8px] relative rounded-md touch-none',
-                    trackThumb: 'absolute transform -translate-y-1/2 -translate-x-[4px] rtl:translate-x-[4px] size-4 rounded-full ring-2 ring-white cursor-pointer data-[disabled]:cursor-not-allowed'
-                  }"
-                  @update:model-value="$emit('color-change', $event)"
-                />
-              </div>
-            </template>
-          </UPopover>
-        </div>
       </div>
 
       <!-- Action Buttons Row -->
@@ -360,6 +271,30 @@
           class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex-1 h-12"
           @click="$emit('redo')"
         />
+        
+        <UButton 
+          v-if="selectedItemCount > 0"
+          icon="i-lucide-copy"
+          color="neutral" 
+          variant="outline" 
+          size="sm"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1 h-12"
+          @click="$emit('copy')"
+        >
+          Copy
+        </UButton>
+        
+        <UButton 
+          v-if="clipboardHasData"
+          icon="i-lucide-clipboard"
+          color="neutral" 
+          variant="outline" 
+          size="sm"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1 h-12"
+          @click="$emit('paste')"
+        >
+          Paste
+        </UButton>
         
         <UButton 
           v-if="selectedItemCount > 0"
@@ -399,32 +334,32 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 // Props
 interface Props {
-  currentTool: string
   selectedEmojiId: string | null
-  selectedShapeId: string | null
   selectedItemCount: number
   rotationAngle: number
-  selectedShapeColor: string
   canUndo: boolean
   canRedo: boolean
-  shapeMenuItems: any[]
+  snapToGridEnabled: boolean
+  clipboardHasData: boolean
 }
 
 const props = defineProps<Props>()
 
-// Emits
-const emit = defineEmits<{
-  'show-emoji-picker': []
-  'set-tool': [tool: string]
-  'rotation-change': [angle: number | undefined]
-  'reset-rotation': []
-  'color-change': [color: string | undefined]
-  'undo': []
-  'redo': []
-  'delete-selected': []
-  'clear-all': []
-  'reset-view': []
-}>()
+        // Emits
+        const emit = defineEmits<{
+          'show-emoji-picker': []
+          'show-ai-chat': []
+          'rotation-change': [angle: number | undefined]
+          'reset-rotation': []
+          'undo': []
+          'redo': []
+          'copy': []
+          'paste': []
+          'delete-selected': []
+          'clear-all': []
+          'reset-view': []
+          'toggle-grid': []
+        }>()
 
 // Mobile detection
 const isMobile = ref(false)
@@ -432,7 +367,7 @@ const isOpen = ref(false)
 
 // Dragging state
 const isDragging = ref(false)
-const position = ref({ x: 20, y: 20 })
+const position = ref({ x: 20, y: 80 }) // Positioned below header to avoid overlap
 const dragStart = ref({ x: 0, y: 0 })
 const paletteRef = ref<HTMLElement | null>(null)
 
@@ -453,9 +388,18 @@ const startDrag = (event: MouseEvent) => {
   
   const handleMouseMove = (e: MouseEvent) => {
     if (isDragging.value) {
+      const newX = e.clientX - dragStart.value.x
+      const newY = e.clientY - dragStart.value.y
+      
+      // Bounds checking to prevent dragging off-screen or over header
+      const minX = 0
+      const maxX = window.innerWidth - 320 // Tool palette width is ~320px
+      const minY = 60 // Below header
+      const maxY = window.innerHeight - 200 // Leave some space at bottom
+      
       position.value = {
-        x: e.clientX - dragStart.value.x,
-        y: e.clientY - dragStart.value.y
+        x: Math.max(minX, Math.min(newX, maxX)),
+        y: Math.max(minY, Math.min(newY, maxY))
       }
     }
   }

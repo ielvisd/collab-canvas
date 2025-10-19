@@ -10,10 +10,18 @@ import {
   extractSize, 
   extractPosition, 
   extractEmojiType,
+  parseMovementCommand,
+  parseRotationCommand,
+  generateRowPositions,
+  generateColumnPositions,
+  generateBorderPositions,
+  generateAlternatingPattern,
+  generateTrail,
   type CanvasPosition,
   type EmojiItem,
   type MultipleItemsResult
 } from '~/utils/aiHelpers'
+import { generateWordPositions, generateVerticalWordPositions } from '~/utils/letterPatterns'
 
 // Utility function for random colors
 const getRandomColor = () => {
@@ -231,6 +239,31 @@ export const useAIAgent = () => {
         
         case 'create-emoji-story':
           return await handleCreateEmojiStory(command)
+        
+        case 'move-emojis':
+          return await handleMoveEmojis(command)
+        
+        case 'rotate-emojis':
+          return await handleRotateEmojis(command)
+        
+        case 'move-all-emojis':
+          return await handleMoveAllEmojis(command)
+        
+        case 'create-border':
+          return await handleCreateBorder(command)
+        
+        case 'create-alternating-pattern':
+          return await handleCreateAlternatingPattern(command)
+        
+        case 'spell-word':
+          console.log('🔤 Handling spell-word command:', command)
+          return await handleSpellWord(command)
+        
+        case 'shift-scene':
+          return await handleShiftScene(command)
+        
+        case 'mirror-scene':
+          return await handleMirrorScene(command)
         
         default:
           console.warn('Unknown command action:', command.action)
@@ -545,6 +578,322 @@ export const useAIAgent = () => {
     }
   }
 
+  // Handle moving specific emojis
+  const handleMoveEmojis = async (command: AICommand): Promise<boolean> => {
+    const { emojiType, deltaX, deltaY, trailEmoji, createTrail } = command as unknown as { 
+      emojiType: string; 
+      deltaX: number; 
+      deltaY: number;
+      trailEmoji?: string;
+      createTrail?: boolean;
+    }
+
+    try {
+      const { emojis, updateEmoji, addEmoji } = useEmojis()
+      
+      // Filter emojis by type if specified
+      const targetEmojis = emojiType 
+        ? emojis.value.filter(emoji => emoji.emoji === emojiType)
+        : emojis.value
+
+      if (targetEmojis.length === 0) {
+        console.log(`⚠️ No emojis found with type: ${emojiType}`)
+        return false
+      }
+
+      // Update each emoji and create trails if requested
+      let successCount = 0
+      for (const emoji of targetEmojis) {
+        const oldX = emoji.x
+        const oldY = emoji.y
+        const newX = emoji.x + deltaX
+        const newY = emoji.y + deltaY
+        
+        const success = await updateEmoji(emoji.id, { x: newX, y: newY })
+        if (success) {
+          successCount++
+          
+          // Create trail if requested
+          if (createTrail && trailEmoji) {
+            const trailPositions = generateTrail(oldX, oldY, newX, newY, trailEmoji)
+            for (const trailPos of trailPositions) {
+              await addEmoji({
+                ...trailPos,
+                rotation: 0
+              })
+              await new Promise(resolve => setTimeout(resolve, 5)) // Small delay
+            }
+          }
+        }
+      }
+
+      console.log(`✅ Moved ${successCount}/${targetEmojis.length} emojis by (${deltaX}, ${deltaY})`)
+      return successCount > 0
+    } catch (err) {
+      console.error('❌ Failed to move emojis:', err)
+      return false
+    }
+  }
+
+  // Handle rotating specific emojis
+  const handleRotateEmojis = async (command: AICommand): Promise<boolean> => {
+    const { emojiType, degrees } = command as unknown as { 
+      emojiType: string; 
+      degrees: number 
+    }
+
+    try {
+      const { emojis, updateEmoji } = useEmojis()
+      
+      // Filter emojis by type if specified
+      const targetEmojis = emojiType 
+        ? emojis.value.filter(emoji => emoji.emoji === emojiType)
+        : emojis.value
+
+      if (targetEmojis.length === 0) {
+        console.log(`⚠️ No emojis found with type: ${emojiType}`)
+        return false
+      }
+
+      // Update each emoji's rotation
+      let successCount = 0
+      for (const emoji of targetEmojis) {
+        const newRotation = (emoji.rotation + degrees) % 360
+        
+        const success = await updateEmoji(emoji.id, { rotation: newRotation })
+        if (success) {
+          successCount++
+        }
+      }
+
+      console.log(`✅ Rotated ${successCount}/${targetEmojis.length} emojis by ${degrees} degrees`)
+      return successCount > 0
+    } catch (err) {
+      console.error('❌ Failed to rotate emojis:', err)
+      return false
+    }
+  }
+
+  // Handle moving all emojis
+  const handleMoveAllEmojis = async (command: AICommand): Promise<boolean> => {
+    const { deltaX, deltaY } = command as unknown as { 
+      deltaX: number; 
+      deltaY: number 
+    }
+
+    try {
+      const { emojis, updateEmoji } = useEmojis()
+      
+      if (emojis.value.length === 0) {
+        console.log('⚠️ No emojis found on canvas')
+        return false
+      }
+
+      // Update each emoji
+      let successCount = 0
+      for (const emoji of emojis.value) {
+        const newX = emoji.x + deltaX
+        const newY = emoji.y + deltaY
+        
+        const success = await updateEmoji(emoji.id, { x: newX, y: newY })
+        if (success) {
+          successCount++
+        }
+      }
+
+      console.log(`✅ Moved all ${successCount}/${emojis.value.length} emojis by (${deltaX}, ${deltaY})`)
+      return successCount > 0
+    } catch (err) {
+      console.error('❌ Failed to move all emojis:', err)
+      return false
+    }
+  }
+
+  // Handle creating border
+  const handleCreateBorder = async (command: AICommand): Promise<boolean> => {
+    const { emoji, spacing } = command as unknown as { 
+      emoji: string; 
+      spacing?: number 
+    }
+
+    try {
+      const { addEmoji } = useEmojis()
+      const borderPositions = generateBorderPositions(emoji, spacing)
+      
+      for (const pos of borderPositions) {
+        await addEmoji({
+          ...pos,
+          rotation: 0
+        })
+        await new Promise(resolve => setTimeout(resolve, 10)) // Small delay
+      }
+
+      console.log(`✅ Created border with ${borderPositions.length} ${emoji} emojis`)
+      return true
+    } catch (err) {
+      console.error('❌ Failed to create border:', err)
+      return false
+    }
+  }
+
+  // Handle creating alternating pattern
+  const handleCreateAlternatingPattern = async (command: AICommand): Promise<boolean> => {
+    const { emojis, count, arrangement, position } = command as unknown as { 
+      emojis: string[]; 
+      count: number; 
+      arrangement?: 'row' | 'column';
+      position?: CanvasPosition;
+    }
+
+    try {
+      const { addEmoji } = useEmojis()
+      const patternPositions = generateAlternatingPattern(emojis, count, arrangement, position)
+      
+      for (const pos of patternPositions) {
+        await addEmoji({
+          ...pos,
+          rotation: 0
+        })
+        await new Promise(resolve => setTimeout(resolve, 10)) // Small delay
+      }
+
+      console.log(`✅ Created alternating pattern with ${patternPositions.length} emojis`)
+      return true
+    } catch (err) {
+      console.error('❌ Failed to create alternating pattern:', err)
+      return false
+    }
+  }
+
+  // Handle spelling words
+  const handleSpellWord = async (command: AICommand): Promise<boolean> => {
+    console.log('🔤 handleSpellWord called with:', command)
+    const { word, emoji, vertical, position } = command as unknown as { 
+      word: string; 
+      emoji: string; 
+      vertical?: boolean;
+      position?: CanvasPosition;
+    }
+
+    console.log('🔤 Parsed parameters:', { word, emoji, vertical, position })
+
+    try {
+      const { addEmoji } = useEmojis()
+      let wordPositions: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }>
+      
+      if (vertical) {
+        console.log('🔤 Generating vertical word positions')
+        wordPositions = generateVerticalWordPositions(
+          word, 
+          emoji, 
+          position?.x ?? 200, 
+          position?.y ?? 200
+        )
+      } else {
+        console.log('🔤 Generating horizontal word positions')
+        wordPositions = generateWordPositions(
+          word, 
+          emoji, 
+          position?.x ?? 200, 
+          position?.y ?? 200
+        )
+      }
+      
+      console.log('🔤 Generated word positions:', wordPositions.length, 'positions')
+      
+      for (const pos of wordPositions) {
+        console.log('🔤 Adding emoji position:', pos)
+        await addEmoji(pos)
+        await new Promise(resolve => setTimeout(resolve, 5)) // Small delay
+      }
+
+      console.log(`✅ Spelled "${word}" with ${wordPositions.length} ${emoji} emojis`)
+      return true
+    } catch (err) {
+      console.error('❌ Failed to spell word:', err)
+      return false
+    }
+  }
+
+  // Handle shifting entire scene
+  const handleShiftScene = async (command: AICommand): Promise<boolean> => {
+    const { deltaX, deltaY } = command as unknown as { 
+      deltaX: number; 
+      deltaY: number 
+    }
+
+    try {
+      const { emojis, updateEmoji } = useEmojis()
+      
+      if (emojis.value.length === 0) {
+        console.log('⚠️ No emojis found on canvas')
+        return false
+      }
+
+      // Update each emoji
+      let successCount = 0
+      for (const emoji of emojis.value) {
+        const newX = emoji.x + deltaX
+        const newY = emoji.y + deltaY
+        
+        const success = await updateEmoji(emoji.id, { x: newX, y: newY })
+        if (success) {
+          successCount++
+        }
+      }
+
+      console.log(`✅ Shifted entire scene by (${deltaX}, ${deltaY})`)
+      return successCount > 0
+    } catch (err) {
+      console.error('❌ Failed to shift scene:', err)
+      return false
+    }
+  }
+
+  // Handle mirroring scene
+  const handleMirrorScene = async (command: AICommand): Promise<boolean> => {
+    const { axis, centerX } = command as unknown as { 
+      axis: 'horizontal' | 'vertical'; 
+      centerX?: number 
+    }
+
+    try {
+      const { emojis, updateEmoji } = useEmojis()
+      
+      if (emojis.value.length === 0) {
+        console.log('⚠️ No emojis found on canvas')
+        return false
+      }
+
+      const mirrorCenter = centerX ?? 400
+      let successCount = 0
+
+      for (const emoji of emojis.value) {
+        let newX = emoji.x
+        let newY = emoji.y
+
+        if (axis === 'horizontal') {
+          // Mirror horizontally around centerX
+          newX = mirrorCenter - (emoji.x - mirrorCenter)
+        } else {
+          // Mirror vertically around centerY
+          newY = 300 - (emoji.y - 300)
+        }
+        
+        const success = await updateEmoji(emoji.id, { x: newX, y: newY })
+        if (success) {
+          successCount++
+        }
+      }
+
+      console.log(`✅ Mirrored scene ${axis}ly`)
+      return successCount > 0
+    } catch (err) {
+      console.error('❌ Failed to mirror scene:', err)
+      return false
+    }
+  }
+
   // Generate emojis for multiple items (e.g., "one big pumpkin and two small hearts")
   const generateMultipleItemsEmojis = (multipleItems: MultipleItemsResult): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
     const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
@@ -631,7 +980,8 @@ export const useAIAgent = () => {
       const wordMatch = story.match(/(?:spelled?|spell)\s+(?:in|with|using)\s+\w+\s+(\w+)/i)
       if (wordMatch && wordMatch[1]) {
         const word = wordMatch[1].toUpperCase()
-        return spellWordWithEmojis(word, emoji)
+        const vertical = storyLower.includes('vertically') || storyLower.includes('vertical')
+        return spellWordWithEmojis(word, emoji, vertical)
       }
     }
     
@@ -711,26 +1061,16 @@ export const useAIAgent = () => {
     return emojis
   }
   
-  // Helper function to spell words with emojis
-  const spellWordWithEmojis = (word: string, emoji: string): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
-    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
-    const letters = word.split('')
+  // Helper function to spell words with emojis using letter patterns
+  const spellWordWithEmojis = (word: string, emoji: string, vertical: boolean = false): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
     const startX = 200
     const startY = 200
-    const spacing = 60
     
-    letters.forEach((letter, index) => {
-      emojis.push({
-        emoji: emoji,
-        x: startX + (index * spacing),
-        y: startY,
-        size: 40,
-        layer: 1,
-        rotation: 0
-      })
-    })
-    
-    return emojis
+    if (vertical) {
+      return generateVerticalWordPositions(word, emoji, startX, startY)
+    } else {
+      return generateWordPositions(word, emoji, startX, startY)
+    }
   }
   
   // Helper function to draw a heart with emojis

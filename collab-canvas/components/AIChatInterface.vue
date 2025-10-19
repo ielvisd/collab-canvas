@@ -85,7 +85,7 @@
         <form class="flex gap-2" @submit.prevent="handleSubmit">
           <UInput
             v-model="input"
-            placeholder="Ask me to create emoji stories or shapes..."
+            placeholder="Ask me to create emoji stories..."
             :disabled="isLoading"
             class="flex-1 bg-black/50 border-pink-400 text-pink-100 placeholder-pink-300"
           />
@@ -141,7 +141,7 @@ const {
   reset
 } = useAIAgent()
 
-// Quick action commands - prioritizing emoji stories
+// Quick action commands - emoji-focused only
 const quickActions = [
   { label: '🐷 Three Little Pigs', command: 'Create a story with three little pigs on an island' },
   { label: '🏠 House & Tree', command: 'Create a house with a tree next to it' },
@@ -151,9 +151,9 @@ const quickActions = [
   { label: '🎭 Theater Story', command: 'Tell a theater story with actors and stage' },
   { label: '🍕 Food Scene', command: 'Create a food scene with pizza and drinks' },
   { label: '😊 Happy Face', command: 'Add a happy face emoji' },
-  { label: '🔵 Blue Circle', command: 'Add a blue circle shape' },
-  { label: '📝 Text Label', command: 'Add a text label that says "Hello World"' },
-  { label: '🧹 Clear Canvas', command: 'Delete all emojis and shapes from the canvas' }
+  { label: '❤️ Heart', command: 'Add a heart emoji' },
+  { label: '⭐ Star', command: 'Add a star emoji' },
+  { label: '🧹 Clear Canvas', command: 'Delete all emojis from the canvas' }
 ]
 
 // Handle form submission

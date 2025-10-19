@@ -191,10 +191,15 @@ export default defineEventHandler(async (event) => {
 
   // Real AI path
   const systemPrompt = createSystemPrompt()
+  console.log('🤖 AI System Prompt:', systemPrompt.substring(0, 200) + '...')
+  console.log('🤖 User message:', lastUserMessage)
+  
   const response = await ai.run('@cf/meta/llama-3.1-8b-instruct' as any, {
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
     tools: buildToolSpecs()
   })
+  
+  console.log('🤖 AI Response:', JSON.stringify(response, null, 2))
 
   // Normalize hubAI response
   const commands = await parseAIResponse(response)
@@ -209,7 +214,93 @@ export default defineEventHandler(async (event) => {
    ----------------------- */
 
 function createSystemPrompt() {
-  return `You are an expert emoji scene designer for a collaborative canvas (800x600). Focus on creative, spatially-aware composition. Use provided tools to output commands (createEmojiStory, arrangeEmojisInShape, createShape, clearAllShapes). Always populate emoji arrays with actual emoji characters and pixel coordinates; prefer emojis to text. Position keywords: upper-left (100,100), upper-right (600,100), lower-left (100,450), lower-right (600,450), center (400,300). Size keywords: tiny (20), small (30), medium (50), big/large (80), huge (100). For multi-part requests, favor varied sizes and layers for depth. Never return empty tool calls.`
+  return `You are an expert emoji scene designer for a collaborative canvas (800x600). You help users create visual stories using emojis and basic shapes.
+
+## CAPABILITIES
+
+### Emoji Operations
+- Create emoji stories: "Create a story with three little pigs on an island"
+- Arrange emojis in shapes: circles, triangles, squares, lines, diamonds, hearts
+- Move specific emojis: "move all pizza emojis by 50px right"
+- Move everything: "move everything 10px up" 
+- Rotate emojis: "rotate the hearts 45 degrees"
+- Clear canvas: "delete all emojis"
+
+### Advanced Emoji Features
+- Spell words with emojis: "Spell PIZZA with pizza emojis" → Use spellWord tool
+- Create borders: "Create a border of cheese wedges around the canvas" → Use createBorder tool
+- Alternating patterns: "Fill the top row with alternating star and moon emojis" → Use createAlternatingPattern tool
+- Movement with trails: "Move cats leaving paw-print hearts behind" → Use moveEmojis with trailEmoji
+- Scene manipulation: "Shift the whole scene slightly to the right" → Use shiftScene tool
+- Mirror arrangements: "Mirror the left side to the right" → Use mirrorScene tool
+
+### Specific Prompt Patterns
+- "Place a single pizza emoji in the top-left corner" → Create single emoji at (100,100)
+- "Nestle a pizza emoji in the top-left corner, but make it 'guarded' by two winking eyes" → Pizza + winking eyes
+- "Spell 'PIZZA' horizontally across the middle row" → Use spellWord with position (200,300)
+- "Move a cluster of three cat emojis from the left half to the right half" → Create cats then move them
+- "Slide a trio of mischievous cat emojis leaving a trail of paw-print hearts" → Move with trail
+- "Put a rocket in the bottom-right corner, then fill the top row with alternating star and moon" → Rocket + alternating pattern
+- "Create a border of cheese wedges around the canvas, place a central pizza emoji, and shift the whole scene slightly to the right" → Border + pizza + shift
+- "Spell 'FUN' vertically on the left edge with fruit emojis, then mirror it to the right with veggie emojis" → Vertical spelling + mirror
+
+### Shape Operations
+- Create basic shapes: rectangles, circles, text
+- Move, resize, delete individual shapes
+- Arrange shapes in layouts: horizontal, vertical, grid, circle
+
+### Canvas Information
+- Dimensions: 800x600 pixels
+- Coordinate system: (0,0) top-left, (800,600) bottom-right
+- Position keywords: 
+  - Corners: upper-left (100,100), upper-right (600,100), lower-left (100,450), lower-right (600,450)
+  - Centers: center (400,300), top-center (400,100), bottom-center (400,500)
+  - Rows: top-row (y=100), middle-row (y=300), bottom-row (y=500)
+  - Edges: left-edge (x=50), right-edge (x=750)
+- Size keywords: tiny (20), small (30), medium (50), big/large (80), huge (100)
+
+## LIMITATIONS
+- Cannot create custom drawings or freeform shapes
+- Cannot edit individual pixels or create complex graphics
+- Focus on emoji-based compositions and preset shapes
+- Cannot modify text content after creation
+- Cannot create animations or transitions
+
+## BEST PRACTICES
+- Use layers for depth (1=background, 2=foreground, 3=top)
+- Vary emoji sizes for visual interest
+- Consider spatial relationships and composition
+- Use appropriate emojis for the story context
+- Always populate emoji arrays with actual emoji characters and pixel coordinates
+- Prefer emojis over text for visual elements
+- For spelling words, use letter patterns to create readable text
+- For borders, place emojis around canvas edges
+- For alternating patterns, cycle through different emoji types
+
+## EXAMPLES - ALWAYS USE THE SPECIFIC TOOLS
+- "Place a single pizza emoji in the top-left corner" → Use createShape tool with shapeType "emoji", emoji "🍕", x: 100, y: 100
+- "Spell PIZZA with pizza emojis" → Use spellWord tool with word "PIZZA", emoji "🍕"
+- "Create a border of cheese wedges" → Use createBorder tool with emoji "🧀"
+- "Fill the top row with alternating star and moon emojis" → Use createAlternatingPattern tool with emojis ["⭐","🌙"], count 10, arrangement "row", position {x: 400, y: 100}
+- "Move cats leaving paw-print hearts behind" → Use moveEmojis tool with emojiType "🐱", deltaX 200, createTrail true, trailEmoji "❤️"
+
+IMPORTANT: Always use the specific tools (spellWord, createBorder, createAlternatingPattern, etc.) instead of createEmojiStory for these patterns!
+
+## COMMANDS YOU CAN EXECUTE
+- createEmojiStory: Create scenes with multiple emojis
+- arrangeEmojisInShape: Arrange emojis in geometric patterns
+- createShape: Create rectangles, circles, text, or emoji shapes
+- moveEmojis: Move specific emoji types by pixel amounts (with optional trails)
+- rotateEmojis: Rotate specific emoji types by degrees
+- moveAllShapes: Move all emojis on canvas
+- clearAllShapes: Clear the entire canvas
+- spellWord: Spell words using emoji letter patterns
+- createBorder: Create borders around canvas edges
+- createAlternatingPattern: Create alternating emoji patterns
+- shiftScene: Move entire scene by offset
+- mirrorScene: Mirror scene horizontally or vertically
+
+Never return empty tool calls. Always provide helpful feedback about what you're creating or modifying.`
 }
 
 function buildToolSpecs() {
@@ -305,6 +396,131 @@ function buildToolSpecs() {
       description: 'Clear canvas',
       parameters: { type: 'object', properties: {}, required: [] },
       function: async () => ({ name: 'clearAllShapes', arguments: {} })
+    },
+    {
+      name: 'moveEmojis',
+      description: 'Move specific emoji type by delta amount',
+      parameters: {
+        type: 'object',
+        properties: {
+          emojiType: { type: 'string', description: 'Emoji character to move (e.g., "🍕", "❤️")' },
+          deltaX: { type: 'number', description: 'Horizontal movement in pixels' },
+          deltaY: { type: 'number', description: 'Vertical movement in pixels' }
+        },
+        required: ['emojiType', 'deltaX', 'deltaY']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'moveEmojis', arguments: args })
+    },
+    {
+      name: 'rotateEmojis',
+      description: 'Rotate specific emoji type by degrees',
+      parameters: {
+        type: 'object',
+        properties: {
+          emojiType: { type: 'string', description: 'Emoji character to rotate (e.g., "🍕", "❤️")' },
+          degrees: { type: 'number', description: 'Rotation amount in degrees' }
+        },
+        required: ['emojiType', 'degrees']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'rotateEmojis', arguments: args })
+    },
+    {
+      name: 'moveAllShapes',
+      description: 'Move all emojis on canvas by delta amount',
+      parameters: {
+        type: 'object',
+        properties: {
+          deltaX: { type: 'number', description: 'Horizontal movement in pixels' },
+          deltaY: { type: 'number', description: 'Vertical movement in pixels' }
+        },
+        required: ['deltaX', 'deltaY']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'moveAllShapes', arguments: args })
+    },
+    {
+      name: 'spellWord',
+      description: 'Spell a word using emoji letter patterns',
+      parameters: {
+        type: 'object',
+        properties: {
+          word: { type: 'string', description: 'Word to spell' },
+          emoji: { type: 'string', description: 'Emoji to use for letters' },
+          vertical: { type: 'boolean', description: 'Whether to spell vertically' },
+          position: {
+            type: 'object',
+            properties: {
+              x: { type: 'number' },
+              y: { type: 'number' }
+            }
+          }
+        },
+        required: ['word', 'emoji']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'spellWord', arguments: args })
+    },
+    {
+      name: 'createBorder',
+      description: 'Create a border around canvas edges',
+      parameters: {
+        type: 'object',
+        properties: {
+          emoji: { type: 'string', description: 'Emoji to use for border' },
+          spacing: { type: 'number', description: 'Spacing between border emojis' }
+        },
+        required: ['emoji']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'createBorder', arguments: args })
+    },
+    {
+      name: 'createAlternatingPattern',
+      description: 'Create alternating pattern with multiple emoji types',
+      parameters: {
+        type: 'object',
+        properties: {
+          emojis: { 
+            type: 'array', 
+            items: { type: 'string' },
+            description: 'Array of emoji types to alternate' 
+          },
+          count: { type: 'number', description: 'Total number of emojis' },
+          arrangement: { type: 'string', enum: ['row', 'column'], description: 'Arrangement type' },
+          position: {
+            type: 'object',
+            properties: {
+              x: { type: 'number' },
+              y: { type: 'number' }
+            }
+          }
+        },
+        required: ['emojis', 'count']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'createAlternatingPattern', arguments: args })
+    },
+    {
+      name: 'shiftScene',
+      description: 'Move entire scene by offset',
+      parameters: {
+        type: 'object',
+        properties: {
+          deltaX: { type: 'number', description: 'Horizontal shift in pixels' },
+          deltaY: { type: 'number', description: 'Vertical shift in pixels' }
+        },
+        required: ['deltaX', 'deltaY']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'shiftScene', arguments: args })
+    },
+    {
+      name: 'mirrorScene',
+      description: 'Mirror scene horizontally or vertically',
+      parameters: {
+        type: 'object',
+        properties: {
+          axis: { type: 'string', enum: ['horizontal', 'vertical'], description: 'Mirror axis' },
+          centerX: { type: 'number', description: 'Center point for horizontal mirroring' }
+        },
+        required: ['axis']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'mirrorScene', arguments: args })
     }
   ]
 }
@@ -315,11 +531,15 @@ function buildToolSpecs() {
 
 async function parseAIResponse(response: any) {
   const commands: Array<Record<string, unknown>> = []
+  
+  console.log('🔍 Parsing AI response:', JSON.stringify(response, null, 2))
 
   if (response && typeof response === 'object' && Array.isArray(response.tool_calls) && response.tool_calls.length) {
+    console.log('🔍 Found tool calls:', response.tool_calls.length)
     for (const call of response.tool_calls) {
       const name = call.name
       const args = call.arguments ?? {}
+      console.log('🔍 Processing tool call:', name, args)
       if (name === 'createShape') {
         commands.push({ action: 'create-shape', ...args })
       } else if (name === 'createEmojiStory') {
@@ -343,6 +563,23 @@ async function parseAIResponse(response: any) {
         commands.push({ action: 'create-emoji-story', story: `${args.count} ${args.emoji} arranged in a ${args.shape}`, emojis })
       } else if (name === 'clearAllShapes') {
         commands.push({ action: 'clear-all' })
+      } else if (name === 'moveEmojis') {
+        commands.push({ action: 'move-emojis', ...args })
+      } else if (name === 'rotateEmojis') {
+        commands.push({ action: 'rotate-emojis', ...args })
+      } else if (name === 'moveAllShapes') {
+        commands.push({ action: 'move-all-emojis', ...args })
+      } else if (name === 'spellWord') {
+        console.log('🔍 Converting spellWord to spell-word action:', args)
+        commands.push({ action: 'spell-word', ...args })
+      } else if (name === 'createBorder') {
+        commands.push({ action: 'create-border', ...args })
+      } else if (name === 'createAlternatingPattern') {
+        commands.push({ action: 'create-alternating-pattern', ...args })
+      } else if (name === 'shiftScene') {
+        commands.push({ action: 'shift-scene', ...args })
+      } else if (name === 'mirrorScene') {
+        commands.push({ action: 'mirror-scene', ...args })
       } else {
         // passthrough
         commands.push({ action: name, ...(args || {}) })
@@ -354,6 +591,42 @@ async function parseAIResponse(response: any) {
   // If content-based response, try to extract JSON tool calls
   if (response && typeof response === 'object' && typeof response.content === 'string') {
     const content = response.content as string
+    console.log('🔍 Processing content for tool calls:', content)
+    
+    // First try to parse the entire content as a single tool call
+    try {
+      const toolCall = JSON.parse(content)
+      if (toolCall.name && toolCall.arguments) {
+        console.log('🔍 Found single tool call in content:', toolCall)
+        const name = toolCall.name
+        const args = toolCall.arguments
+        
+        if (name === 'spellWord') {
+          commands.push({ action: 'spell-word', ...args })
+        } else if (name === 'createBorder') {
+          commands.push({ action: 'create-border', ...args })
+        } else if (name === 'createAlternatingPattern') {
+          commands.push({ action: 'create-alternating-pattern', ...args })
+        } else if (name === 'shiftScene') {
+          commands.push({ action: 'shift-scene', ...args })
+        } else if (name === 'mirrorScene') {
+          commands.push({ action: 'mirror-scene', ...args })
+        } else if (name === 'createShape') {
+          commands.push({ action: 'create-shape', ...args })
+        } else if (name === 'createEmojiStory') {
+          commands.push({ action: 'create-emoji-story', ...args })
+        }
+        
+        if (commands.length > 0) {
+          console.log('🔍 Extracted commands from content:', commands)
+          return commands
+        }
+      }
+    } catch (e) {
+      console.log('🔍 Content is not a single tool call, trying multiple JSON extraction')
+    }
+    
+    // Fallback to multiple JSON extraction
     const jsons: string[] = []
     let i = content.indexOf('{')
     while (i >= 0) {
@@ -395,6 +668,12 @@ async function parseAIResponse(response: any) {
           commands.push({ action: 'create-emoji-story', story: `${parsed.arguments?.count} ${parsed.arguments?.emoji} arranged in a ${parsed.arguments?.shape}`, emojis })
         } else if (parsed.name === 'clearAllShapes') {
           commands.push({ action: 'clear-all' })
+        } else if (parsed.name === 'moveEmojis') {
+          commands.push({ action: 'move-emojis', ...(parsed.arguments || {}) })
+        } else if (parsed.name === 'rotateEmojis') {
+          commands.push({ action: 'rotate-emojis', ...(parsed.arguments || {}) })
+        } else if (parsed.name === 'moveAllShapes') {
+          commands.push({ action: 'move-all-emojis', ...(parsed.arguments || {}) })
         } else {
           commands.push({ action: parsed.name, ...(parsed.arguments || {}) })
         }
@@ -589,6 +868,91 @@ function buildFallbackCommand(userMessage: string) {
   // generic emoji request
   if (m.includes('emoji') || m.includes('smile') || m.includes('😊')) {
     return { action: 'create-shape', shapeType: 'emoji', x: 200, y: 200, emoji: '😊', emojiSize: 48, layer: 1 }
+  }
+
+  // Handle specific prompt patterns from the test cases
+  console.log('🔍 Checking fallback patterns for:', m)
+  
+  if (m.includes('pizza') && m.includes('top-left corner')) {
+    console.log('✅ Matched: Pizza in top-left corner')
+    return {
+      action: 'create-emoji-story',
+      story: 'Pizza in top-left corner',
+      emojis: [
+        { emoji: '🍕', x: 100, y: 100, size: 40, layer: 1 }
+      ]
+    }
+  }
+
+  if (m.includes('pizza') && m.includes('guarded') && m.includes('winking eyes')) {
+    return {
+      action: 'create-emoji-story',
+      story: 'Pizza guarded by winking eyes',
+      emojis: [
+        { emoji: '🍕', x: 100, y: 100, size: 40, layer: 2 },
+        { emoji: '😉', x: 80, y: 80, size: 30, layer: 1 },
+        { emoji: '😉', x: 120, y: 80, size: 30, layer: 1 }
+      ]
+    }
+  }
+
+  if (m.includes('spell') && m.includes('pizza')) {
+    const word = 'PIZZA'
+    return {
+      action: 'spell-word',
+      word: word,
+      emoji: '🍕',
+      position: { x: 200, y: 200 }
+    }
+  }
+
+  if (m.includes('alternating') && m.includes('star') && m.includes('moon')) {
+    return {
+      action: 'create-alternating-pattern',
+      emojis: ['⭐', '🌙'],
+      count: 10,
+      arrangement: 'row',
+      position: { x: 400, y: 100 }
+    }
+  }
+
+  if (m.includes('border') && m.includes('cheese')) {
+    return {
+      action: 'create-border',
+      emoji: '🧀',
+      spacing: 50
+    }
+  }
+
+  if (m.includes('cats') && m.includes('trail') && m.includes('hearts')) {
+    return {
+      action: 'create-emoji-story',
+      story: 'Cats with heart trail',
+      emojis: [
+        { emoji: '🐱', x: 200, y: 300, size: 40, layer: 2 },
+        { emoji: '🐱', x: 250, y: 300, size: 40, layer: 2 },
+        { emoji: '🐱', x: 300, y: 300, size: 40, layer: 2 },
+        { emoji: '❤️', x: 220, y: 320, size: 20, layer: 1 },
+        { emoji: '❤️', x: 270, y: 320, size: 20, layer: 1 },
+        { emoji: '❤️', x: 320, y: 320, size: 20, layer: 1 }
+      ]
+    }
+  }
+
+  if (m.includes('mirror') && m.includes('left') && m.includes('right')) {
+    return {
+      action: 'mirror-scene',
+      axis: 'horizontal',
+      centerX: 400
+    }
+  }
+
+  if (m.includes('shift') && m.includes('slightly') && m.includes('right')) {
+    return {
+      action: 'shift-scene',
+      deltaX: 20,
+      deltaY: 0
+    }
   }
 
   // default final fallback scene

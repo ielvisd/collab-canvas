@@ -1,32 +1,37 @@
 <template>
-        <AppLayout 
+        <AppLayout
           :is-connected="isConnected"
           :is-mobile="isMobile"
           :user-count="onlineUsers.length"
           @toggle-users="showUsersModal = !showUsersModal"
           @show-ai-chat="showAIChat = !showAIChat"
+          @open-emoji-picker="showEmojiPicker = true"
+          @open-ai-chat="showAIChat = !showAIChat"
+          @open-tools="showToolPalette = true"
         >
-          <div class="h-full w-full bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+          <div class="h-full w-full flex flex-col">
       
       <!-- Main Content -->
       <div class="flex-1 flex relative">
-        <!-- Mobile Tool Button -->
-        <UButton
-          v-if="isMobile"
-          icon="i-lucide-palette"
-          color="primary"
-          variant="solid"
-          size="sm"
-          class="fixed top-20 right-4 z-40 sm:hidden"
-          @click="openToolPalette"
-        />
         
         <!-- Canvas Area -->
-        <div class="flex-1 flex items-start justify-center p-2 pt-4 canvas-container">
+        <div class="flex-1 canvas-container">
           <div 
             ref="canvasContainer"
-            class="border-2 border-pink-500 rounded-xl shadow-lg bg-white relative overflow-hidden"
-            :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
+            :class="[
+              'bg-white relative overflow-hidden',
+              {
+                'cursor-grab': isSpacePressed && !isGrabbing,
+                'cursor-grabbing': isGrabbing,
+                'cursor-crosshair': !isSpacePressed && !isMobile
+              }
+            ]"
+            :style="{ 
+              width: canvasWidth + 'px', 
+              height: canvasHeight + 'px',
+              transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
+              transformOrigin: 'center center'
+            }"
             data-tool="emoji"
             data-testid="canvas-container"
             @mousedown="handleCanvasMouseDown"
@@ -36,6 +41,7 @@
             @touchstart="handleCanvasTouchStart"
             @touchmove="handleCanvasTouchMove"
             @touchend="handleCanvasTouchEnd"
+            @wheel="handleCanvasWheel"
           >
             <!-- Grid Overlay -->
             <div 
@@ -94,6 +100,29 @@
                 backgroundColor: 'rgba(59, 130, 246, 0.05)'
               }"
             />
+
+            <!-- Long Press Indicator for Touch -->
+            <div
+              v-if="isMobile && longPressTimer && !isSelecting && selectionStart.x > 0"
+              class="absolute pointer-events-none z-50"
+              :style="{
+                left: selectionStart.x + 'px',
+                top: selectionStart.y + 'px',
+                transform: 'translate(-50%, -50%)'
+              }"
+            >
+              <div class="w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75"/>
+              <div class="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full"/>
+            </div>
+
+
+            <!-- Desktop Pan Mode Indicator -->
+            <div v-if="!isMobile && isSpacePressed" class="absolute top-2 left-2 z-50">
+              <div class="bg-blue-500/90 text-white px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-2">
+                <UIcon name="i-lucide-hand" class="w-4 h-4" />
+                Pan Mode
+              </div>
+            </div>
 
             <!-- Selection Handles (Rotation + Resize) -->
             <div
@@ -169,29 +198,30 @@
           <CursorOverlay />
         </div>
         
-        <!-- Floating Tool Palette -->
-                <ToolPalette
-                  ref="toolPaletteRef"
-                  :selected-emoji-id="selectedEmojiId"
-                  :selected-item-count="selectedItemCount"
-                  :rotation-angle="rotationAngle"
-                  :can-undo="canUndo"
-                  :can-redo="canRedo"
-                  :snap-to-grid-enabled="snapToGridEnabled"
-                  :clipboard-has-data="clipboardHasData"
-                  @show-emoji-picker="showEmojiPicker = true"
-                  @show-ai-chat="showAIChat = !showAIChat"
-                  @rotation-change="handleRotationChange"
-                  @reset-rotation="resetRotation"
-                  @undo="undo"
-                  @redo="redo"
-                  @copy="handleCopy"
-                  @paste="handlePaste"
-                  @delete-selected="deleteSelectedItem"
-                  @clear-all="showClearAllModal = true"
-                  @reset-view="resetView"
-                  @toggle-grid="toggleSnapToGrid"
-                />
+        <!-- Tool Palette Popover -->
+        <ToolPalette
+          v-model:open="showToolPalette"
+          :selected-emoji-id="selectedEmojiId"
+          :selected-item-count="selectedItemCount"
+          :rotation-angle="rotationAngle"
+          :can-undo="canUndo"
+          :can-redo="canRedo"
+          :snap-to-grid-enabled="snapToGridEnabled"
+          :clipboard-has-data="clipboardHasData"
+          @rotation-change="handleRotationChange"
+          @reset-rotation="resetRotation"
+          @undo="undo"
+          @redo="redo"
+          @copy="handleCopy"
+          @paste="handlePaste"
+          @delete-selected="deleteSelectedItem"
+          @clear-all="showClearAllModal = true"
+          @reset-view="resetView"
+          @toggle-grid="toggleSnapToGrid"
+          @zoom-in="canvasScale = Math.min(2, canvasScale + 0.2)"
+          @zoom-out="canvasScale = Math.max(0.5, canvasScale - 0.2)"
+          @reset-zoom="resetCanvasView"
+        />
       </div>
       
       
@@ -252,7 +282,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, onScopeDispose, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, onScopeDispose } from 'vue'
 
 // Components
 import AppLayout from '~/components/AppLayout.vue'
@@ -291,23 +321,23 @@ const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
 }
 
-// Responsive canvas dimensions - optimized for space efficiency
+// Pan and zoom state
+const canvasScale = ref(1)
+const canvasOffset = ref({ x: 0, y: 0 })
+const isPanning = ref(false)
+const panStart = ref({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
+
+// Spacebar pan state management
+const isSpacePressed = ref(false)
+const isGrabbing = ref(false)
+
+// Responsive canvas dimensions - full viewport minus header
 const canvasWidth = computed(() => {
-  if (isMobile.value) {
-    return window.innerWidth - 24 // Mobile: full width with minimal padding
-  } else if (window.innerWidth < 1024) {
-    return Math.min(window.innerWidth * 0.85, window.innerWidth - 400) // Tablet: 85% of width, leave room for tools
-  }
-  return window.innerWidth - 400 // Desktop: full width minus space for tool palette
+  return window.innerWidth
 })
 
 const canvasHeight = computed(() => {
-  if (isMobile.value) {
-    return window.innerHeight - 140 // Mobile: most of viewport height minus header
-  } else if (window.innerWidth < 1024) {
-    return Math.min(window.innerHeight * 0.8, window.innerHeight - 120) // Tablet: 80% of height
-  }
-  return window.innerHeight - 120 // Desktop: full height minus header
+  return window.innerHeight - 80 // Full height minus header height
 })
 
         // State
@@ -315,6 +345,7 @@ const canvasHeight = computed(() => {
         const showUsersModal = ref(false)
         const showEmojiPicker = ref(false)
         const showClearAllModal = ref(false)
+        const showToolPalette = ref(false)
         const selectedEmojiId = ref<string | null>(null)
         const rotationAngle = ref(0)
         const isRotating = ref(false)
@@ -347,7 +378,6 @@ const selectedItemIds = ref<Set<string>>(new Set())
 // Canvas refs
 const canvasContainer = ref<HTMLElement | null>(null)
 const _textInput = ref<HTMLInputElement | null>(null)
-const toolPaletteRef = ref<{ openDrawer: () => void } | null>(null)
 
 // Drag state
 const pendingDragEmojiId = ref<string | null>(null)
@@ -439,51 +469,177 @@ const redo = async () => {
   await redoAction()
 }
 
-// Mobile tool palette control
-const openToolPalette = () => {
-  if (toolPaletteRef.value) {
-    toolPaletteRef.value.openDrawer()
-  }
-}
 
 // Touch event handlers for mobile
+const touchStartTime = ref(0)
+const longPressTimer = ref<number | null>(null)
+const initialTouchDistance = ref(0)
+const initialScale = ref(1)
+
 function handleCanvasTouchStart(event: TouchEvent) {
+  event.preventDefault()
+  
   if (event.touches.length === 1) {
     const touch = event.touches[0]
     if (touch) {
-      // Prevent default to avoid scrolling
-      event.preventDefault()
+      touchStartTime.value = Date.now()
       
-      const mouseEvent = new MouseEvent('mousedown', {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        button: 0
-      })
-      handleCanvasMouseDown(mouseEvent)
+      // Start long-press timer for selection box
+      longPressTimer.value = window.setTimeout(() => {
+        if (isMobile.value) {
+          // Long press detected - start selection box
+          isSelecting.value = true
+          const rect = canvasContainer.value!.getBoundingClientRect()
+          selectionStart.value = {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top
+          }
+          selectionBox.value = {
+            x: selectionStart.value.x,
+            y: selectionStart.value.y,
+            width: 0,
+            height: 0
+          }
+        }
+      }, 500) // 500ms long press threshold
+      
+      // Start panning on mobile
+      if (isMobile.value) {
+        startPan(event)
+      } else {
+        const mouseEvent = new MouseEvent('mousedown', {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          button: 0
+        })
+        handleCanvasMouseDown(mouseEvent)
+      }
+    }
+  } else if (event.touches.length === 2) {
+    // Two-finger pinch gesture for zoom
+    const touch1 = event.touches[0]
+    const touch2 = event.touches[1]
+    
+    if (touch1 && touch2) {
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      )
+      
+      initialTouchDistance.value = distance
+      initialScale.value = canvasScale.value
+      
+      // Clear any pending long press
+      if (longPressTimer.value) {
+        clearTimeout(longPressTimer.value)
+        longPressTimer.value = null
+      }
     }
   }
 }
 
 function handleCanvasTouchMove(event: TouchEvent) {
+  event.preventDefault()
+  
   if (event.touches.length === 1) {
     const touch = event.touches[0]
     if (touch) {
-      // Prevent default to avoid scrolling
-      event.preventDefault()
+      // Clear long press timer if user starts moving
+      if (longPressTimer.value) {
+        clearTimeout(longPressTimer.value)
+        longPressTimer.value = null
+      }
       
-      const mouseEvent = new MouseEvent('mousemove', {
-        clientX: touch.clientX,
-        clientY: touch.clientY
-      })
-      handleCanvasMouseMove(mouseEvent)
+      // Handle panning on mobile or selection box update
+      if (isMobile.value) {
+        if (isSelecting.value) {
+          // Update selection box
+          const rect = canvasContainer.value!.getBoundingClientRect()
+          const currentX = touch.clientX - rect.left
+          const currentY = touch.clientY - rect.top
+          
+          selectionBox.value = {
+            x: Math.min(selectionStart.value.x, currentX),
+            y: Math.min(selectionStart.value.y, currentY),
+            width: Math.abs(currentX - selectionStart.value.x),
+            height: Math.abs(currentY - selectionStart.value.y)
+          }
+        } else {
+          handlePan(event)
+        }
+      } else {
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        })
+        handleCanvasMouseMove(mouseEvent)
+      }
+    }
+  } else if (event.touches.length === 2) {
+    // Two-finger pinch gesture for zoom
+    const touch1 = event.touches[0]
+    const touch2 = event.touches[1]
+    
+    if (touch1 && touch2 && initialTouchDistance.value > 0) {
+      const currentDistance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      )
+      
+      const scaleChange = currentDistance / initialTouchDistance.value
+      const newScale = Math.max(0.5, Math.min(2, initialScale.value * scaleChange))
+      
+      // Calculate center point for zoom
+      const centerX = (touch1.clientX + touch2.clientX) / 2
+      const centerY = (touch1.clientY + touch2.clientY) / 2
+      const rect = canvasContainer.value?.getBoundingClientRect()
+      
+      if (rect) {
+        const mouseX = centerX - rect.left
+        const mouseY = centerY - rect.top
+        
+        const zoomChange = newScale / canvasScale.value
+        canvasOffset.value.x = mouseX - (mouseX - canvasOffset.value.x) * zoomChange
+        canvasOffset.value.y = mouseY - (mouseY - canvasOffset.value.y) * zoomChange
+      }
+      
+      canvasScale.value = newScale
     }
   }
 }
 
 function handleCanvasTouchEnd(event: TouchEvent) {
-  // Prevent default to avoid scrolling
   event.preventDefault()
-  handleCanvasMouseUp()
+  
+  // Clear long press timer
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  // Handle selection box completion on mobile
+  if (isMobile.value && isSelecting.value) {
+    selectEmojisInBox()
+    isSelecting.value = false
+    justCompletedSelection.value = true
+    selectionBox.value = { x: 0, y: 0, width: 0, height: 0 }
+    
+    // If no items were selected, clear the selection
+    if (selectedItemIds.value.size === 0) {
+      clearSelection()
+    }
+    
+    // Reset the flag after a short delay
+    setTimeout(() => {
+      justCompletedSelection.value = false
+    }, 100)
+  } else {
+    handleCanvasMouseUp()
+  }
+  
+  // Reset touch gesture state
+  initialTouchDistance.value = 0
+  initialScale.value = 1
 }
 
 // Touch handlers for emojis and shapes
@@ -506,18 +662,66 @@ function startEmojiTouch(event: TouchEvent, emojiId: string) {
   }
 }
 
-
-// Status change watchers for toasts
-watch(isConnected, (newValue, oldValue) => {
-  if (oldValue !== undefined) { // Don't show toast on initial load
-    toast.add({
-      title: newValue ? 'Connected' : 'Disconnected',
-      description: newValue ? 'Live sync is active' : 'Connection lost',
-      color: newValue ? 'success' : 'error',
-      icon: newValue ? 'i-heroicons-check-circle' : 'i-heroicons-exclamation-triangle'
-    })
+// Pan and zoom handlers
+function handleCanvasWheel(event: WheelEvent) {
+  event.preventDefault()
+  
+  // Determine zoom sensitivity based on Ctrl key and device
+  const isFineControl = event.ctrlKey || event.metaKey
+  const zoomSensitivity = isFineControl ? 0.05 : 0.1
+  const delta = event.deltaY > 0 ? (1 - zoomSensitivity) : (1 + zoomSensitivity)
+  const newScale = Math.max(0.5, Math.min(2, canvasScale.value * delta))
+  
+  // Zoom towards mouse position
+  const rect = canvasContainer.value?.getBoundingClientRect()
+  if (rect) {
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+    
+    const scaleChange = newScale / canvasScale.value
+    canvasOffset.value.x = mouseX - (mouseX - canvasOffset.value.x) * scaleChange
+    canvasOffset.value.y = mouseY - (mouseY - canvasOffset.value.y) * scaleChange
   }
-})
+  
+  canvasScale.value = newScale
+}
+
+function startPan(event: MouseEvent | TouchEvent) {
+  // Allow pan on mobile OR desktop with Space pressed
+  if (!isMobile.value && !isSpacePressed.value) return
+  
+  isPanning.value = true
+  const clientX = 'touches' in event ? event.touches[0]?.clientX ?? 0 : event.clientX
+  const clientY = 'touches' in event ? event.touches[0]?.clientY ?? 0 : event.clientY
+  
+  panStart.value = {
+    x: clientX,
+    y: clientY,
+    offsetX: canvasOffset.value.x,
+    offsetY: canvasOffset.value.y
+  }
+}
+
+function handlePan(event: MouseEvent | TouchEvent) {
+  if (!isPanning.value) return
+  
+  event.preventDefault()
+  const clientX = 'touches' in event ? event.touches[0]?.clientX ?? 0 : event.clientX
+  const clientY = 'touches' in event ? event.touches[0]?.clientY ?? 0 : event.clientY
+  
+  const deltaX = clientX - panStart.value.x
+  const deltaY = clientY - panStart.value.y
+  
+  canvasOffset.value.x = panStart.value.offsetX + deltaX
+  canvasOffset.value.y = panStart.value.offsetY + deltaY
+}
+
+function endPan() {
+  isPanning.value = false
+}
+
+
+// Status change watchers for toasts - removed live sync popup
 
         // Load emojis when page mounts
         onMounted(async () => {
@@ -809,11 +1013,20 @@ function handleCanvasClick(event: MouseEvent) {
 }
 
 function handleCanvasMouseDown(event: MouseEvent) {
-  // Only start selection box if clicking on empty canvas space (not on an emoji)
+  // Start panning on mobile if clicking on empty canvas
+  if (isMobile.value && event.target === canvasContainer.value) {
+    startPan(event)
+    return
+  }
+  
+  // Desktop behavior: check if Space is pressed for pan mode
   if (event.target === canvasContainer.value) {
-    // Don't start selection if Ctrl/Cmd is held (for multi-select)
-    if (!event.ctrlKey && !event.metaKey) {
-      // Start selection box (don't clear selection yet - wait until mouse up)
+    if (isSpacePressed.value) {
+      // Space+drag = pan mode
+      startPan(event)
+      isGrabbing.value = true
+    } else if (!event.ctrlKey && !event.metaKey) {
+      // Default: start selection box
       isSelecting.value = true
       const rect = canvasContainer.value!.getBoundingClientRect()
       selectionStart.value = {
@@ -831,7 +1044,10 @@ function handleCanvasMouseDown(event: MouseEvent) {
 }
 
 function handleCanvasMouseMove(event: MouseEvent) {
-  if (isResizing.value) {
+  if (isPanning.value) {
+    // Pan mode (mobile or desktop with Space)
+    handlePan(event)
+  } else if (isResizing.value) {
     handleResize(event)
   } else if (isDragging.value) {
     handleDrag(event)
@@ -862,7 +1078,11 @@ function handleCanvasMouseMove(event: MouseEvent) {
 }
 
 async function handleCanvasMouseUp() {
-  if (isResizing.value) {
+  if (isPanning.value) {
+    // Pan mode (mobile or desktop with Space)
+    endPan()
+    isGrabbing.value = false
+  } else if (isResizing.value) {
     endResize()
   } else if (isDragging.value) {
     endDrag()
@@ -939,6 +1159,11 @@ async function confirmClearAll() {
 function resetView() {
   // Reset view logic here
   console.log('Reset view')
+}
+
+function resetCanvasView() {
+  canvasScale.value = 1
+  canvasOffset.value = { x: 0, y: 0 }
 }
 
 function editEmoji(id: string) {
@@ -1130,6 +1355,13 @@ onMounted(() => {
                            event.target instanceof HTMLSelectElement ||
                            (event.target as HTMLElement)?.contentEditable === 'true'
     
+    // Spacebar for pan mode (only on desktop)
+    if (event.code === 'Space' && !isTypingInInput && !isMobile.value) {
+      event.preventDefault()
+      isSpacePressed.value = true
+      return
+    }
+    
     // AI chat toggle (Cmd/Ctrl + K) - allow this even when typing
     if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
       event.preventDefault()
@@ -1183,10 +1415,20 @@ onMounted(() => {
     }
   }
   
+  const handleKeyUp = (event: KeyboardEvent) => {
+    // Release spacebar pan mode
+    if (event.code === 'Space' && !isMobile.value) {
+      isSpacePressed.value = false
+      isGrabbing.value = false
+    }
+  }
+  
   document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('keyup', handleKeyUp)
   
   onUnmounted(() => {
     document.removeEventListener('keydown', handleKeyDown)
+    document.removeEventListener('keyup', handleKeyUp)
   })
 })
 
@@ -1228,6 +1470,20 @@ onMounted(() => {
   -webkit-touch-callout: none; /* Disable callout on iOS */
   -webkit-user-select: none; /* Disable text selection on iOS */
   user-select: none; /* Disable text selection */
+  transition: cursor 0.1s ease; /* Smooth cursor transitions */
+}
+
+/* Cursor states for different interaction modes */
+.cursor-grab {
+  cursor: grab;
+}
+
+.cursor-grabbing {
+  cursor: grabbing;
+}
+
+.cursor-crosshair {
+  cursor: crosshair;
 }
 
 /* Mobile-specific optimizations */

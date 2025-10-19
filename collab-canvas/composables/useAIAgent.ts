@@ -771,7 +771,7 @@ export const useAIAgent = () => {
     const { word, emoji, vertical, position } = command as unknown as { 
       word: string; 
       emoji: string; 
-      vertical?: boolean;
+      vertical?: boolean | string;
       position?: CanvasPosition;
     }
 
@@ -781,7 +781,11 @@ export const useAIAgent = () => {
       const { addEmoji } = useEmojis()
       let wordPositions: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }>
       
-      if (vertical) {
+      // Properly parse vertical parameter (handle both boolean and string)
+      const isVertical = vertical === true || vertical === 'true' || vertical === 'True'
+      console.log('🔤 isVertical:', isVertical, 'original vertical:', vertical)
+      
+      if (isVertical) {
         console.log('🔤 Generating vertical word positions')
         wordPositions = generateVerticalWordPositions(
           word, 

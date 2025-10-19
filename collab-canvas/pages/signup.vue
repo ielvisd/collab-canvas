@@ -27,17 +27,6 @@
           @submit="handleSubmit"
           class="space-y-6"
         >
-          <UFormField label="Full name" name="fullName">
-            <UInput
-              v-model="formState.fullName"
-              type="text"
-              autocomplete="name"
-              placeholder="Enter your full name"
-              :disabled="loading"
-              class="bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-pink-500"
-            />
-          </UFormField>
-
           <UFormField label="Email address" name="email" required>
             <UInput
               v-model="formState.email"
@@ -71,24 +60,6 @@
             />
           </UFormField>
 
-          <div class="flex items-center">
-            <UCheckbox 
-              v-model="formState.agreeToTerms" 
-              :disabled="loading"
-              required
-              class="text-gray-300"
-            />
-            <div class="ml-2 text-sm text-gray-300">
-              I agree to the
-              <a href="#" class="font-medium text-pink-500 hover:text-pink-400">
-                Terms of Service
-              </a>
-              and
-              <a href="#" class="font-medium text-pink-500 hover:text-pink-400">
-                Privacy Policy
-              </a>
-            </div>
-          </div>
 
           <div v-if="error" class="rounded-md bg-red-900/20 border border-red-500/30 p-4">
             <div class="flex">
@@ -176,13 +147,11 @@ definePageMeta({
 
 // Form validation schema
 const schema = z.object({
-  fullName: z.string().optional(),
   email: z.string().email('Please enter a valid email address'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-  confirmPassword: z.string(),
-  agreeToTerms: z.boolean().refine(val => val === true, 'You must agree to the terms and conditions')
+  confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -190,11 +159,9 @@ const schema = z.object({
 
 // Form state
 const formState = reactive({
-  fullName: '',
   email: '',
   password: '',
-  confirmPassword: '',
-  agreeToTerms: false
+  confirmPassword: ''
 })
 
 // Auth composable
@@ -206,7 +173,7 @@ const successMessage = ref('')
 
 // Handle form submission
 const handleSubmit = async (event) => {
-  const { email, password, fullName } = event.data
+  const { email, password } = event.data
   
   const { error: signUpError } = await signUp(email, password)
   

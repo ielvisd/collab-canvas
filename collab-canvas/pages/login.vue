@@ -2,7 +2,7 @@
   <div class="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
       <div>
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-pink-500 rounded-2xl mb-6 mx-auto">
+        <div class="hidden sm:inline-flex items-center justify-center w-16 h-16 bg-pink-500 rounded-2xl mb-6 mx-auto">
           <UIcon name="i-heroicons-paint-brush" class="w-8 h-8 text-white" />
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-white">

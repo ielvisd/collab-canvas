@@ -23,15 +23,36 @@
       <!-- Messages Area -->
       <div class="flex-1 overflow-y-auto p-4 space-y-4">
         <div v-if="messages.length === 0" class="text-center text-pink-200">
-          <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-8 h-8 mx-auto mb-2 text-pink-400" />
-          <p class="text-sm font-medium">Ask me to create visual stories with emojis and shapes!</p>
-          <div class="mt-4 space-y-2 text-xs">
-            <p class="font-medium text-pink-300">Try these emoji stories:</p>
-            <div class="space-y-1 text-pink-200">
-              <p>• "Create a story with three little pigs on an island"</p>
-              <p>• "Make an ocean scene with fish and waves"</p>
-              <p>• "Create a space adventure with rockets and planets"</p>
-              <p>• "Tell a story about a house with a tree"</p>
+          <UIcon name="i-heroicons-sparkles" class="w-8 h-8 mx-auto mb-2 text-pink-400 animate-pulse" />
+          <p class="text-sm font-medium">🎨 AI Emoji Canvas</p>
+          <div class="mt-3 space-y-2 text-xs">
+            <div class="grid grid-cols-2 gap-2 text-pink-200">
+              <div>
+                <p class="font-medium text-pink-300 mb-1">✨ Positioning:</p>
+                <p>• "Pizza in top-left corner"</p>
+                <p>• "Three cats in middle row"</p>
+                <p>• "Border of cheese wedges"</p>
+              </div>
+              <div>
+                <p class="font-medium text-pink-300 mb-1">🔤 Spelling:</p>
+                <p>• "Spell 'PIZZA' with pizza"</p>
+                <p>• "Write 'HELLO' vertically"</p>
+                <p>• "Spell 'CAT' using cats"</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-pink-200">
+              <div>
+                <p class="font-medium text-pink-300 mb-1">🎭 Effects:</p>
+                <p>• "Move cats with heart trails"</p>
+                <p>• "Alternating stars and moons"</p>
+                <p>• "Shift scene to the right"</p>
+              </div>
+              <div>
+                <p class="font-medium text-pink-300 mb-1">🌟 Complex:</p>
+                <p>• "Rocket + star patterns"</p>
+                <p>• "Mirror left to right"</p>
+                <p>• "Sloth with coffee emojis"</p>
+              </div>
             </div>
           </div>
         </div>
@@ -141,19 +162,18 @@ const {
   reset
 } = useAIAgent()
 
-// Quick action commands - emoji-focused only
+// Quick action commands - showcasing new capabilities
 const quickActions = [
-  { label: '🐷 Three Little Pigs', command: 'Create a story with three little pigs on an island' },
-  { label: '🏠 House & Tree', command: 'Create a house with a tree next to it' },
-  { label: '🌊 Ocean Adventure', command: 'Create an ocean scene with fish and waves' },
-  { label: '🚀 Space Journey', command: 'Create a space scene with rockets and planets' },
-  { label: '🎉 Party Scene', command: 'Create a party scene with balloons and cake' },
-  { label: '🎭 Theater Story', command: 'Tell a theater story with actors and stage' },
-  { label: '🍕 Food Scene', command: 'Create a food scene with pizza and drinks' },
-  { label: '😊 Happy Face', command: 'Add a happy face emoji' },
-  { label: '❤️ Heart', command: 'Add a heart emoji' },
-  { label: '⭐ Star', command: 'Add a star emoji' },
-  { label: '🧹 Clear Canvas', command: 'Delete all emojis from the canvas' }
+  { label: '🍕 Pizza Corner', command: 'Place a pizza emoji in the top-left corner' },
+  { label: '🔤 Spell PIZZA', command: 'Spell PIZZA with pizza emojis' },
+  { label: '🐱 Cat Trail', command: 'Move cats leaving paw-print hearts behind' },
+  { label: '⭐ Star Border', command: 'Create a border of stars around the canvas' },
+  { label: '🌙 Alternating', command: 'Fill the top row with alternating stars and moons' },
+  { label: '🔄 Mirror', command: 'Mirror the left side to the right' },
+  { label: '🚀 Rocket Scene', command: 'Put a rocket in bottom-right, fill top with stars' },
+  { label: '🔤 Spell HELLO', command: 'Spell HELLO vertically with hearts' },
+  { label: '🧀 Cheese Border', command: 'Create a border of cheese wedges' },
+  { label: '🧹 Clear', command: 'Delete all emojis from the canvas' }
 ]
 
 // Handle form submission

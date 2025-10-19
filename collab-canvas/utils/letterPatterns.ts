@@ -8,344 +8,188 @@ export interface LetterPattern {
   points: Array<[number, number]>
 }
 
-// Letter patterns (5x7 grid for each letter)
+// Letter patterns (3x5 grid for compact horizontal text)
 export const LETTER_PATTERNS: Record<string, LetterPattern> = {
   'A': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], // Bottom line
-      [0, 5], [4, 5], // Sides
-      [0, 4], [4, 4], // Sides
-      [0, 3], [1, 3], [2, 3], [3, 3], [4, 3], // Middle line
-      [0, 2], [4, 2], // Sides
-      [0, 1], [4, 1], // Sides
-      [0, 0], [4, 0]  // Top
+      [1, 0], [0, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [0, 4], [2, 4]
     ]
   },
   'B': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], [1, 2], [2, 2], [3, 2], // Middle line
-      [0, 3], [4, 3], // Sides
-      [0, 4], [1, 4], [2, 4], [3, 4], // Middle line
-      [0, 5], [4, 5], // Sides
-      [0, 6], [1, 6], [2, 6], [3, 6]  // Bottom line
+      [0, 0], [1, 0], [0, 1], [2, 1], [0, 2], [1, 2], [0, 3], [2, 3], [0, 4], [1, 4]
     ]
   },
   'C': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], // Left side
-      [0, 3], // Left side
-      [0, 4], // Left side
-      [0, 5], [4, 5], // Sides
-      [1, 6], [2, 6], [3, 6]  // Bottom line
+      [1, 0], [2, 0], [0, 1], [0, 2], [0, 3], [1, 4], [2, 4]
     ]
   },
   'D': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [4, 3], // Sides
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [0, 6], [1, 6], [2, 6], [3, 6]  // Bottom line
+      [0, 0], [1, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4]
     ]
   },
   'E': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [0, 1], // Left side
-      [0, 2], [1, 2], [2, 2], [3, 2], // Middle line
-      [0, 3], // Left side
-      [0, 4], // Left side
-      [0, 5], // Left side
-      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6]  // Bottom line
+      [0, 0], [1, 0], [2, 0], [0, 1], [0, 2], [1, 2], [0, 3], [0, 4], [1, 4], [2, 4]
     ]
   },
   'F': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [0, 1], // Left side
-      [0, 2], [1, 2], [2, 2], [3, 2], // Middle line
-      [0, 3], // Left side
-      [0, 4], // Left side
-      [0, 5], // Left side
-      [0, 6]  // Left side
+      [0, 0], [1, 0], [2, 0], [0, 1], [0, 2], [1, 2], [0, 3], [0, 4]
     ]
   },
   'G': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], // Left side
-      [0, 3], [2, 3], [3, 3], [4, 3], // Middle line
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [1, 6], [2, 6], [3, 6]  // Bottom line
+      [1, 0], [2, 0], [0, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [1, 4], [2, 4]
     ]
   },
   'H': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [1, 3], [2, 3], [3, 3], [4, 3], // Middle line
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [0, 4], [2, 4]
     ]
   },
   'I': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [2, 1], // Center
-      [2, 2], // Center
-      [2, 3], // Center
-      [2, 4], // Center
-      [2, 5], // Center
-      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6]  // Bottom line
+      [0, 0], [1, 0], [2, 0], [1, 1], [1, 2], [1, 3], [0, 4], [1, 4], [2, 4]
     ]
   },
   'J': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [2, 1], // Center
-      [2, 2], // Center
-      [2, 3], // Center
-      [0, 4], [2, 4], // Left side + center
-      [0, 5], [2, 5], // Left side + center
-      [1, 6], [2, 6]  // Bottom
+      [0, 0], [1, 0], [2, 0], [1, 1], [1, 2], [0, 3], [1, 4]
     ]
   },
   'K': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [3, 1], // Sides
-      [0, 2], [2, 2], // Sides
-      [0, 3], [1, 3], // Left side + center
-      [0, 4], [2, 4], // Sides
-      [0, 5], [3, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [2, 0], [0, 1], [1, 1], [0, 2], [1, 2], [0, 3], [1, 3], [0, 4], [2, 4]
     ]
   },
   'L': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], // Left side
-      [0, 1], // Left side
-      [0, 2], // Left side
-      [0, 3], // Left side
-      [0, 4], // Left side
-      [0, 5], // Left side
-      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6]  // Bottom line
+      [0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 4], [2, 4]
     ]
   },
   'M': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [1, 1], [3, 1], [4, 1], // Sides + inner
-      [0, 2], [2, 2], [4, 2], // Sides + center
-      [0, 3], [4, 3], // Sides
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [2, 4]
     ]
   },
   'N': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [1, 1], [4, 1], // Left + inner
-      [0, 2], [2, 2], [4, 2], // Left + center
-      [0, 3], [3, 3], [4, 3], // Left + inner
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [0, 4], [2, 4]
     ]
   },
   'O': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [4, 3], // Sides
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [1, 6], [2, 6], [3, 6]  // Bottom line
+      [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [1, 4], [2, 4]
     ]
   },
   'P': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], [1, 2], [2, 2], [3, 2], // Middle line
-      [0, 3], // Left side
-      [0, 4], // Left side
-      [0, 5], // Left side
-      [0, 6]  // Left side
+      [0, 0], [1, 0], [0, 1], [2, 1], [0, 2], [1, 2], [0, 3], [0, 4]
     ]
   },
   'Q': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [2, 3], [4, 3], // Sides + center
-      [0, 4], [3, 4], [4, 4], // Sides + inner
-      [0, 5], [4, 5], // Sides
-      [1, 6], [2, 6], [3, 6], [4, 6]  // Bottom line
+      [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [1, 4], [2, 4]
     ]
   },
   'R': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], // Top line
-      [0, 1], [4, 1], // Sides
-      [0, 2], [1, 2], [2, 2], [3, 2], // Middle line
-      [0, 3], [2, 3], [4, 3], // Left + center + right
-      [0, 4], [3, 4], // Left + inner
-      [0, 5], [4, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [1, 0], [0, 1], [2, 1], [0, 2], [1, 2], [0, 3], [1, 3], [0, 4], [2, 4]
     ]
   },
   'S': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [0, 1], // Left side
-      [0, 2], [1, 2], [2, 2], [3, 2], // Middle line
-      [4, 3], // Right side
-      [4, 4], // Right side
-      [0, 5], [4, 5], // Sides
-      [0, 6], [1, 6], [2, 6], [3, 6]  // Bottom line
+      [1, 0], [2, 0], [0, 1], [1, 2], [2, 3], [0, 4], [1, 4]
     ]
   },
   'T': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [2, 1], // Center
-      [2, 2], // Center
-      [2, 3], // Center
-      [2, 4], // Center
-      [2, 5], // Center
-      [2, 6]  // Center
+      [0, 0], [1, 0], [2, 0], [1, 1], [1, 2], [1, 3], [1, 4]
     ]
   },
   'U': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [4, 3], // Sides
-      [0, 4], [4, 4], // Sides
-      [0, 5], [4, 5], // Sides
-      [1, 6], [2, 6], [3, 6]  // Bottom line
+      [0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [1, 4], [2, 4]
     ]
   },
   'V': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [4, 3], // Sides
-      [1, 4], [3, 4], // Inner
-      [2, 5], // Center
-      [2, 6]  // Center
+      [0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [1, 3], [1, 4]
     ]
   },
   'W': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [0, 1], [4, 1], // Sides
-      [0, 2], [4, 2], // Sides
-      [0, 3], [2, 3], [4, 3], // Sides + center
-      [0, 4], [1, 4], [3, 4], [4, 4], // Sides + inner
-      [0, 5], [4, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [1, 3], [2, 3], [0, 4], [2, 4]
     ]
   },
   'X': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [1, 1], [3, 1], // Inner
-      [2, 2], // Center
-      [2, 3], // Center
-      [1, 4], [3, 4], // Inner
-      [0, 5], [4, 5], // Sides
-      [0, 6], [4, 6]  // Bottom
+      [0, 0], [2, 0], [1, 1], [1, 2], [1, 3], [0, 4], [2, 4]
     ]
   },
   'Y': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [4, 0], // Top
-      [1, 1], [3, 1], // Inner
-      [2, 2], // Center
-      [2, 3], // Center
-      [2, 4], // Center
-      [2, 5], // Center
-      [2, 6]  // Center
+      [0, 0], [2, 0], [1, 1], [1, 2], [1, 3], [1, 4]
     ]
   },
   'Z': {
-    width: 5,
-    height: 7,
+    width: 3,
+    height: 5,
     points: [
-      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], // Top line
-      [3, 1], // Inner
-      [2, 2], // Center
-      [1, 3], // Inner
-      [0, 4], // Left side
-      [0, 5], // Left side
-      [0, 6], [1, 6], [2, 6], [3, 6], [4, 6]  // Bottom line
+      [0, 0], [1, 0], [2, 0], [1, 1], [2, 2], [0, 3], [0, 4], [1, 4], [2, 4]
     ]
   }
 }
@@ -358,8 +202,8 @@ export function generateWordPositions(
   emoji: string,
   startX: number = 200,
   startY: number = 200,
-  letterSpacing: number = 60,
-  emojiSpacing: number = 20
+  letterSpacing: number = 40,
+  emojiSpacing: number = 15
 ): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> {
   const result: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
   

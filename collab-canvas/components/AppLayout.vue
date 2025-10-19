@@ -31,6 +31,39 @@
         
         <!-- Right: Controls and User Menu -->
         <div class="flex items-center gap-2">
+          <!-- Emoji Button -->
+          <UButton
+            icon="i-lucide-palette"
+            :label="isMobile ? '' : 'Emoji'"
+            color="primary"
+            variant="outline"
+            size="sm"
+            class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+            @click="emit('open-emoji-picker')"
+          />
+          
+          <!-- AI Button -->
+          <UButton
+            icon="i-heroicons-sparkles"
+            :label="isMobile ? '' : 'AI'"
+            color="primary"
+            variant="outline"
+            size="sm"
+            class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+            @click="emit('open-ai-chat')"
+          />
+          
+          <!-- Tools Button -->
+      <UButton
+        icon="i-lucide-wrench"
+        :label="isMobile ? '' : 'Tools'"
+        color="neutral"
+        variant="outline"
+        size="sm"
+        class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+        @click="emit('open-tools')"
+      />
+          
           <!-- Users Button with Count -->
           <UButton
             icon="i-lucide-users"
@@ -99,6 +132,9 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'toggle-users': []
   'show-ai-chat': []
+  'open-emoji-picker': []
+  'open-ai-chat': []
+  'open-tools': []
 }>()
 
 // Local state for UI controls

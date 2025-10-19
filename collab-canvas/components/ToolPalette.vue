@@ -1,231 +1,83 @@
 <template>
-  <!-- Desktop: Floating Draggable Panel -->
-  <UCard 
-    v-if="!isMobile"
-    ref="paletteRef"
-    :class="[
-      'fixed z-50 w-80 bg-black/90 backdrop-blur-sm border-2 border-pink-500 shadow-2xl',
-      'select-none cursor-move',
-      { 'opacity-50': isDragging }
-    ]"
+  <div
+    v-if="isOpen"
+    ref="toolPaletteRef"
+    class="fixed bg-black/95 border border-pink-500/50 shadow-2xl rounded-xl z-50 backdrop-blur-sm p-6 w-80 cursor-move select-none"
     :style="{ 
       left: position.x + 'px', 
       top: position.y + 'px',
       transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-      transition: isDragging ? 'none' : 'all 0.2s ease'
+      transition: isDragging ? 'none' : 'transform 0.2s ease'
     }"
     @mousedown="startDrag"
   >
-    <template #header>
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-pink-300">Tools</h3>
-        <UIcon name="i-lucide-grip-vertical" class="w-4 h-4 text-pink-400" />
+    <!-- Header with close button -->
+    <div class="flex items-center justify-between mb-4 pb-3 border-b border-pink-500/30">
+      <h3 class="text-lg font-display text-pink-200">Tools</h3>
+      <UButton
+        icon="i-lucide-x"
+        size="sm"
+        color="neutral"
+        variant="ghost"
+        class="text-pink-300 hover:text-white hover:bg-pink-500/20"
+        @click="isOpen = false"
+      />
+    </div>
+    
+    <div class="space-y-4">
+      <!-- Grid Toggle -->
+      <div class="flex items-center gap-2">
+        <UButton
+          :variant="snapToGridEnabled ? 'solid' : 'outline'"
+          size="sm"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+          @click="$emit('toggle-grid')"
+        >
+          <UIcon name="i-lucide-grid-3x3" class="w-4 h-4 mr-2" />
+          Grid
+        </UButton>
       </div>
-    </template>
 
-    <div class="space-y-3">
-              <!-- Primary Tools -->
-              <div class="flex items-center gap-2">
-                <UButton 
-                  label="🎨 Emoji"
-                  color="primary"
-                  variant="solid"
-                  size="sm"
-                  class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg flex-1"
-                  @click="$emit('show-emoji-picker')"
-                />
-                
-                <UButton
-                  icon="i-heroicons-sparkles"
-                  label="AI"
-                  color="primary"
-                  variant="outline"
-                  size="sm"
-                  class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
-                  @click="$emit('show-ai-chat')"
-                />
-                
-                <UButton
-                  :variant="snapToGridEnabled ? 'solid' : 'outline'"
-                  size="sm"
-                  class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-                  @click="$emit('toggle-grid')"
-                >
-                  <UIcon name="i-lucide-grid-3x3" class="w-4 h-4" />
-                </UButton>
-              </div>
-
-      <!-- Contextual Controls -->
-      <div v-if="(selectedEmojiId || selectedItemCount > 0)" class="space-y-2 pt-2 border-t border-pink-400/30">
-        <!-- Rotation Controls -->
+      <!-- Zoom Controls -->
+      <div class="space-y-2 pt-2 border-t border-pink-400/30">
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-pink-300" />
-          <USlider
-            :model-value="rotationAngle"
-            :min="0"
-            :max="360"
-            :step="5"
+          <UIcon name="i-lucide-zoom-in" class="w-4 h-4 text-pink-300" />
+          <span class="text-sm text-pink-300">Zoom</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <UButton
+            icon="i-lucide-zoom-in"
             size="sm"
-            class="flex-1"
-            tooltip
-            @update:model-value="$emit('rotation-change', $event)"
+            color="neutral"
+            variant="outline"
+            class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+            @click="$emit('zoom-in')"
+          />
+          <UButton
+            icon="i-lucide-zoom-out"
+            size="sm"
+            color="neutral"
+            variant="outline"
+            class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+            @click="$emit('zoom-out')"
           />
           <UButton
             icon="i-lucide-rotate-ccw"
-            size="xs"
+            size="sm"
             color="neutral"
             variant="outline"
-            class="font-body"
-            @click="$emit('reset-rotation')"
+            class="font-body text-white border-pink-400 hover:bg-pink-500/20"
+            @click="$emit('reset-zoom')"
           />
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="flex items-center gap-1 pt-2 border-t border-pink-400/30">
-        <UButton 
-          icon="i-lucide-undo"
-          :disabled="!canUndo"
-          color="neutral" 
-          variant="outline" 
-          size="xs"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          @click="$emit('undo')"
-        />
-        <UButton 
-          icon="i-lucide-redo"
-          :disabled="!canRedo"
-          color="neutral" 
-          variant="outline" 
-          size="xs"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          @click="$emit('redo')"
-        />
-        
-        <USeparator orientation="vertical" class="h-6" />
-        
-        <UButton 
-          v-if="selectedItemCount > 0"
-          icon="i-lucide-copy"
-          color="neutral" 
-          variant="outline" 
-          size="xs"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-          @click="$emit('copy')"
-        >
-          Copy
-        </UButton>
-        
-        <UButton 
-          v-if="clipboardHasData"
-          icon="i-lucide-clipboard"
-          color="neutral" 
-          variant="outline" 
-          size="xs"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-          @click="$emit('paste')"
-        >
-          Paste
-        </UButton>
-        
-        <USeparator orientation="vertical" class="h-6" />
-        
-        <UButton 
-          v-if="selectedItemCount > 0"
-          icon="i-lucide-trash-2"
-          color="error" 
-          variant="solid" 
-          size="xs"
-          class="font-body text-white bg-red-500 hover:bg-red-600"
-          @click="$emit('delete-selected')"
-        >
-          {{ selectedItemCount > 1 ? `Delete ${selectedItemCount} items` : 'Delete' }}
-        </UButton>
-        
-        <UButton 
-          icon="i-lucide-trash-2"
-          color="error" 
-          variant="outline" 
-          size="xs"
-          class="font-body text-white border-red-400 hover:bg-red-500/20"
-          @click="$emit('clear-all')"
-        />
-        <UButton 
-          icon="i-lucide-rotate-ccw"
-          color="neutral" 
-          variant="outline" 
-          size="xs"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-          @click="$emit('reset-view')"
-        />
-      </div>
-    </div>
-  </UCard>
-
-  <!-- Mobile: Bottom Drawer -->
-  <UDrawer 
-    v-else
-    v-model:open="isOpen"
-    side="bottom"
-    :ui="{ 
-      overlay: 'fixed inset-0 bg-black/75',
-      content: 'fixed bg-black/90 border-t-2 border-pink-500 shadow-2xl',
-      header: 'bg-black/90 border-b-2 border-pink-500',
-      title: 'text-lg font-display text-pink-300',
-      body: 'bg-black/90 p-4'
-    }"
-  >
-    <template #header>
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-pink-300">Tools</h3>
-        <UButton
-          icon="i-heroicons-x-mark"
-          variant="ghost"
-          size="sm"
-          class="text-pink-300 hover:text-white"
-          @click="isOpen = false"
-        />
-      </div>
-    </template>
-
-    <div class="space-y-4">
-              <!-- Primary Tools Row -->
-              <div class="flex items-center gap-2">
-                <UButton 
-                  label="🎨 Emoji"
-                  color="primary"
-                  variant="solid"
-                  size="lg"
-                  class="font-body bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white border-0 shadow-lg flex-1 h-12"
-                  @click="$emit('show-emoji-picker'); isOpen = false"
-                />
-                
-                <UButton
-                  icon="i-heroicons-sparkles"
-                  label="AI"
-                  color="primary"
-                  variant="outline"
-                  size="lg"
-                  class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10 h-12"
-                  @click="$emit('show-ai-chat'); isOpen = false"
-                />
-                
-                <UButton
-                  :variant="snapToGridEnabled ? 'solid' : 'outline'"
-                  size="lg"
-                  class="font-body text-white border-pink-400 hover:bg-pink-500/20 h-12"
-                  @click="$emit('toggle-grid')"
-                >
-                  <UIcon name="i-lucide-grid-3x3" class="w-5 h-5" />
-                </UButton>
-              </div>
-
-      <!-- Contextual Controls for Mobile -->
-      <div v-if="(selectedEmojiId || selectedItemCount > 0)" class="space-y-3 pt-3 border-t border-pink-400/30">
+      <!-- Contextual Controls -->
+      <div v-if="(selectedEmojiId || selectedItemCount > 0)" class="space-y-3 pt-2 border-t border-pink-400/30">
         <!-- Rotation Controls -->
         <div class="space-y-2">
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-rotate-3d" class="w-5 h-5 text-pink-300" />
+            <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-pink-300" />
             <span class="text-sm text-pink-300">Rotation</span>
           </div>
           <div class="flex items-center gap-2">
@@ -234,7 +86,7 @@
               :min="0"
               :max="360"
               :step="5"
-              size="lg"
+              size="sm"
               class="flex-1"
               tooltip
               @update:model-value="$emit('rotation-change', $event)"
@@ -251,24 +103,26 @@
         </div>
       </div>
 
-      <!-- Action Buttons Row -->
-      <div class="flex items-center gap-2 pt-3 border-t border-pink-400/30">
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-pink-400/30">
         <UButton 
           icon="i-lucide-undo"
           :disabled="!canUndo"
           color="neutral" 
           variant="outline" 
           size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex-1 h-12"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="$emit('undo')"
-        />
+        >
+          Undo
+        </UButton>
         <UButton 
           icon="i-lucide-redo"
           :disabled="!canRedo"
           color="neutral" 
           variant="outline" 
           size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex-1 h-12"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="$emit('redo')"
         />
         
@@ -278,7 +132,7 @@
           color="neutral" 
           variant="outline" 
           size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1 h-12"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
           @click="$emit('copy')"
         >
           Copy
@@ -290,7 +144,7 @@
           color="neutral" 
           variant="outline" 
           size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1 h-12"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
           @click="$emit('paste')"
         >
           Paste
@@ -302,10 +156,10 @@
           color="error" 
           variant="solid" 
           size="sm"
-          class="font-body text-white bg-red-500 hover:bg-red-600 flex-1 h-12"
+          class="font-body text-white bg-red-500 hover:bg-red-600"
           @click="$emit('delete-selected')"
         >
-          {{ selectedItemCount > 1 ? `Delete ${selectedItemCount} items` : 'Delete' }}
+          {{ selectedItemCount > 1 ? `Delete ${selectedItemCount}` : 'Delete' }}
         </UButton>
         
         <UButton 
@@ -313,24 +167,29 @@
           color="error" 
           variant="outline" 
           size="sm"
-          class="font-body text-white border-red-400 hover:bg-red-500/20 flex-1 h-12"
+          class="font-body text-white border-red-400 hover:bg-red-500/20"
           @click="$emit('clear-all')"
-        />
+        >
+          Clear All
+        </UButton>
+        
         <UButton 
           icon="i-lucide-rotate-ccw"
           color="neutral" 
           variant="outline" 
           size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20 flex-1 h-12"
+          class="font-body text-white border-pink-400 hover:bg-pink-500/20 col-span-2"
           @click="$emit('reset-view')"
-        />
+        >
+          Reset View
+        </UButton>
       </div>
     </div>
-  </UDrawer>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 
 // Props
 interface Props {
@@ -341,44 +200,59 @@ interface Props {
   canRedo: boolean
   snapToGridEnabled: boolean
   clipboardHasData: boolean
+  open: boolean
 }
 
 const props = defineProps<Props>()
 
-        // Emits
-        const emit = defineEmits<{
-          'show-emoji-picker': []
-          'show-ai-chat': []
-          'rotation-change': [angle: number | undefined]
-          'reset-rotation': []
-          'undo': []
-          'redo': []
-          'copy': []
-          'paste': []
-          'delete-selected': []
-          'clear-all': []
-          'reset-view': []
-          'toggle-grid': []
-        }>()
+// Emits
+const emit = defineEmits<{
+  'update:open': [value: boolean]
+  'rotation-change': [angle: number | undefined]
+  'reset-rotation': []
+  'undo': []
+  'redo': []
+  'copy': []
+  'paste': []
+  'delete-selected': []
+  'clear-all': []
+  'reset-view': []
+  'toggle-grid': []
+  'zoom-in': []
+  'zoom-out': []
+  'reset-zoom': []
+}>()
 
-// Mobile detection
-const isMobile = ref(false)
-const isOpen = ref(false)
+// Computed for v-model
+const isOpen = computed({
+  get: () => props.open,
+  set: (value: boolean) => emit('update:open', value)
+})
 
 // Dragging state
 const isDragging = ref(false)
-const position = ref({ x: 20, y: 80 }) // Positioned below header to avoid overlap
+const position = ref({ x: 0, y: 0 })
 const dragStart = ref({ x: 0, y: 0 })
-const paletteRef = ref<HTMLElement | null>(null)
+const toolPaletteRef = ref<HTMLElement | null>(null)
 
-// Check if mobile
-const checkMobile = () => {
-  isMobile.value = window.innerWidth < 768
-}
+// Initialize position when modal opens
+watch(isOpen, (newValue) => {
+  if (newValue) {
+    // Center the modal initially
+    position.value = {
+      x: (window.innerWidth - 320) / 2, // 320px is modal width (w-80)
+      y: (window.innerHeight - 400) / 2 // 400px is approximate modal height
+    }
+  }
+})
 
 // Dragging functionality
 const startDrag = (event: MouseEvent) => {
-  if (isMobile.value) return
+  // Only start drag if clicking on the header area or empty space
+  const target = event.target as HTMLElement
+  if (target.closest('button') || target.closest('.u-button')) {
+    return // Don't drag if clicking on buttons
+  }
   
   isDragging.value = true
   dragStart.value = {
@@ -391,11 +265,13 @@ const startDrag = (event: MouseEvent) => {
       const newX = e.clientX - dragStart.value.x
       const newY = e.clientY - dragStart.value.y
       
-      // Bounds checking to prevent dragging off-screen or over header
+      // Bounds checking to keep modal on screen
+      const modalWidth = 320
+      const modalHeight = 400
       const minX = 0
-      const maxX = window.innerWidth - 320 // Tool palette width is ~320px
-      const minY = 60 // Below header
-      const maxY = window.innerHeight - 200 // Leave some space at bottom
+      const maxX = window.innerWidth - modalWidth
+      const minY = 0
+      const maxY = window.innerHeight - modalHeight
       
       position.value = {
         x: Math.max(minX, Math.min(newX, maxX)),
@@ -414,25 +290,13 @@ const startDrag = (event: MouseEvent) => {
   document.addEventListener('mouseup', handleMouseUp)
 }
 
-// Expose mobile drawer control
-const openDrawer = () => {
-  if (isMobile.value) {
-    isOpen.value = true
-  }
-}
-
-defineExpose({
-  openDrawer
-})
-
 // Lifecycle
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
+  // Add any initialization if needed
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
+  // Cleanup if needed
 })
 </script>
 

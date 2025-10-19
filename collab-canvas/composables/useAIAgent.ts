@@ -1,6 +1,19 @@
 import { ref } from 'vue'
 import { useShapesWithPersistence } from './useShapesWithPersistence'
 import { useEmojis } from './useEmojis'
+import { 
+  wordToNumber, 
+  parseSize, 
+  parseCanvasPosition, 
+  parseMultipleItems, 
+  extractCount, 
+  extractSize, 
+  extractPosition, 
+  extractEmojiType,
+  type CanvasPosition,
+  type EmojiItem,
+  type MultipleItemsResult
+} from '~/utils/aiHelpers'
 
 // Utility function for random colors
 const getRandomColor = () => {
@@ -532,6 +545,302 @@ export const useAIAgent = () => {
     }
   }
 
+  // Generate emojis for multiple items (e.g., "one big pumpkin and two small hearts")
+  const generateMultipleItemsEmojis = (multipleItems: MultipleItemsResult): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
+    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
+    const centerX = multipleItems.position?.x || 400
+    const centerY = multipleItems.position?.y || 300
+    const arrangement = multipleItems.arrangement || 'row'
+    
+    let currentIndex = 0
+    
+    for (const item of multipleItems.items) {
+      for (let i = 0; i < item.count; i++) {
+        let x, y
+        
+        if (arrangement === 'circle') {
+          const totalItems = multipleItems.items.reduce((sum, it) => sum + it.count, 0)
+          const angle = (currentIndex / totalItems) * 2 * Math.PI
+          const radius = 120
+          x = centerX + radius * Math.cos(angle)
+          y = centerY + radius * Math.sin(angle)
+        } else if (arrangement === 'triangle') {
+          const totalItems = multipleItems.items.reduce((sum, it) => sum + it.count, 0)
+          const angle = (currentIndex / totalItems) * 2 * Math.PI
+          const radius = 120
+          x = centerX + radius * Math.cos(angle)
+          y = centerY + radius * Math.sin(angle)
+        } else if (arrangement === 'square') {
+          const totalItems = multipleItems.items.reduce((sum, it) => sum + it.count, 0)
+          const side = Math.floor(currentIndex / 4)
+          const pos = currentIndex % 4
+          const radius = 100
+          if (pos === 0) { x = centerX - radius; y = centerY - radius }
+          else if (pos === 1) { x = centerX + radius; y = centerY - radius }
+          else if (pos === 2) { x = centerX + radius; y = centerY + radius }
+          else { x = centerX - radius; y = centerY + radius }
+        } else {
+          // Default to row arrangement
+          const totalItems = multipleItems.items.reduce((sum, it) => sum + it.count, 0)
+          x = centerX - (totalItems * 40) + (currentIndex * 80)
+          y = centerY
+        }
+        
+        emojis.push({
+          emoji: item.emoji,
+          x: Math.round(x),
+          y: Math.round(y),
+          size: item.size,
+          layer: 1,
+          rotation: 0
+        })
+        
+        currentIndex++
+      }
+    }
+    
+    return emojis
+  }
+
+  // Generate fallback emojis based on story description
+  const generateFallbackEmojis = (story: string): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
+    const storyLower = story.toLowerCase()
+    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
+    
+    // Check for multiple items first
+    const multipleItems = parseMultipleItems(story)
+    if (multipleItems) {
+      return generateMultipleItemsEmojis(multipleItems)
+    }
+    
+    // Extract count from story (handles both words and numbers)
+    const count = extractCount(story)
+    
+    // Extract size from story
+    const size = extractSize(story)
+    
+    // Extract position from story
+    const position = extractPosition(story)
+    
+    // Determine emoji type using utility function
+    const emoji = extractEmojiType(story)
+    
+    // Handle creative requests
+    if (storyLower.includes('spelled') || storyLower.includes('spell')) {
+      // Try to spell out a word with emojis
+      const wordMatch = story.match(/(?:spelled?|spell)\s+(?:in|with|using)\s+\w+\s+(\w+)/i)
+      if (wordMatch && wordMatch[1]) {
+        const word = wordMatch[1].toUpperCase()
+        return spellWordWithEmojis(word, emoji)
+      }
+    }
+    
+    if (storyLower.includes('draw') && storyLower.includes('using')) {
+      // Try to draw a shape using emojis
+      if (storyLower.includes('heart')) {
+        return drawHeartWithEmojis(emoji)
+      } else if (storyLower.includes('star')) {
+        return drawStarWithEmojis(emoji)
+      } else if (storyLower.includes('circle')) {
+        return drawCircleWithEmojis(emoji)
+      }
+    }
+    
+    // Determine arrangement with position and size awareness
+    const centerX = position?.x || 400
+    const centerY = position?.y || 300
+    
+    if (storyLower.includes('in a row') || storyLower.includes('in row')) {
+      // Horizontal row
+      for (let i = 0; i < count; i++) {
+        emojis.push({
+          emoji: emoji,
+          x: centerX - (count * 40) + (i * 80), // Center the row
+          y: centerY,
+          size: size,
+          layer: 1,
+          rotation: 0
+        })
+      }
+    } else if (storyLower.includes('around') || storyLower.includes('circle')) {
+      // Circular arrangement
+      const radius = 120
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI
+        const x = centerX + radius * Math.cos(angle)
+        const y = centerY + radius * Math.sin(angle)
+        emojis.push({
+          emoji: emoji,
+          x: Math.round(x),
+          y: Math.round(y),
+          size: size,
+          layer: 1,
+          rotation: 0
+        })
+      }
+    } else if (storyLower.includes('triangle')) {
+      // Triangular arrangement
+      const radius = 120
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI
+        const x = centerX + radius * Math.cos(angle)
+        const y = centerY + radius * Math.sin(angle)
+        emojis.push({
+          emoji: emoji,
+          x: Math.round(x),
+          y: Math.round(y),
+          size: size,
+          layer: 1,
+          rotation: 0
+        })
+      }
+    } else {
+      // Default arrangement (horizontal row)
+      for (let i = 0; i < count; i++) {
+        emojis.push({
+          emoji: emoji,
+          x: centerX - (count * 40) + (i * 80), // Center the row
+          y: centerY,
+          size: size,
+          layer: 1,
+          rotation: 0
+        })
+      }
+    }
+    
+    return emojis
+  }
+  
+  // Helper function to spell words with emojis
+  const spellWordWithEmojis = (word: string, emoji: string): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
+    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
+    const letters = word.split('')
+    const startX = 200
+    const startY = 200
+    const spacing = 60
+    
+    letters.forEach((letter, index) => {
+      emojis.push({
+        emoji: emoji,
+        x: startX + (index * spacing),
+        y: startY,
+        size: 40,
+        layer: 1,
+        rotation: 0
+      })
+    })
+    
+    return emojis
+  }
+  
+  // Helper function to draw a heart with emojis
+  const drawHeartWithEmojis = (emoji: string): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
+    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
+    const centerX = 400
+    const centerY = 300
+    
+    // Simple heart shape pattern
+    const heartPattern = [
+      { x: 0, y: -2 }, { x: 1, y: -2 }, { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+      { x: -2, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 },
+      { x: -1, y: 1 }, { x: 0, y: 1 }, { x: 1, y: 1 },
+      { x: 0, y: 2 }
+    ]
+    
+    heartPattern.forEach(({ x, y }) => {
+      emojis.push({
+        emoji: emoji,
+        x: centerX + (x * 30),
+        y: centerY + (y * 30),
+        size: 30,
+        layer: 1,
+        rotation: 0
+      })
+    })
+    
+    return emojis
+  }
+  
+  // Helper function to draw a star with emojis
+  const drawStarWithEmojis = (emoji: string): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
+    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
+    const centerX = 400
+    const centerY = 300
+    const radius = 100
+    
+    // 5-pointed star pattern
+    for (let i = 0; i < 5; i++) {
+      const angle = (i * 4 * Math.PI) / 5
+      const x = centerX + radius * Math.cos(angle)
+      const y = centerY + radius * Math.sin(angle)
+      emojis.push({
+        emoji: emoji,
+        x: Math.round(x),
+        y: Math.round(y),
+        size: 40,
+        layer: 1,
+        rotation: 0
+      })
+    }
+    
+    return emojis
+  }
+  
+  // Helper function to draw a circle with emojis
+  const drawCircleWithEmojis = (emoji: string): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
+    const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
+    const centerX = 400
+    const centerY = 300
+    const radius = 120
+    const count = 12
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * 2 * Math.PI
+      const x = centerX + radius * Math.cos(angle)
+      const y = centerY + radius * Math.sin(angle)
+      emojis.push({
+        emoji: emoji,
+        x: Math.round(x),
+        y: Math.round(y),
+        size: 40,
+        layer: 1,
+        rotation: 0
+      })
+    }
+    
+    return emojis
+  }
+  
+  // Create emoji story with provided emojis
+  const createEmojiStoryWithEmojis = async (story: string, emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }>): Promise<boolean> => {
+    try {
+      const { addEmoji } = useEmojis()
+      
+      // Add each emoji to the canvas with proper positioning and layering
+      for (const emojiData of emojis) {
+        const emoji = {
+          emoji: emojiData.emoji,
+          x: emojiData.x,
+          y: emojiData.y,
+          size: emojiData.size,
+          layer: emojiData.layer,
+          rotation: emojiData.rotation
+        }
+        
+        await addEmoji(emoji)
+        
+        // Add a small delay between emoji additions for better visual effect
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      
+      console.log(`✅ Emoji story "${story}" created successfully with ${emojis.length} emojis`)
+      return true
+    } catch (err) {
+      console.error('❌ Failed to create emoji story with fallback emojis:', err)
+      return false
+    }
+  }
+
   // Handle emoji story creation
   const handleCreateEmojiStory = async (command: AICommand): Promise<boolean> => {
     try {
@@ -540,35 +849,39 @@ export const useAIAgent = () => {
       console.log('🎭 Creating emoji story:', { story, emojis })
       console.log('🔍 Emojis type:', typeof emojis, 'Is array:', Array.isArray(emojis), 'Value:', emojis)
       
-      if (!emojis || !Array.isArray(emojis)) {
-        console.error('❌ Invalid emojis array in command. Type:', typeof emojis, 'Value:', emojis)
+      // Check if we have a valid story and emojis
+      if (!story || !emojis || !Array.isArray(emojis) || emojis.length === 0) {
+        console.error('❌ Invalid command: missing story or emojis array. Story:', story, 'Emojis:', emojis)
+        
+        // If we don't have a story, we can't generate a fallback
+        if (!story) {
+          console.error('❌ Cannot generate fallback without story description')
+          return false
+        }
+        
+        // Try to generate a fallback emoji story based on the story description
+        console.log('🔄 Attempting to generate fallback emoji story from story description:', story)
+        const fallbackEmojis = generateFallbackEmojis(story)
+        if (fallbackEmojis.length > 0) {
+          console.log('✅ Generated fallback emojis:', fallbackEmojis)
+          return await createEmojiStoryWithEmojis(story, fallbackEmojis)
+        }
+        
         return false
       }
 
-      // Import useEmojis composable
-      const { addEmoji } = useEmojis()
+      // Use the helper function to create the emoji story
+      // Ensure all emoji properties have default values
+      const normalizedEmojis = emojis.map(emojiData => ({
+        emoji: emojiData.emoji,
+        x: emojiData.x || 100,
+        y: emojiData.y || 100,
+        size: emojiData.size || 40,
+        layer: emojiData.layer || 1,
+        rotation: emojiData.rotation || 0
+      }))
       
-      // Add each emoji to the canvas with proper positioning and layering
-      for (const emojiData of emojis) {
-        const emoji = {
-          emoji: emojiData.emoji,
-          x: emojiData.x || 100,
-          y: emojiData.y || 100,
-          size: emojiData.size || 40,
-          layer: emojiData.layer || 1,
-          rotation: emojiData.rotation || 0
-        }
-        
-        // console.log('🎨 Adding emoji to story:', emoji)
-        const result = await addEmoji(emoji)
-        // console.log('🎨 Emoji add result:', result)
-        
-        // Add a small delay between emoji additions for better visual effect
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-      
-      console.log(`✅ Emoji story "${story}" created successfully with ${emojis.length} emojis`)
-      return true
+      return await createEmojiStoryWithEmojis(story, normalizedEmojis)
     } catch (err) {
       console.error('❌ Failed to create emoji story:', err)
       return false

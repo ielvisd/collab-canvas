@@ -1,585 +1,604 @@
-// Removed unused imports - using hubAI() directly
+// server/api/emojiStory.ts
+// Clean, modular rewrite of your handler — hubAI primary, graceful fallback.
+// Canvas: 800x600
+
+import {
+  parseMultipleItems,
+  extractCount,
+  extractSize,
+  extractPosition,
+  extractEmojiType
+} from '~/utils/aiHelpers'
+
+const CANVAS = { width: 800, height: 600, centerX: 400, centerY: 300 }
+const POSITIONS: Record<string, { x: number; y: number }> = {
+  'upper-left': { x: 100, y: 100 },
+  'upper-right': { x: 600, y: 100 },
+  'lower-left': { x: 100, y: 450 },
+  'lower-right': { x: 600, y: 450 },
+  center: { x: 400, y: 300 },
+  'top-center': { x: 400, y: 100 },
+  'bottom-center': { x: 400, y: 500 }
+}
+
+/* -----------------------
+   Utility helpers
+   ----------------------- */
+
+/** clamp coordinate inside canvas */
+function clampX(x: number) {
+  return Math.max(0, Math.min(CANVAS.width, Math.round(x)))
+}
+function clampY(y: number) {
+  return Math.max(0, Math.min(CANVAS.height, Math.round(y)))
+}
+
+function mapSize(keyword?: number | string) {
+  if (!keyword) return 40
+  if (typeof keyword === 'number') return keyword
+  const s = String(keyword).toLowerCase()
+  if (s.includes('tiny')) return 20
+  if (s.includes('small')) return 30
+  if (s.includes('medium')) return 50
+  if (s.includes('big') || s.includes('large')) return 80
+  if (s.includes('huge') || s.includes('giant')) return 100
+  return 40
+}
+
+/* -----------------------
+   Fallback generation
+   ----------------------- */
+
+/** Minimal, deterministic generator used if hubAI not available */
+function generateEmojisFromStory(story = ''): Array<{ emoji: string; x: number; y: number; size: number; layer: number }> {
+  const lower = (story || '').toLowerCase()
+  const cX = CANVAS.centerX
+  const cY = CANVAS.centerY
+
+  if (lower.includes('pizza') && lower.includes('moon')) {
+    return [
+      { emoji: '🌕', x: cX, y: cY, size: 120, layer: 1 },
+      { emoji: '🍕', x: clampX(cX - 40), y: clampY(cY - 30), size: 40, layer: 2 },
+      { emoji: '🍕', x: clampX(cX + 20), y: clampY(cY - 20), size: 40, layer: 2 },
+      { emoji: '🍕', x: clampX(cX - 20), y: clampY(cY + 20), size: 40, layer: 2 },
+      { emoji: '🍕', x: clampX(cX + 30), y: clampY(cY + 30), size: 40, layer: 2 }
+    ]
+  }
+
+  if (lower.includes('bear') && lower.includes('beach')) {
+    return [
+      { emoji: '🐻', x: clampX(cX - 50), y: clampY(cY - 20), size: 50, layer: 2 },
+      { emoji: '🏖️', x: clampX(cX), y: clampY(cY + 20), size: 60, layer: 1 },
+      { emoji: '🌊', x: clampX(cX + 30), y: clampY(cY + 10), size: 40, layer: 1 }
+    ]
+  }
+
+  if (lower.includes('monkey') && lower.includes('tree')) {
+    return [
+      { emoji: '🐒', x: clampX(cX - 30), y: clampY(cY - 30), size: 40, layer: 2 },
+      { emoji: '🐒', x: clampX(cX), y: clampY(cY - 20), size: 40, layer: 2 },
+      { emoji: '🐒', x: clampX(cX + 30), y: clampY(cY - 10), size: 40, layer: 2 },
+      { emoji: '🌳', x: clampX(cX), y: clampY(cY + 10), size: 60, layer: 1 }
+    ]
+  }
+
+  if (lower.includes('hello world')) {
+    const letters = [
+      '🎨', '🌟', '💎', '💎', '🔥', '⭐', '🔥', '💎', '🌟', '🎨'
+    ]
+    return letters.map((e, i) => ({ emoji: e, x: clampX(100 + i * 50), y: 200, size: 40, layer: 2 }))
+  }
+
+  // Generic scene parsing for fallback
+  if (lower.includes('island') || lower.includes('beach')) {
+    const out = [{ emoji: '🏝️', x: 300, y: 200, size: 80, layer: 1 }]
+    if (lower.includes('pig') || lower.includes('pigs')) {
+      out.push({ emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 })
+      out.push({ emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 })
+      out.push({ emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 })
+    }
+    return out
+  }
+
+  if (lower.includes('space') || lower.includes('rocket')) {
+    return [
+      { emoji: '🚀', x: 300, y: 200, size: 60, layer: 1 },
+      { emoji: '🌍', x: 400, y: 150, size: 40, layer: 2 },
+      { emoji: '⭐', x: 200, y: 100, size: 20, layer: 3 },
+      { emoji: '⭐', x: 450, y: 120, size: 20, layer: 3 }
+    ]
+  }
+
+  // final fallback
+  return [
+    { emoji: '🎭', x: cX, y: cY, size: 50, layer: 1 },
+    { emoji: '✨', x: clampX(cX - 30), y: clampY(cY - 20), size: 30, layer: 2 },
+    { emoji: '✨', x: clampX(cX + 30), y: clampY(cY - 20), size: 30, layer: 2 }
+  ]
+}
+
+/* -----------------------
+   Geometric arranger
+   ----------------------- */
+
+function arrangeInShape(emojiChar: string, count: number, shape: string, centerX = CANVAS.centerX, centerY = CANVAS.centerY, radius = 120, size = 40, layer = 2) {
+  const arr: Array<{ emoji: string; x: number; y: number; size: number; layer: number }> = []
+  for (let i = 0; i < count; i++) {
+    let x = centerX
+    let y = centerY
+    const t = (i / Math.max(1, count)) * 2 * Math.PI
+    switch (shape) {
+      case 'circle':
+        x = centerX + radius * Math.cos(t)
+        y = centerY + radius * Math.sin(t)
+        break
+      case 'triangle':
+        x = centerX + radius * Math.cos(t)
+        y = centerY + radius * Math.sin(t)
+        break
+      case 'square': {
+        const pos = i % 4
+        x = pos === 0 ? centerX - radius : pos === 1 ? centerX + radius : pos === 2 ? centerX + radius : centerX - radius
+        y = pos === 0 ? centerY - radius : pos === 1 ? centerY - radius : pos === 2 ? centerY + radius : centerY + radius
+        break
+      }
+      case 'line':
+        x = centerX + (i - Math.floor(count / 2)) * (radius / 2)
+        y = centerY
+        break
+      case 'diamond':
+        x = centerX + radius * Math.cos(t + Math.PI / 4)
+        y = centerY + radius * Math.sin(t + Math.PI / 4)
+        break
+      case 'heart':
+        x = centerX + radius * Math.cos(t) * 0.8
+        y = centerY + radius * Math.sin(t) * 0.6 - Math.abs(Math.cos(t)) * radius * 0.3
+        break
+      default:
+        x = centerX + i * 50
+        y = centerY
+    }
+    arr.push({ emoji: emojiChar, x: clampX(x), y: clampY(y), size, layer })
+  }
+  return arr
+}
+
+/* -----------------------
+   HubAI integration & tools spec (keeps behavior)
+   ----------------------- */
 
 export default defineEventHandler(async (event) => {
   const { messages } = await readBody(event)
 
-  // Check if we're in fallback mode with better error handling
-  let isFallbackMode = false
+  const lastUserMessage = messages?.[messages.length - 1]?.content || ''
+
+  // Try to get hubAI; fall back if not present
+  let ai: any = null
   try {
-    // Try to use hubAI() - if this fails, we're in fallback mode
-    const ai = hubAI()
-    if (!ai) {
-      throw new Error('hubAI() returned undefined')
-    }
-    isFallbackMode = false
-  } catch (error) {
-    // Only log in development
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('hubAI not available, using fallback. Run "npx nuxthub link" to enable real AI.', error)
-    }
-    isFallbackMode = true
+    ai = hubAI()
+  } catch {
+    ai = null
   }
 
-  // If in fallback mode, return a simple response
-  if (isFallbackMode) {
-    const userMessage = messages?.[messages.length - 1]?.content || ''
-    console.log('🤖 Fallback API: Processing message:', userMessage)
-    
-    // Simple command parsing for fallback mode
-    let command = null
-    if (userMessage.toLowerCase().includes('rectangle')) {
-      // Determine color based on message content
-      let color = '#ff0000' // default red
-      if (userMessage.toLowerCase().includes('pink')) color = '#ffc0cb'
-      else if (userMessage.toLowerCase().includes('blue')) color = '#0000ff'
-      else if (userMessage.toLowerCase().includes('green')) color = '#00ff00'
-      else if (userMessage.toLowerCase().includes('yellow')) color = '#ffff00'
-      else if (userMessage.toLowerCase().includes('purple')) color = '#800080'
-      else if (userMessage.toLowerCase().includes('orange')) color = '#ffa500'
-      
-      command = {
-        action: 'create-shape',
-        shapeType: 'rectangle',
-        x: 100,
-        y: 200,
-        width: 100,
-        height: 80,
-        fill: color
-      }
-    } else if (userMessage.toLowerCase().includes('pigs around') || userMessage.toLowerCase().includes('around a star') || userMessage.toLowerCase().includes('in a circle')) {
-      // Handle circular arrangements like "5 pigs around a star"
-      const centerX = 400
-      const centerY = 300
-      const radius = 120
-      const numPigs = 5
-      
-      // Create star in center
-      const emojis = [
-        { emoji: '⭐', x: centerX, y: centerY, size: 60, layer: 1 } // Star in center
-      ]
-      
-      // Add pigs in a circle around the star
-      for (let i = 0; i < numPigs; i++) {
-        const angle = (i / numPigs) * 2 * Math.PI
-        const x = centerX + radius * Math.cos(angle)
-        const y = centerY + radius * Math.sin(angle)
-        emojis.push({
-          emoji: '🐷',
-          x: Math.round(x),
-          y: Math.round(y),
-          size: 40,
-          layer: 2
-        })
-      }
-      
-      command = {
-        action: 'create-emoji-story',
-        story: '5 pigs around a star in a circle',
-        emojis: emojis
-      }
-    } else if (userMessage.toLowerCase().includes('circle') && !userMessage.toLowerCase().includes('pigs') && !userMessage.toLowerCase().includes('around')) {
-      // Determine color based on message content
-      let color = '#0000ff' // default blue
-      if (userMessage.toLowerCase().includes('pink')) color = '#ffc0cb'
-      else if (userMessage.toLowerCase().includes('red')) color = '#ff0000'
-      else if (userMessage.toLowerCase().includes('green')) color = '#00ff00'
-      else if (userMessage.toLowerCase().includes('yellow')) color = '#ffff00'
-      else if (userMessage.toLowerCase().includes('purple')) color = '#800080'
-      else if (userMessage.toLowerCase().includes('orange')) color = '#ffa500'
-      
-      command = {
-        action: 'create-shape',
-        shapeType: 'circle',
-        x: 200,
-        y: 200,
-        radius: 50,
-        fill: color
-      }
-    } else if (userMessage.toLowerCase().includes('text') || userMessage.toLowerCase().includes('hello')) {
-      command = {
-        action: 'create-shape',
-        shapeType: 'text',
-        x: 300,
-        y: 200,
-        text: 'Hello World',
-        fontSize: 24,
-        fill: 'black'
-      }
-    } else if (userMessage.toLowerCase().includes('arrange') || userMessage.toLowerCase().includes('horizontal')) {
-      command = {
-        action: 'arrange-shapes',
-        shapeIds: ['all'],
-        layout: 'horizontal',
-        spacing: 20
-      }
-    } else if (userMessage.toLowerCase().includes('clear') || 
-               userMessage.toLowerCase().includes('delete all') || 
-               userMessage.toLowerCase().includes('remove all') ||
-               userMessage.toLowerCase().includes('delete all emojis') ||
-               userMessage.toLowerCase().includes('delete all shapes')) {
-      command = {
-        action: 'clear-all'
-      }
-    } else if (userMessage.toLowerCase().includes('three little pigs') || userMessage.toLowerCase().includes('pigs on island')) {
-      // Emoji story example: Three little pigs on an island
-      command = {
-        action: 'create-emoji-story',
-        story: 'Three little pigs on an island',
-        emojis: [
-          { emoji: '🏝️', x: 300, y: 200, size: 80, layer: 1 }, // Island (background)
-          { emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 }, // Pig 1
-          { emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 }, // Pig 2
-          { emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 }, // Pig 3
-        ]
-      }
-    } else if (userMessage.toLowerCase().includes('in a triangle') || userMessage.toLowerCase().includes('triangle')) {
-      // Handle triangular arrangements
-      const centerX = 400
-      const centerY = 300
-      const radius = 100
-      const count = userMessage.match(/\d+/)?.[0] ? parseInt(userMessage.match(/\d+/)[0]) : 3
-      const emoji = userMessage.includes('heart') ? '❤️' : userMessage.includes('star') ? '⭐' : '🐷'
-      
-      const emojis = []
-      for (let i = 0; i < count; i++) {
-        const angle = (i / count) * 2 * Math.PI
-        const x = centerX + radius * Math.cos(angle)
-        const y = centerY + radius * Math.sin(angle)
-        emojis.push({
-          emoji: emoji,
-          x: Math.round(x),
-          y: Math.round(y),
-          size: 40,
-          layer: 2
-        })
-      }
-      
-      command = {
-        action: 'create-emoji-story',
-        story: `${count} ${emoji} in a triangle`,
-        emojis: emojis
-      }
-    } else if (userMessage.toLowerCase().includes('in a square') || userMessage.toLowerCase().includes('square')) {
-      // Handle square arrangements
-      const centerX = 400
-      const centerY = 300
-      const radius = 100
-      const count = Math.min(userMessage.match(/\d+/)?.[0] ? parseInt(userMessage.match(/\d+/)[0]) : 4, 4)
-      const emoji = userMessage.includes('heart') ? '❤️' : userMessage.includes('star') ? '⭐' : '🐷'
-      
-      const emojis = []
-      for (let i = 0; i < count; i++) {
-        let x, y
-        if (i === 0) { x = centerX - radius; y = centerY - radius }
-        else if (i === 1) { x = centerX + radius; y = centerY - radius }
-        else if (i === 2) { x = centerX + radius; y = centerY + radius }
-        else { x = centerX - radius; y = centerY + radius }
-        
-        emojis.push({
-          emoji: emoji,
-          x: x,
-          y: y,
-          size: 40,
-          layer: 2
-        })
-      }
-      
-      command = {
-        action: 'create-emoji-story',
-        story: `${count} ${emoji} in a square`,
-        emojis: emojis
-      }
-    } else if (userMessage.toLowerCase().includes('house with tree') || userMessage.toLowerCase().includes('house and tree')) {
-      // Specific pattern for house with tree
-      command = {
-        action: 'create-emoji-story',
-        story: 'A house with a tree next to it',
-        emojis: [
-          { emoji: '🏠', x: 300, y: 200, size: 60, layer: 1 }, // House
-          { emoji: '🌳', x: 400, y: 200, size: 50, layer: 2 }  // Tree next to house
-        ]
-      }
-    } else if (userMessage.toLowerCase().includes('story') || userMessage.toLowerCase().includes('scene') || userMessage.toLowerCase().includes('characters')) {
-      // Generic emoji story creation for any story request
-      const storyKeywords = userMessage.toLowerCase()
-      let emojis = []
-      
-      if (storyKeywords.includes('island') || storyKeywords.includes('beach')) {
-        emojis.push({ emoji: '🏝️', x: 300, y: 200, size: 80, layer: 1 })
-        if (storyKeywords.includes('pig') || storyKeywords.includes('pigs')) {
-          emojis.push({ emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 })
-          emojis.push({ emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 })
-          emojis.push({ emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 })
-        }
-      } else if (storyKeywords.includes('house') || storyKeywords.includes('home')) {
-        emojis.push({ emoji: '🏠', x: 300, y: 200, size: 60, layer: 1 })
-        if (storyKeywords.includes('tree')) {
-          emojis.push({ emoji: '🌳', x: 400, y: 200, size: 50, layer: 2 })
-        }
-      } else if (storyKeywords.includes('ocean') || storyKeywords.includes('sea')) {
-        emojis.push({ emoji: '🌊', x: 300, y: 200, size: 60, layer: 1 })
-        if (storyKeywords.includes('fish')) {
-          emojis.push({ emoji: '🐟', x: 280, y: 180, size: 30, layer: 2 })
-          emojis.push({ emoji: '🐠', x: 320, y: 190, size: 30, layer: 2 })
-        }
-      } else if (storyKeywords.includes('space') || storyKeywords.includes('rocket')) {
-        emojis.push({ emoji: '🚀', x: 300, y: 200, size: 60, layer: 1 })
-        emojis.push({ emoji: '🌍', x: 400, y: 150, size: 40, layer: 2 })
-        emojis.push({ emoji: '⭐', x: 200, y: 100, size: 20, layer: 3 })
-        emojis.push({ emoji: '⭐', x: 450, y: 120, size: 20, layer: 3 })
-      } else {
-        // Default story with some generic elements
-        emojis = [
-          { emoji: '🎭', x: 300, y: 200, size: 60, layer: 1 },
-          { emoji: '✨', x: 280, y: 180, size: 30, layer: 2 },
-          { emoji: '✨', x: 320, y: 180, size: 30, layer: 2 }
-        ]
-      }
-      
-      if (emojis.length > 0) {
-        command = {
-          action: 'create-emoji-story',
-          story: userMessage,
-          emojis: emojis
-        }
-      }
-    } else if (userMessage.toLowerCase().includes('emoji') || userMessage.toLowerCase().includes('smile')) {
-      command = {
-        action: 'create-shape',
-        shapeType: 'emoji',
-        x: 200,
-        y: 200,
-        emoji: '😊',
-        emojiSize: 48,
-        layer: 1
-      }
-    }
-    
-    console.log('🤖 Fallback API: Generated command:', command)
-    
-    // Return a simple JSON response for fallback mode
-    const response = `AI response (fallback mode - run npx nuxthub link to enable real AI)\n\nCommand: ${command ? JSON.stringify(command) : 'No command generated'}`
-    
+  if (!ai) {
+    // Fallback-only path (concise response, same structure as AI path)
+    const cmd = buildFallbackCommand(lastUserMessage)
     return {
-      content: response
+      content: `AI response (fallback)`,
+      commands: cmd ? [cmd] : []
     }
   }
 
-  // Real AI mode - use hubAI() directly
-  const ai = hubAI()
-  
-  // Use hubAI().run() directly as per NuxtHub documentation
+  // Real AI path
+  const systemPrompt = createSystemPrompt()
   const response = await ai.run('@cf/meta/llama-3.1-8b-instruct' as any, {
-    messages: [
-      {
-        role: 'system',
-        content: `You are an AI assistant that helps create visual stories on a collaborative canvas. 
-
-IMPORTANT: When users ask for stories, characters, scenes, or visual content, ALWAYS use the createEmojiStory tool instead of individual createShape commands. This creates better visual compositions.
-
-For DELETE/CLEAR requests:
-- When users ask to "delete all", "clear all", "remove all", "delete all emojis", or "delete all shapes", use the clearAllShapes tool
-- NEVER create empty shapes or malformed commands for delete requests
-
-For story creation with createEmojiStory:
-- Use large emojis (size 60-80) for main elements like islands, houses, backgrounds
-- Use medium emojis (size 40-50) for characters and important objects  
-- Use small emojis (size 20-30) for details and decorations
-- Arrange emojis in layers (background elements on layer 1, characters on layer 2, details on layer 3+)
-- Position emojis to create meaningful compositions
-
-For geometric arrangements, use arrangeEmojisInShape:
-- "5 pigs around a star" → Use arrangeEmojisInShape with emoji: '🐷', count: 5, shape: 'circle', then add star in center
-- "3 hearts in a triangle" → Use arrangeEmojisInShape with emoji: '❤️', count: 3, shape: 'triangle'
-- "4 stars in a square" → Use arrangeEmojisInShape with emoji: '⭐', count: 4, shape: 'square'
-- "6 flowers in a circle" → Use arrangeEmojisInShape with emoji: '🌸', count: 6, shape: 'circle'
-
-Examples:
-- "Three little pigs on an island" → Use createEmojiStory with: large island emoji (🏝️) at center, 3 pig emojis (🐷) positioned on top
-- "5 pigs around a star" → Use arrangeEmojisInShape for pigs in circle, then add star in center
-- "A house with a tree" → Use createEmojiStory with: house emoji (🏠) and tree emoji (🌳) positioned side by side
-- "Ocean scene" → Use createEmojiStory with: wave emojis (🌊), fish emojis (🐟), and boat emoji (⛵)
-- "Delete all emojis and shapes" → Use clearAllShapes tool
-
-NEVER use individual createShape commands for stories. Always use createEmojiStory or arrangeEmojisInShape for visual storytelling.`
-      },
-      ...messages
-    ],
-    tools: [
-      {
-        name: 'createShape',
-        description: 'Create a new shape on the canvas. For stories and visual content, ALWAYS prefer emoji shapes over text shapes.',
-        parameters: {
-          type: 'object',
-          properties: {
-            shapeType: {
-              type: 'string',
-              enum: ['rectangle', 'circle', 'text', 'emoji', 'pen'],
-              description: 'Type of shape to create. Use "emoji" for visual stories and characters.'
-            },
-            x: { type: 'number', description: 'X position of the shape' },
-            y: { type: 'number', description: 'Y position of the shape' },
-            width: { type: 'number', description: 'Width of the shape (for rectangles)' },
-            height: { type: 'number', description: 'Height of the shape (for rectangles)' },
-            radius: { type: 'number', description: 'Radius of the shape (for circles)' },
-            text: { type: 'string', description: 'Text content (for text shapes) - avoid for stories' },
-            fontSize: { type: 'number', description: 'Font size (for text shapes)' },
-            fill: { type: 'string', description: 'Fill color of the shape' },
-            stroke: { type: 'string', description: 'Stroke color of the shape' },
-            emoji: { type: 'string', description: 'Emoji character (for emoji shapes) - use for stories' },
-            emojiSize: { type: 'number', description: 'Size of the emoji (60-80 for backgrounds, 40-50 for characters, 20-30 for details)' },
-            layer: { type: 'number', description: 'Layer order (1 for backgrounds, 2 for characters, 3+ for details)' }
-          },
-          required: ['shapeType', 'x', 'y']
-        },
-        function: async ({ shapeType, x, y, width, height, radius, text, fontSize, fill, stroke, emoji, emojiSize, layer }: {
-          shapeType: string;
-          x?: number;
-          y?: number;
-          width?: number;
-          height?: number;
-          radius?: number;
-          text?: string;
-          fontSize?: number;
-          fill?: string;
-          stroke?: string;
-          emoji?: string;
-          emojiSize?: number;
-          layer?: number;
-        }) => {
-          return JSON.stringify({
-            action: 'create-shape',
-            shapeType,
-            x,
-            y,
-            width,
-            height,
-            radius,
-            text,
-            fontSize,
-            fill,
-            stroke,
-            emoji,
-            emojiSize,
-            layer
-          })
-        }
-      },
-      {
-        name: 'createEmojiStory',
-        description: 'Create a complete emoji story with multiple emojis arranged to tell a visual story. Use this for story requests.',
-        parameters: {
-          type: 'object',
-          properties: {
-            story: { type: 'string', description: 'Description of the story being created' },
-            emojis: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  emoji: { type: 'string', description: 'Emoji character' },
-                  x: { type: 'number', description: 'X position' },
-                  y: { type: 'number', description: 'Y position' },
-                  size: { type: 'number', description: 'Size of emoji (60-80 for backgrounds, 40-50 for characters)' },
-                  layer: { type: 'number', description: 'Layer order (1 for backgrounds, 2 for characters)' }
-                },
-                required: ['emoji', 'x', 'y']
-              },
-              description: 'Array of emojis to create for the story'
-            }
-          },
-          required: ['story', 'emojis']
-        },
-        function: async ({ story, emojis }: Record<string, unknown>) => {
-          return JSON.stringify({
-            action: 'create-emoji-story',
-            story,
-            emojis
-          })
-        }
-      },
-      {
-        name: 'arrangeEmojisInShape',
-        description: 'Arrange multiple emojis in geometric patterns like circles, triangles, squares, etc. Use this when users want emojis arranged in specific shapes.',
-        parameters: {
-          type: 'object',
-          properties: {
-            emoji: { type: 'string', description: 'The emoji character to arrange' },
-            count: { type: 'number', description: 'Number of emojis to create' },
-            shape: { 
-              type: 'string', 
-              enum: ['circle', 'triangle', 'square', 'line', 'diamond', 'heart'],
-              description: 'Geometric shape to arrange emojis in'
-            },
-            centerX: { type: 'number', description: 'X coordinate of the center point', default: 400 },
-            centerY: { type: 'number', description: 'Y coordinate of the center point', default: 300 },
-            radius: { type: 'number', description: 'Radius or size of the shape', default: 120 },
-            size: { type: 'number', description: 'Size of each emoji', default: 40 },
-            layer: { type: 'number', description: 'Layer order', default: 2 }
-          },
-          required: ['emoji', 'count', 'shape']
-        },
-        function: async ({ emoji, count, shape, centerX = 400, centerY = 300, radius = 120, size = 40, layer = 2 }: Record<string, unknown>) => {
-          const emojis = []
-          
-          // Type assertions for the parameters
-          const emojiStr = emoji as string
-          const countNum = count as number
-          const shapeStr = shape as string
-          const centerXNum = centerX as number
-          const centerYNum = centerY as number
-          const radiusNum = radius as number
-          const sizeNum = size as number
-          const layerNum = layer as number
-          
-          for (let i = 0; i < countNum; i++) {
-            let x, y
-            
-            switch (shapeStr) {
-              case 'circle':
-                const angle = (i / countNum) * 2 * Math.PI
-                x = centerXNum + radiusNum * Math.cos(angle)
-                y = centerYNum + radiusNum * Math.sin(angle)
-                break
-                
-              case 'triangle':
-                const triAngle = (i / countNum) * 2 * Math.PI
-                x = centerXNum + radiusNum * Math.cos(triAngle)
-                y = centerYNum + radiusNum * Math.sin(triAngle)
-                break
-                
-              case 'square':
-                const side = Math.floor(i / 4)
-                const pos = i % 4
-                if (pos === 0) { x = centerXNum - radiusNum; y = centerYNum - radiusNum }
-                else if (pos === 1) { x = centerXNum + radiusNum; y = centerYNum - radiusNum }
-                else if (pos === 2) { x = centerXNum + radiusNum; y = centerYNum + radiusNum }
-                else { x = centerXNum - radiusNum; y = centerYNum + radiusNum }
-                break
-                
-              case 'line':
-                x = centerXNum + (i - Math.floor(countNum/2)) * (radiusNum / 2)
-                y = centerYNum
-                break
-                
-              case 'diamond':
-                const diamondAngle = (i / countNum) * 2 * Math.PI + Math.PI/4
-                x = centerXNum + radiusNum * Math.cos(diamondAngle)
-                y = centerYNum + radiusNum * Math.sin(diamondAngle)
-                break
-                
-              case 'heart':
-                // Heart shape approximation
-                const heartAngle = (i / countNum) * 2 * Math.PI
-                x = centerXNum + radiusNum * Math.cos(heartAngle) * 0.8
-                y = centerYNum + radiusNum * Math.sin(heartAngle) * 0.6 - Math.abs(Math.cos(heartAngle)) * radiusNum * 0.3
-                break
-                
-              default:
-                x = centerXNum + (i * 50)
-                y = centerYNum
-            }
-            
-            emojis.push({
-              emoji: emojiStr,
-              x: Math.round(x),
-              y: Math.round(y),
-              size: sizeNum,
-              layer: layerNum
-            })
-          }
-          
-          return JSON.stringify({
-            action: 'create-emoji-story',
-            story: `${countNum} ${emojiStr} arranged in a ${shapeStr}`,
-            emojis
-          })
-        }
-      },
-      {
-        name: 'clearAllShapes',
-        description: 'Clear all shapes and emojis from the canvas. Use this when users want to delete everything.',
-        parameters: {
-          type: 'object',
-          properties: {},
-          required: []
-        },
-        function: async () => {
-          return JSON.stringify({
-            action: 'clear-all'
-          })
-        }
-      }
-    ]
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    tools: buildToolSpecs()
   })
 
-  // Handle the response structure from hubAI()
-  if (response && typeof response === 'object' && 'tool_calls' in response) {
-    // Extract tool calls and convert to our command format
-    const toolCalls = response.tool_calls || []
-    const commands = toolCalls.map((toolCall: Record<string, unknown>) => {
-      console.log('🔧 Processing tool call:', toolCall.name, 'with args:', toolCall.arguments)
-      if (toolCall.name === 'createShape') {
-        return {
-          action: 'create-shape',
-          ...(toolCall.arguments as Record<string, unknown>)
-        }
-      } else if (toolCall.name === 'createEmojiStory') {
-        const args = toolCall.arguments as Record<string, unknown>
-        console.log('🔍 createEmojiStory args:', JSON.stringify(args, null, 2))
-        let emojis = args.emojis
-        if (typeof emojis === 'string') {
-          try {
-            emojis = JSON.parse(emojis)
-          } catch (e) {
-            console.error('Failed to parse emojis JSON:', emojis)
-            emojis = []
-          }
-        }
-        console.log('🔍 Processed emojis:', emojis)
-        return {
-          action: 'create-emoji-story',
-          story: args.story,
-          emojis: emojis
-        }
-      } else if (toolCall.name === 'arrangeEmojisInShape') {
-        const args = toolCall.arguments as Record<string, unknown>
-        let emojis = args.emojis
-        if (typeof emojis === 'string') {
-          try {
-            emojis = JSON.parse(emojis)
-          } catch (e) {
-            console.error('Failed to parse emojis JSON:', emojis)
-            emojis = []
-          }
-        }
-        return {
-          action: 'create-emoji-story',
-          story: args.story,
-          emojis: emojis
-        }
-      } else if (toolCall.name === 'clearAllShapes') {
-        return {
-          action: 'clear-all'
-        }
-      }
-      // Add other tool types as needed
-      return {
-        action: toolCall.name as string,
-        ...(toolCall.arguments as Record<string, unknown>)
-      }
-    })
-
-    return {
-      content: `AI Response: ${response.response || 'Command executed'}`,
-      commands: commands
-    }
-  }
-
+  // Normalize hubAI response
+  const commands = await parseAIResponse(response)
   return {
-    content: response
+    content: (response as any).response || 'AI executed',
+    commands
   }
 })
 
+/* -----------------------
+   Small helpers used by handler
+   ----------------------- */
 
+function createSystemPrompt() {
+  return `You are an expert emoji scene designer for a collaborative canvas (800x600). Focus on creative, spatially-aware composition. Use provided tools to output commands (createEmojiStory, arrangeEmojisInShape, createShape, clearAllShapes). Always populate emoji arrays with actual emoji characters and pixel coordinates; prefer emojis to text. Position keywords: upper-left (100,100), upper-right (600,100), lower-left (100,450), lower-right (600,450), center (400,300). Size keywords: tiny (20), small (30), medium (50), big/large (80), huge (100). For multi-part requests, favor varied sizes and layers for depth. Never return empty tool calls.`
+}
 
+function buildToolSpecs() {
+  return [
+    {
+      name: 'createShape',
+      description: 'Create a shape. Use emoji shapes for visuals.',
+      parameters: {
+        type: 'object',
+        properties: {
+          shapeType: { type: 'string', enum: ['rectangle', 'circle', 'text', 'emoji', 'pen'] },
+          x: { type: 'number' },
+          y: { type: 'number' },
+          width: { type: 'number' },
+          height: { type: 'number' },
+          radius: { type: 'number' },
+          text: { type: 'string' },
+          fontSize: { type: 'number' },
+          fill: { type: 'string' },
+          stroke: { type: 'string' },
+          emoji: { type: 'string' },
+          emojiSize: { type: 'number' },
+          layer: { type: 'number' }
+        },
+        required: ['shapeType', 'x', 'y']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'createShape', arguments: args })
+    },
+    {
+      name: 'createEmojiStory',
+      description: 'Create an emoji story with populated emoji array.',
+      parameters: {
+        type: 'object',
+        properties: {
+          story: { type: 'string' },
+          emojis: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                emoji: { type: 'string' },
+                x: { type: 'number' },
+                y: { type: 'number' },
+                size: { type: 'number' },
+                layer: { type: 'number' }
+              },
+              required: ['emoji', 'x', 'y']
+            }
+          }
+        },
+        required: ['story', 'emojis']
+      },
+      function: async ({ story, emojis }: Record<string, unknown>) => {
+        if (Array.isArray(emojis) && emojis.length) {
+          return { name: 'createEmojiStory', arguments: { story, emojis } }
+        }
+        // generate fallback if empty
+        return { name: 'createEmojiStory', arguments: { story, emojis: generateEmojisFromStory(String(story)) } }
+      }
+    },
+    {
+      name: 'arrangeEmojisInShape',
+      description: 'Arrange emojis in circle/triangle/square/line/diamond/heart',
+      parameters: {
+        type: 'object',
+        properties: {
+          emoji: { type: 'string' },
+          count: { type: 'number' },
+          shape: { type: 'string' },
+          centerX: { type: 'number' },
+          centerY: { type: 'number' },
+          radius: { type: 'number' },
+          size: { type: 'number' },
+          layer: { type: 'number' }
+        },
+        required: ['emoji', 'count', 'shape']
+      },
+      function: async (args: Record<string, unknown>) => {
+        const emoji = String(args.emoji)
+        const count = Number(args.count)
+        const shape = String(args.shape)
+        const centerX = Number(args.centerX ?? CANVAS.centerX)
+        const centerY = Number(args.centerY ?? CANVAS.centerY)
+        const radius = Number(args.radius ?? 120)
+        const size = Number(args.size ?? 40)
+        const layer = Number(args.layer ?? 2)
+        const emojis = arrangeInShape(emoji, count, shape, centerX, centerY, radius, size, layer)
+        return { name: 'arrangeEmojisInShape', arguments: { emoji, count, shape, centerX, centerY, radius, size, layer, emojis } }
+      }
+    },
+    {
+      name: 'clearAllShapes',
+      description: 'Clear canvas',
+      parameters: { type: 'object', properties: {}, required: [] },
+      function: async () => ({ name: 'clearAllShapes', arguments: {} })
+    }
+  ]
+}
+
+/* -----------------------
+   Parse AI response into commands (concise, robust)
+   ----------------------- */
+
+async function parseAIResponse(response: any) {
+  const commands: Array<Record<string, unknown>> = []
+
+  if (response && typeof response === 'object' && Array.isArray(response.tool_calls) && response.tool_calls.length) {
+    for (const call of response.tool_calls) {
+      const name = call.name
+      const args = call.arguments ?? {}
+      if (name === 'createShape') {
+        commands.push({ action: 'create-shape', ...args })
+      } else if (name === 'createEmojiStory') {
+        let emojis = args.emojis
+        if (typeof emojis === 'string') {
+          try { emojis = JSON.parse(emojis) } catch { emojis = [] }
+        }
+        if (!Array.isArray(emojis) || emojis.length === 0) {
+          emojis = generateEmojisFromStory(String(args.story || ''))
+        }
+        commands.push({ action: 'create-emoji-story', story: args.story, emojis })
+      } else if (name === 'arrangeEmojisInShape') {
+        let emojis = args.emojis
+        if (typeof emojis === 'string') {
+          try { emojis = JSON.parse(emojis) } catch { emojis = [] }
+        }
+        if (!Array.isArray(emojis) || emojis.length === 0) {
+          const arr = arrangeInShape(String(args.emoji), Number(args.count), String(args.shape), Number(args.centerX ?? CANVAS.centerX), Number(args.centerY ?? CANVAS.centerY), Number(args.radius ?? 120), Number(args.size ?? 40), Number(args.layer ?? 2))
+          emojis = arr
+        }
+        commands.push({ action: 'create-emoji-story', story: `${args.count} ${args.emoji} arranged in a ${args.shape}`, emojis })
+      } else if (name === 'clearAllShapes') {
+        commands.push({ action: 'clear-all' })
+      } else {
+        // passthrough
+        commands.push({ action: name, ...(args || {}) })
+      }
+    }
+    return commands
+  }
+
+  // If content-based response, try to extract JSON tool calls
+  if (response && typeof response === 'object' && typeof response.content === 'string') {
+    const content = response.content as string
+    const jsons: string[] = []
+    let i = content.indexOf('{')
+    while (i >= 0) {
+      let braces = 0
+      const start = i
+      let j = i
+      for (; j < content.length; j++) {
+        if (content[j] === '{') braces++
+        if (content[j] === '}') braces--
+        if (braces === 0) break
+      }
+      if (braces === 0 && j > start) {
+        jsons.push(content.substring(start, j + 1))
+        i = content.indexOf('{', j + 1)
+      } else break
+    }
+
+    for (const jstr of jsons) {
+      try {
+        const parsed = JSON.parse(jstr)
+        if (parsed.name === 'createEmojiStory') {
+          let emojis = parsed.arguments?.emojis ?? []
+          if (typeof emojis === 'string') {
+            try { emojis = JSON.parse(emojis) } catch { emojis = [] }
+          }
+          if (!Array.isArray(emojis) || emojis.length === 0) emojis = generateEmojisFromStory(String(parsed.arguments?.story || ''))
+          commands.push({ action: 'create-emoji-story', story: parsed.arguments?.story, emojis })
+        } else if (parsed.name === 'createShape') {
+          commands.push({ action: 'create-shape', ...(parsed.arguments || {}) })
+        } else if (parsed.name === 'arrangeEmojisInShape') {
+          let emojis = parsed.arguments?.emojis ?? []
+          if (typeof emojis === 'string') {
+            try { emojis = JSON.parse(emojis) } catch { emojis = [] }
+          }
+          if (!Array.isArray(emojis) || emojis.length === 0) {
+            const args = parsed.arguments || {}
+            emojis = arrangeInShape(String(args.emoji), Number(args.count), String(args.shape), Number(args.centerX ?? CANVAS.centerX), Number(args.centerY ?? CANVAS.centerY), Number(args.radius ?? 120), Number(args.size ?? 40), Number(args.layer ?? 2))
+          }
+          commands.push({ action: 'create-emoji-story', story: `${parsed.arguments?.count} ${parsed.arguments?.emoji} arranged in a ${parsed.arguments?.shape}`, emojis })
+        } else if (parsed.name === 'clearAllShapes') {
+          commands.push({ action: 'clear-all' })
+        } else {
+          commands.push({ action: parsed.name, ...(parsed.arguments || {}) })
+        }
+      } catch {
+        // ignore parse failures silently
+      }
+    }
+
+    if (commands.length) return commands
+  }
+
+  // Last-resort fallback: generate simple scene based on last user message
+  return [buildFallbackCommand((response && response.response) || '')].filter(Boolean)
+}
+
+/* -----------------------
+   Fallback command builder (used for fallback-only and last-resort)
+   ----------------------- */
+
+function buildFallbackCommand(userMessage: string) {
+  const m = (userMessage || '').toLowerCase()
+
+  // shape commands
+  if (m.includes('rectangle')) {
+    let color = '#ff0000'
+    if (m.includes('pink')) color = '#ffc0cb'
+    else if (m.includes('blue')) color = '#0000ff'
+    else if (m.includes('green')) color = '#00ff00'
+    else if (m.includes('yellow')) color = '#ffff00'
+    else if (m.includes('purple')) color = '#800080'
+    else if (m.includes('orange')) color = '#ffa500'
+
+    return {
+      action: 'create-shape',
+      shapeType: 'rectangle',
+      x: 100,
+      y: 200,
+      width: 100,
+      height: 80,
+      fill: color
+    }
+  }
+
+  if (m.includes('circle') && !m.includes('pigs') && !m.includes('around')) {
+    let color = '#0000ff'
+    if (m.includes('pink')) color = '#ffc0cb'
+    else if (m.includes('red')) color = '#ff0000'
+    else if (m.includes('green')) color = '#00ff00'
+    else if (m.includes('yellow')) color = '#ffff00'
+    else if (m.includes('purple')) color = '#800080'
+    else if (m.includes('orange')) color = '#ffa500'
+    return {
+      action: 'create-shape',
+      shapeType: 'circle',
+      x: 200,
+      y: 200,
+      radius: 50,
+      fill: color
+    }
+  }
+
+  if (m.includes('text') || m.includes('hello')) {
+    return {
+      action: 'create-shape',
+      shapeType: 'text',
+      x: 300,
+      y: 200,
+      text: 'Hello World',
+      fontSize: 24,
+      fill: 'black'
+    }
+  }
+
+  if (m.includes('arrange') || m.includes('horizontal')) {
+    return { action: 'arrange-shapes', shapeIds: ['all'], layout: 'horizontal', spacing: 20 }
+  }
+
+  if (m.includes('clear') || m.includes('delete all') || m.includes('remove all') || m.includes('delete all emojis') || m.includes('delete all shapes')) {
+    return { action: 'clear-all' }
+  }
+
+  // emoji stories and arrangements (pumpkins, pigs, triangles, squares, circle-of-frogs, etc)
+  if (m.includes('pigs around') || m.includes('around a star') || m.includes('in a circle')) {
+    const centerX = CANVAS.centerX
+    const centerY = CANVAS.centerY
+    const radius = 120
+    const numPigs = 5
+    const emojis = [{ emoji: '⭐', x: centerX, y: centerY, size: 60, layer: 1 }]
+    for (let i = 0; i < numPigs; i++) {
+      const angle = (i / numPigs) * 2 * Math.PI
+      emojis.push({ emoji: '🐷', x: clampX(centerX + radius * Math.cos(angle)), y: clampY(centerY + radius * Math.sin(angle)), size: 40, layer: 2 })
+    }
+    return { action: 'create-emoji-story', story: '5 pigs around a star in a circle', emojis }
+  }
+
+  if (m.includes('three little pigs') || m.includes('pigs on island')) {
+    return {
+      action: 'create-emoji-story',
+      story: 'Three little pigs on an island',
+      emojis: [
+        { emoji: '🏝️', x: 300, y: 200, size: 80, layer: 1 },
+        { emoji: '🐷', x: 280, y: 180, size: 40, layer: 2 },
+        { emoji: '🐷', x: 320, y: 180, size: 40, layer: 2 },
+        { emoji: '🐷', x: 300, y: 160, size: 40, layer: 2 }
+      ]
+    }
+  }
+
+  if (m.includes('triangle') || m.includes('in a triangle')) {
+    const count = m.match(/\d+/)?.[0] ? parseInt(m.match(/\d+/)![0], 10) : 3
+    const emoji = m.includes('heart') ? '❤️' : m.includes('star') ? '⭐' : '🐷'
+    const generated = arrangeInShape(emoji, count, 'triangle', CANVAS.centerX, CANVAS.centerY, 100, 40, 2)
+    return { action: 'create-emoji-story', story: `${count} ${emoji} in a triangle`, emojis: generated }
+  }
+
+  if (m.includes('square') || m.includes('in a square')) {
+    const count = Math.min(m.match(/\d+/)?.[0] ? parseInt(m.match(/\d+/)![0], 10) : 4, 4)
+    const emoji = m.includes('heart') ? '❤️' : m.includes('star') ? '⭐' : '🐷'
+    const generated = arrangeInShape(emoji, count, 'square', CANVAS.centerX, CANVAS.centerY, 100, 40, 2)
+    return { action: 'create-emoji-story', story: `${count} ${emoji} in a square`, emojis: generated }
+  }
+
+  if (m.includes('pumpkin') || m.includes('pumpkins')) {
+    const count = extractCount(userMessageToString(userMessageToString(m))) || extractCount(m) || 3
+    const size = mapSize(extractSize(m))
+    const position = extractPosition(m) || { x: CANVAS.centerX, y: CANVAS.centerY }
+    const centerX = position.x || CANVAS.centerX
+    const centerY = position.y || CANVAS.centerY
+    if (m.includes('in a row')) {
+      const out: any[] = []
+      for (let i = 0; i < count; i++) {
+        out.push({ emoji: '🎃', x: clampX(centerX - count * 40 + i * 80), y: centerY, size, layer: 1 })
+      }
+      return { action: 'create-emoji-story', story: `${count} pumpkins in a row`, emojis: out }
+    }
+    if (m.includes('around') || m.includes('circle')) {
+      const out = arrangeInShape('🎃', count, 'circle', centerX, centerY, 120, size, 1)
+      return { action: 'create-emoji-story', story: `${count} pumpkins in a circle`, emojis: out }
+    }
+    const out: any[] = []
+    for (let i = 0; i < count; i++) {
+      out.push({ emoji: '🎃', x: clampX(centerX - count * 40 + i * 80), y: centerY, size, layer: 1 })
+    }
+    return { action: 'create-emoji-story', story: `${count} pumpkins`, emojis: out }
+  }
+
+  // generic "in a row" pattern using helpers
+  if (m.includes(' in a row') || m.includes('in row')) {
+    const count = extractCount(m) || 3
+    const size = mapSize(extractSize(m))
+    const position = extractPosition(m) || { x: CANVAS.centerX, y: CANVAS.centerY }
+    const emoji = extractEmojiType(m) || '🐷'
+    const out: any[] = []
+    for (let i = 0; i < count; i++) {
+      out.push({ emoji, x: clampX(position.x - count * 40 + i * 80), y: position.y || CANVAS.centerY, size, layer: 1 })
+    }
+    return { action: 'create-emoji-story', story: `${count} ${emoji} in a row`, emojis: out }
+  }
+
+  // multiple items like "one big pumpkin and two small hearts"
+  if (m.includes(' and ') && (m.includes('big') || m.includes('small') || m.includes('tiny') || m.includes('huge'))) {
+    const multiple = parseMultipleItems(m)
+    if (multiple) {
+      const emojis: any[] = []
+      const centerX = multiple.position?.x || CANVAS.centerX
+      const centerY = multiple.position?.y || CANVAS.centerY
+      let index = 0
+      const total = multiple.items.reduce((s: number, it: any) => s + it.count, 0)
+      for (const it of multiple.items) {
+        for (let i = 0; i < it.count; i++) {
+          const angle = (index / total) * Math.PI * 2
+          const r = 80
+          const x = clampX(centerX + r * Math.cos(angle))
+          const y = clampY(centerY + r * Math.sin(angle))
+          emojis.push({ emoji: it.emoji, x, y, size: it.size, layer: 1 })
+          index++
+        }
+      }
+      return { action: 'create-emoji-story', story: m, emojis }
+    }
+  }
+
+  // circle of frogs
+  if (m.includes('circle of frogs') || m.includes('frogs in circle')) {
+    const count = extractCount(m) || 8
+    const size = mapSize(extractSize(m))
+    const pos = extractPosition(m) || { x: CANVAS.centerX, y: CANVAS.centerY }
+    const emojis = arrangeInShape('🐸', count, 'circle', pos.x, pos.y, 120, size, 1)
+    return { action: 'create-emoji-story', story: 'circle of frogs', emojis }
+  }
+
+  // generic emoji request
+  if (m.includes('emoji') || m.includes('smile') || m.includes('😊')) {
+    return { action: 'create-shape', shapeType: 'emoji', x: 200, y: 200, emoji: '😊', emojiSize: 48, layer: 1 }
+  }
+
+  // default final fallback scene
+  return { action: 'create-emoji-story', story: 'generic scene', emojis: generateEmojisFromStory(userMessageToString(m)) }
+}
+
+/* -----------------------
+   tiny helper to safely get counts when helper expects original user string
+   ----------------------- */
+
+function userMessageToString(s: string) {
+  return String(s || '')
+}

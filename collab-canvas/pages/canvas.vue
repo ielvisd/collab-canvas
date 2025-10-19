@@ -91,16 +91,26 @@
             <div
               v-for="emoji in emojis"
               :key="emoji.id"
-              :class="[
-                'emoji-item absolute cursor-pointer select-none transition-all duration-200',
-                { 'selected': selectedEmojiId === emoji.id }
-              ]"
+              :data-id="emoji.id"
+          :class="[
+            'emoji-item absolute cursor-pointer select-none transition-all duration-200',
+            { 'selected': isItemSelected(emoji.id) }
+          ]"
               :style="{
                 left: emoji.x + 'px',
                 top: emoji.y + 'px',
-                fontSize: emoji.size + 'px',
+                width: '32px',
+                height: '32px',
+                fontSize: Math.min(emoji.size || 32, 32) + 'px',
                 zIndex: emoji.layer || 1,
-                transform: `rotate(${emoji.rotation || 0}deg)`
+                transform: `rotate(${emoji.rotation || 0}deg)`,
+                boxShadow: isItemSelected(emoji.id) ? '0 0 0 2px #3b82f6' : 'none',
+                outline: 'none',
+                outlineOffset: '0px',
+                backgroundColor: 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }"
               @mousedown.stop="startEmojiDrag($event, emoji.id)"
               @touchstart.stop="startEmojiTouch($event, emoji.id)"
@@ -113,20 +123,24 @@
             <div
               v-for="shape in allShapes"
               :key="shape.id"
-              :class="[
-                'shape-item absolute cursor-pointer select-none',
-                { 'selected': selectedShapeId === shape.id }
-              ]"
+              :data-id="shape.id"
+          :class="[
+            'shape-item absolute cursor-pointer select-none',
+            { 'selected': isItemSelected(shape.id) }
+          ]"
               :style="{
                 left: shape.x + 'px',
                 top: shape.y + 'px',
                 width: shape.type === 'circle' ? (shape as any).radius * 2 + 'px' : (shape as any).width + 'px',
                 height: shape.type === 'circle' ? (shape as any).radius * 2 + 'px' : (shape as any).height + 'px',
-                backgroundColor: shape.type === 'text' ? 'transparent' : shape.fill,
+                backgroundColor: isItemSelected(shape.id) ? 'rgba(59, 130, 246, 0.1)' : (shape.type === 'text' ? 'transparent' : shape.fill),
                 border: shape.type === 'text' ? 'none' : `2px solid ${shape.stroke}`,
                 borderRadius: shape.type === 'circle' ? '50%' : '4px',
                 zIndex: 1,
-                transform: `rotate(${shape.rotation || 0}deg)`
+                transform: `rotate(${shape.rotation || 0}deg)`,
+                boxShadow: isItemSelected(shape.id) ? '0 0 0 4px #3b82f6, 0 0 0 6px rgba(59, 130, 246, 0.3)' : 'none',
+                outline: isItemSelected(shape.id) ? '2px solid #3b82f6' : 'none',
+                outlineOffset: isItemSelected(shape.id) ? '2px' : '0px'
               }"
               @mousedown.stop="startShapeDrag($event, shape.id)"
               @touchstart.stop="startShapeTouch($event, shape.id)"
@@ -147,15 +161,97 @@
               </div>
             </div>
 
-            <!-- Rotation Handles -->
+            <!-- Selection Box -->
             <div
-              v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'"
+              v-if="selectionBox"
+              class="absolute border border-blue-400 bg-blue-50/20 pointer-events-none"
+              :style="{
+                left: selectionBox.x + 'px',
+                top: selectionBox.y + 'px',
+                width: selectionBox.width + 'px',
+                height: selectionBox.height + 'px',
+                zIndex: 1001
+              }"
+            />
+
+            <!-- Selection Handles (Rotation + Resize) -->
+            <div
+              v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select' && !isMultiSelect"
               class="absolute pointer-events-none"
               :style="{
                 left: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.x : getSelectedShape()?.x) + 'px',
                 top: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.y : getSelectedShape()?.y) + 'px',
-                width: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : (getSelectedShape() as any)?.width || (getSelectedShape() as any)?.radius * 2 || 50) + 'px',
-                height: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.size : (getSelectedShape() as any)?.height || (getSelectedShape() as any)?.radius * 2 || 50) + 'px',
+                width: '0px',
+                height: '0px',
+                zIndex: 1002,
+                border: 'none',
+                background: 'transparent'
+              }"
+            >
+              <!-- Rotation Handle -->
+              <div
+                class="absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg cursor-pointer pointer-events-auto flex items-center justify-center"
+                @mousedown.stop="startRotation"
+                @touchstart.stop="(event: TouchEvent) => startRotation(event as any)"
+              >
+                <UIcon name="i-lucide-rotate-3d" class="w-3 h-3 text-white" />
+              </div>
+              
+              <!-- Resize Handles -->
+              <!-- Corner handles -->
+              <div
+                v-for="handle in ['nw', 'ne', 'sw', 'se']"
+                :key="handle"
+                :class="[
+                  'absolute w-2 h-2 bg-blue-500 border border-white shadow-lg cursor-pointer pointer-events-auto',
+                  {
+                    'top-0 left-0 -translate-x-1 -translate-y-1': handle === 'nw',
+                    'top-0 right-0 translate-x-1 -translate-y-1': handle === 'ne',
+                    'bottom-0 left-0 -translate-x-1 translate-y-1': handle === 'sw',
+                    'bottom-0 right-0 translate-x-1 translate-y-1': handle === 'se'
+                  }
+                ]"
+                :style="{
+                  cursor: handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize'
+                }"
+                @mousedown.stop="startResize($event, handle, selectedEmojiId || selectedShapeId, !!selectedEmojiId)"
+                @touchstart.stop="(event: TouchEvent) => startResize(event as any, handle, selectedEmojiId || selectedShapeId, !!selectedEmojiId)"
+              />
+              
+              <!-- Edge handles -->
+              <div
+                v-for="handle in ['n', 's', 'e', 'w']"
+                :key="handle"
+                :class="[
+                  'absolute w-2 h-2 bg-blue-500 border border-white shadow-lg cursor-pointer pointer-events-auto',
+                  {
+                    'top-0 left-1/2 -translate-x-1/2 -translate-y-1': handle === 'n',
+                    'bottom-0 left-1/2 -translate-x-1/2 translate-y-1': handle === 's',
+                    'right-0 top-1/2 translate-x-1 -translate-y-1/2': handle === 'e',
+                    'left-0 top-1/2 -translate-x-1 -translate-y-1/2': handle === 'w'
+                  }
+                ]"
+                :style="{
+                  cursor: handle === 'n' || handle === 's' ? 'ns-resize' : 'ew-resize'
+                }"
+                @mousedown.stop="startResize($event, handle, selectedEmojiId || selectedShapeId, !!selectedEmojiId)"
+                @touchstart.stop="(event: TouchEvent) => startResize(event as any, handle, selectedEmojiId || selectedShapeId, !!selectedEmojiId)"
+              />
+              
+              <!-- Center Point -->
+              <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full border border-white"/>
+            </div>
+
+            <!-- Multi-select Rotation Handles (no resize) -->
+            <div
+              v-if="isMultiSelect && currentTool === 'select'"
+              data-multiselect-ui
+              class="absolute pointer-events-none"
+              :style="{
+                left: groupCenter.x - 25 + 'px',
+                top: groupCenter.y - 25 + 'px',
+                width: '50px',
+                height: '50px',
                 zIndex: 1002
               }"
             >
@@ -183,6 +279,7 @@
           :current-tool="currentTool"
           :selected-emoji-id="selectedEmojiId"
           :selected-shape-id="selectedShapeId"
+          :selected-item-count="selectedItemCount"
           :rotation-angle="rotationAngle"
           :selected-shape-color="selectedShapeColor"
           :can-undo="canUndo"
@@ -343,6 +440,15 @@ const editingTextId = ref<string | null>(null)
 const editingTextValue = ref('')
 const isConnected = ref(true) // Connection status for toasts
 
+// Multi-select state
+const selectedItemIds = ref<Set<string>>(new Set())
+const selectionBox = ref<{ x: number; y: number; width: number; height: number } | null>(null)
+const selectionStart = ref<{ x: number; y: number } | null>(null)
+const isSelecting = ref(false)
+const originalPositions = ref<Map<string, { x: number; y: number }>>(new Map())
+const selectionUpdateCounter = ref(0)
+const justFinishedBoxSelection = ref(false)
+
 // Canvas refs
 const canvasContainer = ref<HTMLElement | null>(null)
 const textInput = ref<HTMLInputElement | null>(null)
@@ -353,7 +459,25 @@ const pendingDragShapeId = ref<string | null>(null)
 const pendingDragEmojiId = ref<string | null>(null)
 const isDragging = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
-const originalPosition = ref({ x: 0, y: 0 })
+
+// Resize state
+const isResizing = ref(false)
+const resizingItemId = ref<string | null>(null)
+const resizeHandle = ref<string | null>(null)
+const resizeStart = ref({ 
+  x: 0, 
+  y: 0, 
+  width: 0, 
+  height: 0, 
+  radius: 0, 
+  size: 0,
+  itemX: 0,
+  itemY: 0
+})
+
+// Rotation state
+const initialRotations = ref<Map<string, number>>(new Map())
+const rotationStartAngle = ref(0)
 
 // Emoji system
 const {
@@ -395,7 +519,7 @@ const { startSync: startRealtimeSync, cleanup: cleanupRealtimeSync } = useRealti
 )
 
 // Undo/Redo functionality
-const { canUndo, canRedo, undo: undoAction, redo: redoAction, loadHistory } = useUndoRedo()
+const { canUndo, canRedo, undo: undoAction, redo: redoAction, loadHistory, isUndoRedoInProgress, recordAction } = useUndoRedo()
 
 // Wrapper functions for click handlers
 const undo = async () => {
@@ -418,6 +542,9 @@ function handleCanvasTouchStart(event: TouchEvent) {
   if (event.touches.length === 1) {
     const touch = event.touches[0]
     if (touch) {
+      // Prevent default to avoid scrolling
+      event.preventDefault()
+      
       const mouseEvent = new MouseEvent('mousedown', {
         clientX: touch.clientX,
         clientY: touch.clientY,
@@ -432,6 +559,9 @@ function handleCanvasTouchMove(event: TouchEvent) {
   if (event.touches.length === 1) {
     const touch = event.touches[0]
     if (touch) {
+      // Prevent default to avoid scrolling
+      event.preventDefault()
+      
       const mouseEvent = new MouseEvent('mousemove', {
         clientX: touch.clientX,
         clientY: touch.clientY
@@ -441,7 +571,9 @@ function handleCanvasTouchMove(event: TouchEvent) {
   }
 }
 
-function handleCanvasTouchEnd() {
+function handleCanvasTouchEnd(event: TouchEvent) {
+  // Prevent default to avoid scrolling
+  event.preventDefault()
   handleCanvasMouseUp()
 }
 
@@ -450,10 +582,15 @@ function startEmojiTouch(event: TouchEvent, emojiId: string) {
   if (event.touches.length === 1) {
     const touch = event.touches[0]
     if (touch) {
+      // Prevent default to avoid scrolling
+      event.preventDefault()
+      event.stopPropagation()
+      
       const mouseEvent = new MouseEvent('mousedown', {
         clientX: touch.clientX,
         clientY: touch.clientY,
-        button: 0
+        button: 0,
+        ctrlKey: event.ctrlKey || event.metaKey
       })
       startEmojiDrag(mouseEvent, emojiId)
     }
@@ -464,10 +601,15 @@ function startShapeTouch(event: TouchEvent, shapeId: string) {
   if (event.touches.length === 1) {
     const touch = event.touches[0]
     if (touch) {
+      // Prevent default to avoid scrolling
+      event.preventDefault()
+      event.stopPropagation()
+      
       const mouseEvent = new MouseEvent('mousedown', {
         clientX: touch.clientX,
         clientY: touch.clientY,
-        button: 0
+        button: 0,
+        ctrlKey: event.ctrlKey || event.metaKey
       })
       startShapeDrag(mouseEvent, shapeId)
     }
@@ -523,6 +665,57 @@ const allShapes = computed(() => {
   ]
 })
 
+// Multi-select computed properties
+const isMultiSelect = computed(() => selectedItemIds.value.size > 1)
+const selectedItemCount = computed(() => selectedItemIds.value.size)
+
+// Computed property to get selected emojis and shapes
+const selectedEmojis = computed(() => {
+  return emojis.value.filter(emoji => selectedItemIds.value.has(emoji.id))
+})
+
+const selectedShapes = computed(() => {
+  return allShapes.value.filter(shape => selectedItemIds.value.has(shape.id))
+})
+
+// Helper function to check if an item is selected
+const isItemSelected = (itemId: string) => {
+  return selectedItemIds.value.has(itemId)
+}
+
+// Group center calculation for rotation
+const groupCenter = computed(() => {
+  if (selectedItemIds.value.size === 0) return { x: 0, y: 0 }
+  
+  let totalX = 0
+  let totalY = 0
+  let count = 0
+  
+  // Calculate center from all selected items
+  selectedItemIds.value.forEach(id => {
+    // Check emojis
+    const emoji = getEmojiById(id)
+    if (emoji) {
+      totalX += emoji.x + (emoji.size || 48) / 2
+      totalY += emoji.y + (emoji.size || 48) / 2
+      count++
+      return
+    }
+    
+    // Check shapes
+    const shape = allShapes.value.find(s => s.id === id)
+    if (shape) {
+      const width = (shape as Rectangle).width || (shape as Circle).radius * 2 || 50
+      const height = (shape as Rectangle).height || (shape as Circle).radius * 2 || 50
+      totalX += shape.x + width / 2
+      totalY += shape.y + height / 2
+      count++
+    }
+  })
+  
+  return count > 0 ? { x: totalX / count, y: totalY / count } : { x: 0, y: 0 }
+})
+
 // Shape menu items
 const shapeMenuItems = computed(() => [
   [{
@@ -550,7 +743,99 @@ function setTool(tool: string) {
     currentTool.value = tool
     selectedEmojiId.value = null
     selectedShapeId.value = null
+    selectedItemIds.value.clear()
   }
+}
+
+// Multi-select helper functions
+function clearSelection() {
+  selectedItemIds.value = new Set()
+  selectedEmojiId.value = null
+  selectedShapeId.value = null
+  rotationAngle.value = 0
+  selectionUpdateCounter.value++
+}
+
+function selectItem(itemId: string, isEmoji: boolean = false) {
+  // Clear existing selection and select only this item
+  selectedItemIds.value = new Set([itemId])
+  selectionUpdateCounter.value++
+  
+  if (isEmoji) {
+    selectedEmojiId.value = itemId
+  } else {
+    selectedShapeId.value = itemId
+  }
+  
+  updateRotationFromSelection()
+  updateColorFromSelection()
+}
+
+function addToSelection(itemId: string, isEmoji: boolean = false) {
+  selectedItemIds.value = new Set([...selectedItemIds.value, itemId])
+  selectionUpdateCounter.value++
+  
+  if (isEmoji) {
+    selectedEmojiId.value = itemId
+  } else {
+    selectedShapeId.value = itemId
+  }
+  
+  updateRotationFromSelection()
+  updateColorFromSelection()
+}
+
+function removeFromSelection(itemId: string) {
+  const newSet = new Set(selectedItemIds.value)
+  newSet.delete(itemId)
+  selectedItemIds.value = newSet
+  selectionUpdateCounter.value++
+  
+  if (selectedEmojiId.value === itemId) {
+    selectedEmojiId.value = null
+  }
+  if (selectedShapeId.value === itemId) {
+    selectedShapeId.value = null
+  }
+  
+  updateRotationFromSelection()
+  updateColorFromSelection()
+}
+
+function isItemInSelectionBox(item: { x: number; y: number; width?: number; height?: number; radius?: number; size?: number }, box: { x: number; y: number; width: number; height: number }): boolean {
+  const itemWidth = item.width || item.radius! * 2 || item.size || 50
+  const itemHeight = item.height || item.radius! * 2 || item.size || 50
+  
+  // Ensure box has minimum size
+  if (box.width < 5 || box.height < 5) return false
+  
+  // Check if item intersects with selection box
+  const itemLeft = item.x
+  const itemRight = item.x + itemWidth
+  const itemTop = item.y
+  const itemBottom = item.y + itemHeight
+  
+  const boxLeft = Math.min(box.x, box.x + box.width)
+  const boxRight = Math.max(box.x, box.x + box.width)
+  const boxTop = Math.min(box.y, box.y + box.height)
+  const boxBottom = Math.max(box.y, box.y + box.height)
+  
+  const intersects = (
+    itemLeft < boxRight &&
+    itemRight > boxLeft &&
+    itemTop < boxBottom &&
+    itemBottom > boxTop
+  )
+  
+  console.log(`Intersection check:`, {
+    item: { x: item.x, y: item.y, width: itemWidth, height: itemHeight },
+    box: { x: box.x, y: box.y, width: box.width, height: box.height },
+    itemBounds: { left: itemLeft, right: itemRight, top: itemTop, bottom: itemBottom },
+    boxBounds: { left: boxLeft, right: boxRight, top: boxTop, bottom: boxBottom },
+    intersects
+  })
+  
+  return intersects
 }
 
 // Emoji functions
@@ -576,42 +861,78 @@ function handleEmojiSelect(emoji: string) {
 
 // Drag functions
 function startEmojiDrag(event: MouseEvent, emojiId: string) {
-  // Always select the emoji first
-  selectedEmojiId.value = emojiId
-  selectedShapeId.value = null
-  updateRotationFromSelection()
+  // Select the emoji (or add to selection if Ctrl/Cmd is held)
+  if (event.ctrlKey || event.metaKey) {
+    if (selectedItemIds.value.has(emojiId)) {
+      removeFromSelection(emojiId)
+    } else {
+      addToSelection(emojiId, true)
+    }
+  } else {
+    // If clicking on an item that's already selected in a multi-selection, don't change selection
+    if (isMultiSelect.value && selectedItemIds.value.has(emojiId)) {
+      // Keep current selection, just prepare for dragging
+    } else {
+      selectItem(emojiId, true)
+    }
+  }
   
   // Only prepare for dragging if select tool is active
   if (currentTool.value === 'select') {
-    // Don't start dragging immediately - wait for mouse movement
-    const emoji = getEmojiById(emojiId)
-    if (emoji) {
-      originalPosition.value = { x: emoji.x, y: emoji.y }
-      dragStart.value = { x: event.clientX, y: event.clientY }
-      // Store the emoji ID for potential dragging
-      pendingDragEmojiId.value = emojiId
-    }
+    // Store original positions for all selected items
+    originalPositions.value.clear()
+    selectedItemIds.value.forEach(id => {
+      const emoji = getEmojiById(id)
+      if (emoji) {
+        originalPositions.value.set(id, { x: emoji.x, y: emoji.y })
+      } else {
+        const shape = allShapes.value.find(s => s.id === id)
+        if (shape) {
+          originalPositions.value.set(id, { x: shape.x, y: shape.y })
+        }
+      }
+    })
+    
+    dragStart.value = { x: event.clientX, y: event.clientY }
+    pendingDragEmojiId.value = emojiId
   }
 }
 
 function startShapeDrag(event: MouseEvent, shapeId: string) {
-  // Always select the shape first
-  selectedShapeId.value = shapeId
-  selectedEmojiId.value = null
-  updateRotationFromSelection()
+  // Select the shape (or add to selection if Ctrl/Cmd is held)
+  if (event.ctrlKey || event.metaKey) {
+    if (selectedItemIds.value.has(shapeId)) {
+      removeFromSelection(shapeId)
+    } else {
+      addToSelection(shapeId, false)
+    }
+  } else {
+    // If clicking on an item that's already selected in a multi-selection, don't change selection
+    if (isMultiSelect.value && selectedItemIds.value.has(shapeId)) {
+      // Keep current selection, just prepare for dragging
+    } else {
+      selectItem(shapeId, false)
+    }
+  }
   
   // Only prepare for dragging if select tool is active
   if (currentTool.value === 'select') {
-    // Don't start dragging immediately - wait for mouse movement
-    const allShapesArray = allShapes.value
-      const shape = allShapesArray.find(s => s.id === shapeId) as any
+    // Store original positions for all selected items
+    originalPositions.value.clear()
+    selectedItemIds.value.forEach(id => {
+      const emoji = getEmojiById(id)
+      if (emoji) {
+        originalPositions.value.set(id, { x: emoji.x, y: emoji.y })
+      } else {
+        const shape = allShapes.value.find(s => s.id === id)
+        if (shape) {
+          originalPositions.value.set(id, { x: shape.x, y: shape.y })
+        }
+      }
+    })
     
-    if (shape) {
-      originalPosition.value = { x: shape.x, y: shape.y }
-      dragStart.value = { x: event.clientX, y: event.clientY }
-      // Store the shape ID for potential dragging
-      pendingDragShapeId.value = shapeId
-    }
+    dragStart.value = { x: event.clientX, y: event.clientY }
+    pendingDragShapeId.value = shapeId
   }
 }
 
@@ -620,63 +941,289 @@ function handleDrag(event: MouseEvent) {
     const deltaX = event.clientX - dragStart.value.x
     const deltaY = event.clientY - dragStart.value.y
     
-    // Handle emoji dragging
-    if (selectedEmojiId.value) {
-      const emoji = getEmojiById(selectedEmojiId.value)
+    // Move all selected items
+    selectedItemIds.value.forEach(id => {
+      const originalPos = originalPositions.value.get(id)
+      if (!originalPos) return
+      
+      // Check if it's an emoji
+      const emoji = getEmojiById(id)
       if (emoji) {
-        emoji.x = originalPosition.value.x + deltaX
-        emoji.y = originalPosition.value.y + deltaY
+        emoji.x = originalPos.x + deltaX
+        emoji.y = originalPos.y + deltaY
+        return
       }
-    }
-    
-    // Handle shape dragging
-  if (selectedShapeId.value) {
-      const allShapesArray = allShapes.value
-      const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+      
+      // Check if it's a shape
+      const shape = allShapes.value.find(s => s.id === id)
       if (shape) {
-        shape.x = originalPosition.value.x + deltaX
-        shape.y = originalPosition.value.y + deltaY
+        shape.x = originalPos.x + deltaX
+        shape.y = originalPos.y + deltaY
       }
-    }
+    })
   }
 }
 
 async function endDrag() {
   if (isDragging.value) {
-    // Handle emoji drag end
-    if (selectedEmojiId.value) {
-      const emoji = getEmojiById(selectedEmojiId.value)
+    // Persist all moved items to database
+    const updatePromises: Promise<unknown>[] = []
+    
+    selectedItemIds.value.forEach(id => {
+      // Check if it's an emoji
+      const emoji = getEmojiById(id)
       if (emoji) {
-        await updateEmoji(selectedEmojiId.value, {
+        updatePromises.push(updateEmoji(id, {
           x: emoji.x,
           y: emoji.y
-        })
+        }))
+        return
       }
-    }
-    
-    // Handle shape drag end - persist position changes to database
-    if (selectedShapeId.value) {
-      const allShapesArray = allShapes.value
-      const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+      
+      // Check if it's a shape
+      const shape = allShapes.value.find(s => s.id === id)
       if (shape) {
-        try {
-          // End drag operation for undo/redo batching
-          await endShapeDragOperation(selectedShapeId.value)
-          
-          await updateShape(selectedShapeId.value, {
-            x: shape.x,
-            y: shape.y
-          })
-        } catch (error) {
-          console.error('❌ Error updating shape position:', error)
-        }
+        updatePromises.push(
+          endShapeDragOperation(id).then(() => 
+            updateShape(id, {
+              x: shape.x,
+              y: shape.y
+            })
+          )
+        )
       }
+    })
+    
+    try {
+      await Promise.all(updatePromises)
+    } catch (error) {
+      console.error('❌ Error updating item positions:', error)
     }
     
     isDragging.value = false
-    selectedEmojiId.value = null
-    selectedShapeId.value = null
+    originalPositions.value.clear()
   }
+}
+
+// Resize functions
+function startResize(event: MouseEvent, handleType: string, itemId: string | null, isEmoji: boolean) {
+  if (!itemId) return
+  
+  event.preventDefault()
+  event.stopPropagation()
+  
+  isResizing.value = true
+  resizingItemId.value = itemId
+  resizeHandle.value = handleType
+  
+  // Get current item dimensions
+  if (isEmoji) {
+    const emoji = getEmojiById(itemId)
+    if (emoji) {
+      resizeStart.value = {
+        x: event.clientX,
+        y: event.clientY,
+        width: emoji.size,
+        height: emoji.size,
+        radius: 0,
+        size: emoji.size,
+        itemX: emoji.x,
+        itemY: emoji.y
+      }
+    }
+  } else {
+    const shape = allShapes.value.find(s => s.id === itemId)
+    if (shape) {
+      const width = (shape as Rectangle).width || (shape as Circle).radius * 2 || 50
+      const height = (shape as Rectangle).height || (shape as Circle).radius * 2 || 50
+      const radius = (shape as Circle).radius || 0
+      
+      resizeStart.value = {
+        x: event.clientX,
+        y: event.clientY,
+        width,
+        height,
+        radius,
+        size: 0,
+        itemX: shape.x,
+        itemY: shape.y
+      }
+    }
+  }
+}
+
+function handleResize(event: MouseEvent) {
+  if (!isResizing.value || !resizingItemId.value || !resizeHandle.value) return
+  
+  const deltaX = event.clientX - resizeStart.value.x
+  const deltaY = event.clientY - resizeStart.value.y
+  
+  // Check if it's an emoji
+  const emoji = getEmojiById(resizingItemId.value)
+  if (emoji) {
+    handleEmojiResize(deltaX, deltaY, emoji)
+    return
+  }
+  
+  // Check if it's a shape
+  const shape = allShapes.value.find(s => s.id === resizingItemId.value)
+  if (shape) {
+    handleShapeResize(deltaX, deltaY, shape)
+  }
+}
+
+function handleEmojiResize(deltaX: number, deltaY: number, emoji: any) {
+  if (!resizeHandle.value) return
+  
+  const baseSize = resizeStart.value.size
+  let newSize = baseSize
+  
+  // Calculate new size based on handle type
+  switch (resizeHandle.value) {
+    case 'nw':
+    case 'se':
+      // Diagonal resize - use average of X and Y deltas
+      newSize = Math.max(16, baseSize + (deltaX + deltaY) / 2)
+      break
+    case 'ne':
+    case 'sw':
+      // Diagonal resize - use average of X and Y deltas (inverted for ne/sw)
+      newSize = Math.max(16, baseSize + (-deltaX + deltaY) / 2)
+      break
+    case 'n':
+    case 's':
+      // Vertical resize
+      newSize = Math.max(16, baseSize + deltaY)
+      break
+    case 'e':
+    case 'w':
+      // Horizontal resize
+      newSize = Math.max(16, baseSize + deltaX)
+      break
+  }
+  
+  // Update emoji size
+  emoji.size = Math.round(newSize)
+}
+
+function handleShapeResize(deltaX: number, deltaY: number, shape: any) {
+  if (!resizeHandle.value) return
+  
+  const baseWidth = resizeStart.value.width
+  const baseHeight = resizeStart.value.height
+  const baseRadius = resizeStart.value.radius
+  
+  let newWidth = baseWidth
+  let newHeight = baseHeight
+  let newRadius = baseRadius
+  
+  // Calculate new dimensions based on handle type
+  switch (resizeHandle.value) {
+    case 'nw':
+      newWidth = Math.max(20, baseWidth - deltaX)
+      newHeight = Math.max(20, baseHeight - deltaY)
+      break
+    case 'ne':
+      newWidth = Math.max(20, baseWidth + deltaX)
+      newHeight = Math.max(20, baseHeight - deltaY)
+      break
+    case 'sw':
+      newWidth = Math.max(20, baseWidth - deltaX)
+      newHeight = Math.max(20, baseHeight + deltaY)
+      break
+    case 'se':
+      newWidth = Math.max(20, baseWidth + deltaX)
+      newHeight = Math.max(20, baseHeight + deltaY)
+      break
+    case 'n':
+      newHeight = Math.max(20, baseHeight - deltaY)
+      break
+    case 's':
+      newHeight = Math.max(20, baseHeight + deltaY)
+      break
+    case 'e':
+      newWidth = Math.max(20, baseWidth + deltaX)
+      break
+    case 'w':
+      newWidth = Math.max(20, baseWidth - deltaX)
+      break
+  }
+  
+  // Update shape properties based on type
+  if (shape.type === 'circle') {
+    // For circles, use the average of width and height for radius
+    const avgSize = (newWidth + newHeight) / 2
+    newRadius = Math.max(10, avgSize / 2)
+    shape.radius = Math.round(newRadius)
+  } else if (shape.type === 'rectangle') {
+    shape.width = Math.round(newWidth)
+    shape.height = Math.round(newHeight)
+  } else if (shape.type === 'text') {
+    // For text, update fontSize based on height
+    const fontSize = Math.max(12, Math.round(newHeight * 0.6))
+    shape.fontSize = fontSize
+  }
+}
+
+async function endResize() {
+  if (!isResizing.value || !resizingItemId.value) return
+  
+  try {
+    // Check if it's an emoji
+    const emoji = getEmojiById(resizingItemId.value)
+    if (emoji) {
+      // Record action for undo/redo
+      const beforeState = { size: resizeStart.value.size }
+      const afterState = { size: emoji.size }
+      
+      await updateEmoji(resizingItemId.value, {
+        size: emoji.size
+      })
+      
+      // Record undo/redo action
+      if (!isUndoRedoInProgress.value) {
+        await recordAction('update', 'emoji', resizingItemId.value, beforeState, afterState)
+      }
+    } else {
+      // Check if it's a shape
+      const shape = allShapes.value.find(s => s.id === resizingItemId.value)
+      if (shape) {
+        const updates: any = {}
+        const beforeState: any = {}
+        const afterState: any = {}
+        
+        if (shape.type === 'circle') {
+          updates.radius = shape.radius
+          beforeState.radius = resizeStart.value.radius
+          afterState.radius = shape.radius
+        } else if (shape.type === 'rectangle') {
+          updates.width = shape.width
+          updates.height = shape.height
+          beforeState.width = resizeStart.value.width
+          beforeState.height = resizeStart.value.height
+          afterState.width = shape.width
+          afterState.height = shape.height
+        } else if (shape.type === 'text') {
+          updates.fontSize = shape.fontSize
+          beforeState.fontSize = resizeStart.value.height * 0.6 // Approximate original fontSize
+          afterState.fontSize = shape.fontSize
+        }
+        
+        await updateShape(resizingItemId.value, updates)
+        
+        // Record undo/redo action
+        if (!isUndoRedoInProgress.value) {
+          await recordAction('update', shape.type as 'rectangle' | 'circle' | 'text', resizingItemId.value, beforeState, afterState)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error updating item size:', error)
+  }
+  
+  isResizing.value = false
+  resizingItemId.value = null
+  resizeHandle.value = null
 }
 
 // Shape functions
@@ -716,31 +1263,56 @@ async function addText() {
 }
 
 function selectShape(shapeId: string) {
-  selectedShapeId.value = shapeId
-  selectedEmojiId.value = null
-  updateRotationFromSelection()
-  updateColorFromSelection()
+  selectItem(shapeId, false)
 }
 
 
 // Canvas mouse handlers
 function handleCanvasClick(event: MouseEvent) {
   // Only deselect if clicking on empty canvas space (not on an emoji or shape)
-  if (event.target === canvasContainer.value) {
-    selectedEmojiId.value = null
-    selectedShapeId.value = null
-    rotationAngle.value = 0
+  // But don't clear if we just finished a box selection
+  if (event.target === canvasContainer.value && !isSelecting.value && !justFinishedBoxSelection.value) {
+    clearSelection()
   }
 }
 
-function handleCanvasMouseDown(_event: MouseEvent) {
-  // Canvas mouse down handler - currently no specific functionality
+function handleCanvasMouseDown(event: MouseEvent) {
+  // Start selection box if clicking on empty canvas
+  if (event.target === canvasContainer.value && currentTool.value === 'select') {
+    const rect = canvasContainer.value!.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    // Store the start coordinates separately
+    selectionStart.value = { x, y }
+    selectionBox.value = { x, y, width: 0, height: 0 }
+    isSelecting.value = true
+    selectedItemIds.value = new Set()
+  }
 }
 
 function handleCanvasMouseMove(event: MouseEvent) {
-  if (isDragging.value) {
+  if (isResizing.value) {
+    handleResize(event)
+  } else if (isDragging.value) {
     handleDrag(event)
-  } else if (pendingDragShapeId.value && currentTool.value === 'select') {
+  } else if (isSelecting.value && selectionBox.value && selectionStart.value) {
+    // Update selection box dimensions using stored start coordinates
+    const rect = canvasContainer.value!.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    // Calculate the selection box from start point to current point
+    const startX = selectionStart.value.x
+    const startY = selectionStart.value.y
+    
+    selectionBox.value = {
+      x: Math.min(startX, x),
+      y: Math.min(startY, y),
+      width: Math.abs(x - startX),
+      height: Math.abs(y - startY)
+    }
+  } else if ((pendingDragShapeId.value || pendingDragEmojiId.value) && currentTool.value === 'select') {
     // Start dragging when mouse actually moves
     const distance = Math.sqrt(
       Math.pow(event.clientX - dragStart.value.x, 2) + 
@@ -749,28 +1321,212 @@ function handleCanvasMouseMove(event: MouseEvent) {
     
     if (distance > 5) { // Minimum distance threshold to start dragging
       isDragging.value = true
-      selectedShapeId.value = pendingDragShapeId.value
-      startShapeDragOperation(pendingDragShapeId.value) // Start drag operation for undo/redo batching
+      
+      // Start drag operations for all selected items (for undo/redo batching)
+      selectedItemIds.value.forEach(id => {
+        const emoji = getEmojiById(id)
+        if (emoji) {
+          // Emojis don't need special drag operation handling
+        } else {
+          const shape = allShapes.value.find(s => s.id === id)
+          if (shape) {
+            startShapeDragOperation(id)
+          }
+        }
+      })
+      
+      // Clear pending drag IDs
       pendingDragShapeId.value = null
-    }
-  } else if (pendingDragEmojiId.value && currentTool.value === 'select') {
-    // Start dragging emoji when mouse actually moves
-    const distance = Math.sqrt(
-      Math.pow(event.clientX - dragStart.value.x, 2) + 
-      Math.pow(event.clientY - dragStart.value.y, 2)
-    )
-    
-    if (distance > 5) { // Minimum distance threshold to start dragging
-      isDragging.value = true
-      selectedEmojiId.value = pendingDragEmojiId.value
       pendingDragEmojiId.value = null
     }
   }
 }
 
-function handleCanvasMouseUp() {
-  if (isDragging.value) {
+async function handleCanvasMouseUp() {
+  if (isResizing.value) {
+    endResize()
+  } else if (isDragging.value) {
     endDrag()
+  } else if (isSelecting.value && selectionBox.value) {
+    // Finalize selection box - find intersecting items
+    const box = selectionBox.value
+    console.log('Selection box:', box)
+    console.log('Available emojis:', emojis.value.length)
+    console.log('Available shapes:', allShapes.value.length)
+    
+    if (box.width > 5 && box.height > 5) { // Minimum selection size
+      // Create a new Set to trigger Vue reactivity
+      const newSelection = new Set<string>()
+      
+      // Check emojis
+      emojis.value.forEach(emoji => {
+        const isIntersecting = isItemInSelectionBox(emoji, box)
+        console.log(`Emoji ${emoji.id} at (${emoji.x}, ${emoji.y}) intersects:`, isIntersecting)
+        if (isIntersecting) {
+          newSelection.add(emoji.id)
+        }
+      })
+      
+      // Check shapes
+      allShapes.value.forEach(shape => {
+        const isIntersecting = isItemInSelectionBox(shape, box)
+        console.log(`Shape ${shape.id} at (${shape.x}, ${shape.y}) intersects:`, isIntersecting)
+        if (isIntersecting) {
+          newSelection.add(shape.id)
+        }
+      })
+      
+      // Update the reactive Set
+      selectedItemIds.value = newSelection
+      selectionUpdateCounter.value++
+      
+      // Force a re-render by updating a dummy reactive value
+      await nextTick()
+      
+      console.log('Final selection:', Array.from(selectedItemIds.value))
+      console.log('isMultiSelect:', isMultiSelect.value)
+      console.log('selectedItemCount:', selectedItemCount.value)
+      console.log('selectionUpdateCounter:', selectionUpdateCounter.value)
+      console.log('groupCenter:', groupCenter.value)
+      console.log('currentTool:', currentTool.value)
+      console.log('isMultiSelect condition:', isMultiSelect.value && currentTool.value === 'select')
+      console.log('groupCenter valid:', groupCenter.value.x !== 0 || groupCenter.value.y !== 0)
+      
+      // Check if selection gets cleared after setting
+      setTimeout(() => {
+        console.log('⏰ SELECTION CHECK AFTER 100ms:', Array.from(selectedItemIds.value))
+      }, 100)
+      
+      // Test template reactivity by checking if any emoji should be selected
+      const firstSelectedId = Array.from(selectedItemIds.value)[0]
+      if (firstSelectedId) {
+        const testEmoji = emojis.value.find(e => e.id === firstSelectedId)
+        if (testEmoji) {
+          console.log('TEST - First selected emoji should have selected class:', {
+            id: testEmoji.id,
+            shouldBeSelected: selectedItemIds.value.has(testEmoji.id),
+            selectedItemIds: Array.from(selectedItemIds.value)
+          })
+        }
+      }
+      
+      // Test computed properties
+      console.log('selectedEmojis computed:', selectedEmojis.value.length)
+      console.log('selectedShapes computed:', selectedShapes.value.length)
+      
+      // Test helper function
+      const firstId = Array.from(selectedItemIds.value)[0]
+      if (firstId) {
+        console.log('isItemSelected test:', {
+          id: firstId,
+          result: isItemSelected(firstId),
+          selectedItemIds: Array.from(selectedItemIds.value)
+        })
+      }
+      
+      // Quick test: Check if any emoji has the selected class
+      const testEmoji = document.querySelector('.emoji-item.selected')
+      if (testEmoji) {
+        const htmlEl = testEmoji as HTMLElement
+        console.log('TEST - First selected emoji styles:', {
+          boxShadow: htmlEl.style.boxShadow,
+          outline: htmlEl.style.outline,
+          outlineOffset: htmlEl.style.outlineOffset
+        })
+      }
+      
+      // Check if multiselect UI elements exist
+      const multiselectUI = document.querySelector('[data-multiselect-ui]')
+      console.log('Multiselect UI element exists:', !!multiselectUI)
+      
+      // Check again after a short delay to see if it gets rendered
+      setTimeout(() => {
+        const multiselectUIDelayed = document.querySelector('[data-multiselect-ui]')
+        console.log('Multiselect UI element exists (delayed):', !!multiselectUIDelayed)
+        if (multiselectUIDelayed) {
+          const htmlEl = multiselectUIDelayed as HTMLElement
+          console.log('Multiselect UI position:', {
+            left: htmlEl.style.left,
+            top: htmlEl.style.top,
+            display: window.getComputedStyle(multiselectUIDelayed).display
+          })
+        }
+      }, 100)
+      
+      // Debug: Check if selected class is applied (immediate check)
+      try {
+        const selectedElements = document.querySelectorAll('.emoji-item.selected, .shape-item.selected')
+        console.log('Selected elements in DOM:', selectedElements.length)
+        console.log('selectedItemIds.value:', Array.from(selectedItemIds.value))
+        
+        // Check first few elements in detail
+        for (let i = 0; i < Math.min(3, selectedElements.length); i++) {
+          const el = selectedElements[i]
+          if (!el) continue
+          
+          const computedStyle = window.getComputedStyle(el)
+          const htmlEl = el as HTMLElement
+          console.log(`Element ${i}:`, {
+            className: el.className,
+            id: el.getAttribute('data-id') || 'no-id',
+            hasSelectedClass: el.classList.contains('selected'),
+            inlineBoxShadow: htmlEl.style.boxShadow,
+            inlineOutline: htmlEl.style.outline,
+            inlineBackgroundColor: htmlEl.style.backgroundColor,
+            computedBoxShadow: computedStyle.boxShadow,
+            computedOutline: computedStyle.outline,
+            computedOutlineOffset: computedStyle.outlineOffset,
+            computedBackgroundColor: computedStyle.backgroundColor,
+            computedDisplay: computedStyle.display,
+            computedVisibility: computedStyle.visibility,
+            computedOpacity: computedStyle.opacity
+          })
+        }
+        
+        // Also check all emoji and shape elements
+        const allEmojis = document.querySelectorAll('.emoji-item')
+        const allShapes = document.querySelectorAll('.shape-item')
+        console.log('All emojis:', allEmojis.length, 'All shapes:', allShapes.length)
+      } catch (error) {
+        console.error('Debug error:', error)
+      }
+      
+      // Update UI state based on selection
+      if (selectedItemIds.value.size > 0) {
+        const firstId = Array.from(selectedItemIds.value)[0]
+        if (firstId) {
+          // Only set single selection IDs if we have exactly one item selected
+          if (selectedItemIds.value.size === 1) {
+            const emoji = getEmojiById(firstId)
+            if (emoji) {
+              selectedEmojiId.value = firstId
+              console.log('Set selectedEmojiId to:', firstId)
+            } else {
+              selectedShapeId.value = firstId
+              console.log('Set selectedShapeId to:', firstId)
+            }
+          } else {
+            // For multiselect, clear single selection IDs
+            selectedEmojiId.value = null
+            selectedShapeId.value = null
+            console.log('Multiselect - cleared single selection IDs')
+          }
+          updateRotationFromSelection()
+          updateColorFromSelection()
+        }
+      }
+    }
+    
+    // Clear selection box
+    selectionBox.value = null
+    selectionStart.value = null
+    isSelecting.value = false
+    
+    // Set flag to prevent click handler from clearing selection
+    justFinishedBoxSelection.value = true
+    setTimeout(() => {
+      justFinishedBoxSelection.value = false
+    }, 100)
   }
   
   // Clear pending drag state
@@ -840,25 +1596,54 @@ function cancelEditText() {
 function handleRotationChange(angle: number | undefined) {
   if (angle === undefined) return
   
-  rotationAngle.value = angle
-  
-  // Update emoji rotation
-  if (selectedEmojiId.value) {
-    const emoji = getEmojiById(selectedEmojiId.value)
-    if (emoji) {
-      emoji.rotation = angle
-      updateEmoji(selectedEmojiId.value, { rotation: angle })
-    }
+  // Ensure angle is a number, not an array
+  const numericAngle = Array.isArray(angle) ? angle[0] : angle
+  if (typeof numericAngle !== 'number' || isNaN(numericAngle)) {
+    console.warn('Invalid angle received:', angle)
+    return
   }
   
-  // Update shape rotation
-  if (selectedShapeId.value) {
-    const allShapesArray = allShapes.value
-    const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
-    if (shape) {
-      shape.rotation = angle
-      // Persist rotation to database
-      updateShape(selectedShapeId.value, { rotation: angle })
+  rotationAngle.value = numericAngle
+  
+  if (isMultiSelect.value) {
+    // Individual rotation - each item rotates around its own center
+    selectedItemIds.value.forEach(id => {
+      // Check if it's an emoji
+      const emoji = getEmojiById(id)
+      if (emoji) {
+        const initialRotation = initialRotations.value.get(id) || 0
+        emoji.rotation = initialRotation + numericAngle
+        
+        // Don't update database during rotation - only update visual state
+        return
+      }
+      
+      // Check if it's a shape
+      const shape = allShapes.value.find(s => s.id === id)
+      if (shape) {
+        const initialRotation = initialRotations.value.get(id) || 0
+        shape.rotation = initialRotation + numericAngle
+        
+        // Don't update database during rotation - only update visual state
+      }
+    })
+  } else {
+    // Single item rotation
+    if (selectedEmojiId.value) {
+      const emoji = getEmojiById(selectedEmojiId.value)
+      if (emoji) {
+        emoji.rotation = numericAngle
+        // Don't update database during rotation - only update visual state
+      }
+    }
+    
+    if (selectedShapeId.value) {
+      const allShapesArray = allShapes.value
+      const shape = allShapesArray.find(s => s.id === selectedShapeId.value)
+      if (shape) {
+        shape.rotation = numericAngle
+        // Don't update database during rotation - only update visual state
+      }
     }
   }
 }
@@ -869,14 +1654,30 @@ function resetRotation() {
 }
 
 async function deleteSelectedItem() {
-  if (selectedEmojiId.value) {
-    await deleteEmoji(selectedEmojiId.value)
-    selectedEmojiId.value = null
-    rotationAngle.value = 0
-  } else if (selectedShapeId.value) {
-    await deleteShape(selectedShapeId.value)
-    selectedShapeId.value = null
-    rotationAngle.value = 0
+  if (selectedItemIds.value.size === 0) return
+  
+  // Delete all selected items in parallel
+  const deletePromises: Promise<boolean>[] = []
+  
+  selectedItemIds.value.forEach(id => {
+    // Check if it's an emoji
+    const emoji = getEmojiById(id)
+    if (emoji) {
+      deletePromises.push(deleteEmoji(id))
+    } else {
+      // Check if it's a shape
+      const shape = allShapes.value.find(s => s.id === id)
+      if (shape) {
+        deletePromises.push(deleteShape(id))
+      }
+    }
+  })
+  
+  try {
+    await Promise.all(deletePromises)
+    clearSelection()
+  } catch (error) {
+    console.error('❌ Error deleting selected items:', error)
   }
 }
 
@@ -934,20 +1735,78 @@ function getSelectedShape() {
 
 function startRotation(event: MouseEvent) {
   isRotating.value = true
-  const rect = (event.target as HTMLElement).getBoundingClientRect()
-  const centerX = rect.left + rect.width / 2
-  const centerY = rect.top + rect.height / 2
+  
+  // Store initial rotation values for all selected items
+  initialRotations.value.clear()
+  selectedItemIds.value.forEach(id => {
+    const emoji = getEmojiById(id)
+    if (emoji) {
+      const initialRot = emoji.rotation || 0
+      initialRotations.value.set(id, initialRot)
+    } else {
+      const shape = allShapes.value.find(s => s.id === id)
+      if (shape) {
+        const initialRot = shape.rotation || 0
+        initialRotations.value.set(id, initialRot)
+      }
+    }
+  })
+  
+  // Calculate center point for rotation
+  let centerX: number, centerY: number
+  
+  if (isMultiSelect.value) {
+    // For multi-select, use the group center for the rotation handle position
+    // but each item will rotate around its own center
+    const center = groupCenter.value
+    const canvasRect = canvasContainer.value!.getBoundingClientRect()
+    centerX = canvasRect.left + center.x
+    centerY = canvasRect.top + center.y
+  } else {
+    // Use rotation handle center for single select
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
+    centerX = rect.left + rect.width / 2
+    centerY = rect.top + rect.height / 2
+  }
+  
+  // Calculate initial angle
+  const initialAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI)
+  rotationStartAngle.value = initialAngle
   
   const handleMouseMove = (e: MouseEvent) => {
     if (isRotating.value) {
-      const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
-      const normalizedAngle = (angle + 360) % 360
+      const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
+      const deltaAngle = currentAngle - initialAngle
+      const normalizedAngle = (deltaAngle + 360) % 360
       handleRotationChange(Math.round(normalizedAngle))
     }
   }
   
   const handleMouseUp = () => {
     isRotating.value = false
+    
+    // Save all rotation changes to database
+    selectedItemIds.value.forEach(id => {
+      const emoji = getEmojiById(id)
+      if (emoji) {
+        updateEmoji(id, { 
+          x: emoji.x, 
+          y: emoji.y, 
+          rotation: emoji.rotation 
+        })
+      } else {
+        const shape = allShapes.value.find(s => s.id === id)
+        if (shape) {
+          updateShape(id, { 
+            x: shape.x, 
+            y: shape.y, 
+            rotation: shape.rotation 
+          })
+        }
+      }
+    })
+    
+    initialRotations.value.clear()
     document.removeEventListener('mousemove', handleMouseMove)
     document.removeEventListener('mouseup', handleMouseUp)
   }
@@ -960,10 +1819,21 @@ function startRotation(event: MouseEvent) {
 // Keyboard shortcuts
 onMounted(() => {
   const handleKeyDown = async (event: KeyboardEvent) => {
-    // AI chat toggle (Cmd/Ctrl + K)
+    // Check if user is typing in an input field
+    const isTypingInInput = event.target instanceof HTMLInputElement || 
+                           event.target instanceof HTMLTextAreaElement ||
+                           event.target instanceof HTMLSelectElement ||
+                           (event.target as HTMLElement)?.contentEditable === 'true'
+    
+    // AI chat toggle (Cmd/Ctrl + K) - allow this even when typing
     if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
       event.preventDefault()
       showAIChat.value = !showAIChat.value
+    }
+    
+    // Skip other shortcuts if typing in input field
+    if (isTypingInInput) {
+      return
     }
     
     // Undo (Cmd/Ctrl + Z)
@@ -986,23 +1856,13 @@ onMounted(() => {
     // Deselect all items (Escape key)
     if (event.key === 'Escape') {
       event.preventDefault()
-      selectedEmojiId.value = null
-      selectedShapeId.value = null
-      rotationAngle.value = 0
+      clearSelection()
     }
     
-    // Delete selected item (Delete or Backspace key)
+    // Delete selected items (Delete or Backspace key)
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault()
-      if (selectedEmojiId.value) {
-        await deleteEmoji(selectedEmojiId.value)
-        selectedEmojiId.value = null
-        rotationAngle.value = 0
-      } else if (selectedShapeId.value) {
-        await deleteShape(selectedShapeId.value)
-        selectedShapeId.value = null
-        rotationAngle.value = 0
-      }
+      await deleteSelectedItem()
     }
   }
   
@@ -1026,6 +1886,9 @@ onScopeDispose(() => {
   transition: all 0.2s ease;
   will-change: transform;
   touch-action: none; /* Prevent default touch behaviors */
+  -webkit-touch-callout: none; /* Disable callout on iOS */
+  -webkit-user-select: none; /* Disable text selection on iOS */
+  user-select: none; /* Disable text selection */
 }
 
 .emoji-item:hover {
@@ -1041,6 +1904,9 @@ onScopeDispose(() => {
   transition: all 0.2s ease;
   will-change: transform;
   touch-action: none; /* Prevent default touch behaviors */
+  -webkit-touch-callout: none; /* Disable callout on iOS */
+  -webkit-user-select: none; /* Disable text selection on iOS */
+  user-select: none; /* Disable text selection */
 }
 
 .shape-item:hover {
@@ -1058,6 +1924,9 @@ onScopeDispose(() => {
   transform: translateZ(0);
   will-change: transform;
   touch-action: none; /* Prevent scrolling on canvas */
+  -webkit-touch-callout: none; /* Disable callout on iOS */
+  -webkit-user-select: none; /* Disable text selection on iOS */
+  user-select: none; /* Disable text selection */
 }
 
 /* Mobile-specific optimizations */
@@ -1098,4 +1967,11 @@ onScopeDispose(() => {
   transform: translateZ(0);
   will-change: transform;
 }
+
+/* Selection styles - ultra high specificity to override Nuxt UI */
+.canvas-container .emoji-item.selected,
+.canvas-container .shape-item.selected {
+  position: relative !important;
+}
+
 </style>

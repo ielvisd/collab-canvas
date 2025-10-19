@@ -62,8 +62,20 @@
         </UDropdownMenu>
       </div>
 
+      <!-- Multi-select Badge -->
+      <div v-if="selectedItemCount > 1" class="flex items-center justify-center">
+        <UBadge 
+          color="primary" 
+          variant="solid" 
+          size="sm"
+          class="font-body"
+        >
+          {{ selectedItemCount }} items selected
+        </UBadge>
+      </div>
+
       <!-- Contextual Controls -->
-      <div v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'" class="space-y-2 pt-2 border-t border-pink-400/30">
+      <div v-if="(selectedEmojiId || selectedShapeId || selectedItemCount > 0) && currentTool === 'select'" class="space-y-2 pt-2 border-t border-pink-400/30">
         <!-- Rotation Controls -->
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-pink-300" />
@@ -149,14 +161,16 @@
         <USeparator orientation="vertical" class="h-6" />
         
         <UButton 
-          v-if="selectedEmojiId || selectedShapeId"
+          v-if="selectedItemCount > 0"
           icon="i-lucide-trash-2"
           color="error" 
           variant="solid" 
           size="xs"
           class="font-body text-white bg-red-500 hover:bg-red-600"
           @click="$emit('delete-selected')"
-        />
+        >
+          {{ selectedItemCount > 1 ? `Delete ${selectedItemCount} items` : 'Delete' }}
+        </UButton>
         
         <UButton 
           icon="i-lucide-trash-2"
@@ -243,8 +257,20 @@
         </UDropdownMenu>
       </div>
 
+      <!-- Multi-select Badge for Mobile -->
+      <div v-if="selectedItemCount > 1" class="flex items-center justify-center">
+        <UBadge 
+          color="primary" 
+          variant="solid" 
+          size="md"
+          class="font-body"
+        >
+          {{ selectedItemCount }} items selected
+        </UBadge>
+      </div>
+
       <!-- Contextual Controls for Mobile -->
-      <div v-if="(selectedEmojiId || selectedShapeId) && currentTool === 'select'" class="space-y-3 pt-3 border-t border-pink-400/30">
+      <div v-if="(selectedEmojiId || selectedShapeId || selectedItemCount > 0) && currentTool === 'select'" class="space-y-3 pt-3 border-t border-pink-400/30">
         <!-- Rotation Controls -->
         <div class="space-y-2">
           <div class="flex items-center gap-2">
@@ -336,14 +362,16 @@
         />
         
         <UButton 
-          v-if="selectedEmojiId || selectedShapeId"
+          v-if="selectedItemCount > 0"
           icon="i-lucide-trash-2"
           color="error" 
           variant="solid" 
           size="sm"
           class="font-body text-white bg-red-500 hover:bg-red-600 flex-1 h-12"
           @click="$emit('delete-selected')"
-        />
+        >
+          {{ selectedItemCount > 1 ? `Delete ${selectedItemCount} items` : 'Delete' }}
+        </UButton>
         
         <UButton 
           icon="i-lucide-trash-2"
@@ -374,6 +402,7 @@ interface Props {
   currentTool: string
   selectedEmojiId: string | null
   selectedShapeId: string | null
+  selectedItemCount: number
   rotationAngle: number
   selectedShapeColor: string
   canUndo: boolean

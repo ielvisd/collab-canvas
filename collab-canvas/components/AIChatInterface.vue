@@ -3,10 +3,10 @@
     <!-- AI Chat Panel -->
     <div
       v-if="props.showChat"
-      class="fixed bottom-4 right-4 z-50 w-[420px] h-[500px] bg-black/90 border-2 border-pink-500 rounded-xl shadow-2xl flex flex-col backdrop-blur-sm"
+      class="fixed inset-4 sm:bottom-4 sm:right-4 sm:inset-auto z-50 w-[calc(100vw-2rem)] max-w-[420px] h-[calc(100vh-2rem)] max-h-[500px] sm:w-[420px] sm:h-[500px] bg-black/90 border-2 border-pink-500 rounded-xl shadow-2xl flex flex-col backdrop-blur-sm"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b-2 border-pink-500">
+      <div class="flex items-center justify-between p-3 sm:p-4 border-b-2 border-pink-500">
         <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-sparkles" class="w-5 h-5 text-pink-400 animate-pulse" />
           <h3 class="text-lg font-semibold font-display text-pink-300">🤖 AI Artist</h3>
@@ -21,37 +21,29 @@
       </div>
 
       <!-- Messages Area -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         <div v-if="messages.length === 0" class="text-center text-pink-200">
           <UIcon name="i-heroicons-sparkles" class="w-8 h-8 mx-auto mb-2 text-pink-400 animate-pulse" />
           <p class="text-sm font-medium">🎨 AI Emoji Canvas</p>
           <div class="mt-3 space-y-2 text-xs">
-            <div class="grid grid-cols-2 gap-2 text-pink-200">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-pink-200">
               <div>
                 <p class="font-medium text-pink-300 mb-1">✨ Positioning:</p>
                 <p>• "Pizza in top-left corner"</p>
-                <p>• "Three cats in middle row"</p>
-                <p>• "Border of cheese wedges"</p>
               </div>
               <div>
                 <p class="font-medium text-pink-300 mb-1">🔤 Spelling:</p>
                 <p>• "Spell 'PIZZA' with pizza"</p>
-                <p>• "Write 'HELLO' vertically"</p>
-                <p>• "Spell 'CAT' using cats"</p>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2 text-pink-200">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-pink-200">
               <div>
                 <p class="font-medium text-pink-300 mb-1">🎭 Effects:</p>
                 <p>• "Move cats with heart trails"</p>
-                <p>• "Alternating stars and moons"</p>
-                <p>• "Shift scene to the right"</p>
               </div>
               <div>
                 <p class="font-medium text-pink-300 mb-1">🌟 Complex:</p>
                 <p>• "Rocket + star patterns"</p>
-                <p>• "Mirror left to right"</p>
-                <p>• "Sloth with coffee emojis"</p>
               </div>
             </div>
           </div>
@@ -102,7 +94,7 @@
       </div>
 
       <!-- Input Area -->
-      <div class="p-4 border-t-2 border-pink-500">
+      <div class="p-3 sm:p-4 border-t-2 border-pink-500">
         <form class="flex gap-2" @submit.prevent="handleSubmit">
           <UInput
             v-model="input"
@@ -126,7 +118,7 @@
             :key="quickAction.label"
             size="xs"
             variant="outline"
-            class="text-pink-200 border-pink-400 hover:bg-pink-500/20 hover:text-white"
+            class="text-pink-200 border-pink-400 hover:bg-pink-500/20 hover:text-white text-xs px-2 py-1"
             @click="input = quickAction.command"
           >
             {{ quickAction.label }}
@@ -168,11 +160,7 @@ const quickActions = [
   { label: '🔤 Spell PIZZA', command: 'Spell PIZZA with pizza emojis' },
   { label: '🐱 Cat Trail', command: 'Move cats leaving paw-print hearts behind' },
   { label: '⭐ Star Border', command: 'Create a border of stars around the canvas' },
-  { label: '🌙 Alternating', command: 'Fill the top row with alternating stars and moons' },
-  { label: '🔄 Mirror', command: 'Mirror the left side to the right' },
   { label: '🚀 Rocket Scene', command: 'Put a rocket in bottom-right, fill top with stars' },
-  { label: '🔤 Spell HELLO', command: 'Spell HELLO vertically with hearts' },
-  { label: '🧀 Cheese Border', command: 'Create a border of cheese wedges' },
   { label: '🧹 Clear', command: 'Delete all emojis from the canvas' }
 ]
 

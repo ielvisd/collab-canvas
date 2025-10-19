@@ -534,6 +534,45 @@ async function parseAIResponse(response: any) {
   
   console.log('🔍 Parsing AI response:', JSON.stringify(response, null, 2))
 
+  // First check if there's a valid tool call in the content field
+  if (response && typeof response === 'object' && typeof response.content === 'string') {
+    const content = response.content as string
+    console.log('🔍 Processing content for tool calls:', content)
+    
+    // First try to parse the entire content as a single tool call
+    try {
+      const toolCall = JSON.parse(content)
+      if (toolCall.name && toolCall.arguments) {
+        console.log('🔍 Found single tool call in content:', toolCall)
+        const name = toolCall.name
+        const args = toolCall.arguments
+        
+        if (name === 'spellWord') {
+          commands.push({ action: 'spell-word', ...args })
+        } else if (name === 'createBorder') {
+          commands.push({ action: 'create-border', ...args })
+        } else if (name === 'createAlternatingPattern') {
+          commands.push({ action: 'create-alternating-pattern', ...args })
+        } else if (name === 'shiftScene') {
+          commands.push({ action: 'shift-scene', ...args })
+        } else if (name === 'mirrorScene') {
+          commands.push({ action: 'mirror-scene', ...args })
+        } else if (name === 'createShape') {
+          commands.push({ action: 'create-shape', ...args })
+        } else if (name === 'createEmojiStory') {
+          commands.push({ action: 'create-emoji-story', ...args })
+        }
+        
+        if (commands.length > 0) {
+          console.log('🔍 Extracted commands from content:', commands)
+          return commands
+        }
+      }
+    } catch (e) {
+      console.log('🔍 Content is not a single tool call, trying other methods')
+    }
+  }
+
   if (response && typeof response === 'object' && Array.isArray(response.tool_calls) && response.tool_calls.length) {
     console.log('🔍 Found tool calls:', response.tool_calls.length)
     for (const call of response.tool_calls) {
@@ -588,102 +627,6 @@ async function parseAIResponse(response: any) {
     return commands
   }
 
-  // If content-based response, try to extract JSON tool calls
-  if (response && typeof response === 'object' && typeof response.content === 'string') {
-    const content = response.content as string
-    console.log('🔍 Processing content for tool calls:', content)
-    
-    // First try to parse the entire content as a single tool call
-    try {
-      const toolCall = JSON.parse(content)
-      if (toolCall.name && toolCall.arguments) {
-        console.log('🔍 Found single tool call in content:', toolCall)
-        const name = toolCall.name
-        const args = toolCall.arguments
-        
-        if (name === 'spellWord') {
-          commands.push({ action: 'spell-word', ...args })
-        } else if (name === 'createBorder') {
-          commands.push({ action: 'create-border', ...args })
-        } else if (name === 'createAlternatingPattern') {
-          commands.push({ action: 'create-alternating-pattern', ...args })
-        } else if (name === 'shiftScene') {
-          commands.push({ action: 'shift-scene', ...args })
-        } else if (name === 'mirrorScene') {
-          commands.push({ action: 'mirror-scene', ...args })
-        } else if (name === 'createShape') {
-          commands.push({ action: 'create-shape', ...args })
-        } else if (name === 'createEmojiStory') {
-          commands.push({ action: 'create-emoji-story', ...args })
-        }
-        
-        if (commands.length > 0) {
-          console.log('🔍 Extracted commands from content:', commands)
-          return commands
-        }
-      }
-    } catch (e) {
-      console.log('🔍 Content is not a single tool call, trying multiple JSON extraction')
-    }
-    
-    // Fallback to multiple JSON extraction
-    const jsons: string[] = []
-    let i = content.indexOf('{')
-    while (i >= 0) {
-      let braces = 0
-      const start = i
-      let j = i
-      for (; j < content.length; j++) {
-        if (content[j] === '{') braces++
-        if (content[j] === '}') braces--
-        if (braces === 0) break
-      }
-      if (braces === 0 && j > start) {
-        jsons.push(content.substring(start, j + 1))
-        i = content.indexOf('{', j + 1)
-      } else break
-    }
-
-    for (const jstr of jsons) {
-      try {
-        const parsed = JSON.parse(jstr)
-        if (parsed.name === 'createEmojiStory') {
-          let emojis = parsed.arguments?.emojis ?? []
-          if (typeof emojis === 'string') {
-            try { emojis = JSON.parse(emojis) } catch { emojis = [] }
-          }
-          if (!Array.isArray(emojis) || emojis.length === 0) emojis = generateEmojisFromStory(String(parsed.arguments?.story || ''))
-          commands.push({ action: 'create-emoji-story', story: parsed.arguments?.story, emojis })
-        } else if (parsed.name === 'createShape') {
-          commands.push({ action: 'create-shape', ...(parsed.arguments || {}) })
-        } else if (parsed.name === 'arrangeEmojisInShape') {
-          let emojis = parsed.arguments?.emojis ?? []
-          if (typeof emojis === 'string') {
-            try { emojis = JSON.parse(emojis) } catch { emojis = [] }
-          }
-          if (!Array.isArray(emojis) || emojis.length === 0) {
-            const args = parsed.arguments || {}
-            emojis = arrangeInShape(String(args.emoji), Number(args.count), String(args.shape), Number(args.centerX ?? CANVAS.centerX), Number(args.centerY ?? CANVAS.centerY), Number(args.radius ?? 120), Number(args.size ?? 40), Number(args.layer ?? 2))
-          }
-          commands.push({ action: 'create-emoji-story', story: `${parsed.arguments?.count} ${parsed.arguments?.emoji} arranged in a ${parsed.arguments?.shape}`, emojis })
-        } else if (parsed.name === 'clearAllShapes') {
-          commands.push({ action: 'clear-all' })
-        } else if (parsed.name === 'moveEmojis') {
-          commands.push({ action: 'move-emojis', ...(parsed.arguments || {}) })
-        } else if (parsed.name === 'rotateEmojis') {
-          commands.push({ action: 'rotate-emojis', ...(parsed.arguments || {}) })
-        } else if (parsed.name === 'moveAllShapes') {
-          commands.push({ action: 'move-all-emojis', ...(parsed.arguments || {}) })
-        } else {
-          commands.push({ action: parsed.name, ...(parsed.arguments || {}) })
-        }
-      } catch {
-        // ignore parse failures silently
-      }
-    }
-
-    if (commands.length) return commands
-  }
 
   // Last-resort fallback: generate simple scene based on last user message
   return [buildFallbackCommand((response && response.response) || '')].filter(Boolean)

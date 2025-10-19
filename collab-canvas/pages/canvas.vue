@@ -90,8 +90,22 @@
               @touchmove.stop="handleEmojiTouchMove($event, emoji.id)"
               @touchend.stop="handleEmojiTouchEnd($event, emoji.id)"
               @dblclick="editEmoji(emoji.id)"
+              @gesturestart.stop="handleGestureStart($event, emoji.id)"
+              @gesturechange.stop="handleGestureChange($event, emoji.id)"
+              @gestureend.stop="handleGestureEnd($event, emoji.id)"
             >
               {{ emoji.emoji }}
+              
+              <!-- Mobile Delete Button - appears when item is selected on mobile -->
+              <div
+                v-if="isMobile && isItemSelected(emoji.id)"
+                class="absolute -top-2 -right-2 z-50"
+                @click.stop="deleteSingleEmoji(emoji.id)"
+              >
+                <div class="bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg cursor-pointer transition-colors">
+                  <UIcon name="i-lucide-x" class="w-3 h-3" />
+                </div>
+              </div>
             </div>
 
             <!-- Selection Box -->
@@ -122,6 +136,40 @@
               <div class="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full"/>
             </div>
 
+            <!-- Mobile Floating Action Button for Selected Items -->
+            <div
+              v-if="isMobile && selectedItemIds.size > 0"
+              class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+            >
+              <!-- Delete Button -->
+              <button
+                class="bg-red-500 hover:bg-red-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-colors"
+                :title="`Delete ${selectedItemIds.size} item${selectedItemIds.size > 1 ? 's' : ''}`"
+                @click="deleteSelectedItem"
+              >
+                <UIcon name="i-lucide-trash-2" class="w-6 h-6" />
+              </button>
+              
+              <!-- Copy Button -->
+              <button
+                class="bg-blue-500 hover:bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-colors"
+                title="Copy selected items"
+                @click="handleCopy"
+              >
+                <UIcon name="i-lucide-copy" class="w-6 h-6" />
+              </button>
+              
+              <!-- Paste Button (if clipboard has data) -->
+              <button
+                v-if="clipboardHasData"
+                class="bg-green-500 hover:bg-green-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-colors"
+                title="Paste items"
+                @click="handlePaste"
+              >
+                <UIcon name="i-lucide-clipboard" class="w-6 h-6" />
+              </button>
+            </div>
+
 
             <!-- Desktop Pan Mode Indicator -->
             <div v-if="!isMobile && isSpacePressed" class="absolute top-2 left-2 z-50">
@@ -133,11 +181,11 @@
 
             <!-- Selection Handles (Rotation + Resize) -->
             <div
-              v-if="selectedEmojiId"
+              v-if="selectedEmojiId || (isMobile && selectedItemIds.size > 0)"
               class="absolute pointer-events-none"
               :style="{
-                left: getEmojiById(selectedEmojiId)?.x + 'px',
-                top: getEmojiById(selectedEmojiId)?.y + 'px',
+                left: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.x : getCenterOfSelection().x) + 'px',
+                top: (selectedEmojiId ? getEmojiById(selectedEmojiId)?.y : getCenterOfSelection().y) + 'px',
                 width: '0px',
                 height: '0px',
                 zIndex: 1002,
@@ -149,7 +197,7 @@
               <div
                 class="absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg cursor-pointer pointer-events-auto flex items-center justify-center"
                 @mousedown.stop="startRotation"
-                @touchstart.stop="(event: TouchEvent) => startRotation(event as unknown as MouseEvent)"
+                @touchstart.stop="startRotationTouch"
               >
                 <UIcon name="i-lucide-rotate-3d" class="w-3 h-3 text-white" />
               </div>
@@ -701,6 +749,58 @@ function handleEmojiTouchEnd(event: TouchEvent, _emojiId: string) {
   event.stopPropagation()
   
   handleCanvasMouseUp()
+}
+
+// Gesture handling for mobile rotation
+const gestureStartRotation = ref(0)
+const isGestureRotating = ref(false)
+
+function handleGestureStart(event: Event, emojiId: string) {
+  if (isItemSelected(emojiId)) {
+    isGestureRotating.value = true
+    const emoji = getEmojiById(emojiId)
+    if (emoji) {
+      gestureStartRotation.value = emoji.rotation || 0
+    }
+  }
+}
+
+function handleGestureChange(event: Event, emojiId: string) {
+  if (isGestureRotating.value && isItemSelected(emojiId)) {
+    // Gesture events are not well typed in TypeScript, so we need to cast
+    const gestureEvent = event as Event & { rotation?: number }
+    const rotation = gestureEvent.rotation || 0
+    const degrees = (rotation * 180) / Math.PI
+    const newRotation = (gestureStartRotation.value + degrees) % 360
+    
+    // Apply rotation to all selected items
+    for (const selectedId of selectedItemIds.value) {
+      const emoji = getEmojiById(selectedId)
+      if (emoji) {
+        emoji.rotation = newRotation
+      }
+    }
+    
+    rotationAngle.value = newRotation
+  }
+}
+
+function handleGestureEnd(_event: Event, _emojiId: string) {
+  if (isGestureRotating.value) {
+    isGestureRotating.value = false
+    
+    // Save rotation changes to database for all selected emojis
+    for (const selectedId of selectedItemIds.value) {
+      const emoji = getEmojiById(selectedId)
+      if (emoji) {
+        updateEmoji(selectedId, { 
+          x: emoji.x, 
+          y: emoji.y, 
+          rotation: emoji.rotation 
+        })
+      }
+    }
+  }
 }
 
 // Pan and zoom handlers
@@ -1259,6 +1359,24 @@ async function deleteSelectedItem() {
   }
 }
 
+async function deleteSingleEmoji(emojiId: string) {
+  try {
+    await deleteEmoji(emojiId)
+    // Remove from selection if it was selected
+    if (selectedItemIds.value.has(emojiId)) {
+      selectedItemIds.value.delete(emojiId)
+      if (selectedEmojiId.value === emojiId) {
+        selectedEmojiId.value = selectedItemIds.value.size > 0 
+          ? Array.from(selectedItemIds.value)[0] ?? null
+          : null
+      }
+      selectedItemIds.value = new Set(selectedItemIds.value) // Trigger reactivity
+    }
+  } catch (error) {
+    console.error('❌ Error deleting emoji:', error)
+  }
+}
+
 function updateRotationFromSelection() {
   // Update rotation slider when selection changes
   if (selectedItemIds.value.size > 0) {
@@ -1272,6 +1390,30 @@ function updateRotationFromSelection() {
     }
   } else {
     rotationAngle.value = 0
+  }
+}
+
+function getCenterOfSelection() {
+  if (selectedItemIds.value.size === 0) {
+    return { x: 0, y: 0 }
+  }
+  
+  let totalX = 0
+  let totalY = 0
+  let count = 0
+  
+  for (const emojiId of selectedItemIds.value) {
+    const emoji = getEmojiById(emojiId)
+    if (emoji) {
+      totalX += emoji.x + 16 // Add half width for center
+      totalY += emoji.y + 16 // Add half height for center
+      count++
+    }
+  }
+  
+  return {
+    x: count > 0 ? totalX / count - 16 : 0,
+    y: count > 0 ? totalY / count - 16 : 0
   }
 }
 
@@ -1335,12 +1477,12 @@ async function handlePaste() {
 function startRotation(event: MouseEvent) {
   isRotating.value = true
   
-  // Store initial rotation value for selected emoji
-  if (selectedEmojiId.value) {
-    const emoji = getEmojiById(selectedEmojiId.value)
+  // Store initial rotation values for all selected emojis
+  for (const emojiId of selectedItemIds.value) {
+    const emoji = getEmojiById(emojiId)
     if (emoji) {
       const initialRot = emoji.rotation || 0
-      initialRotations.value.set(selectedEmojiId.value, initialRot)
+      initialRotations.value.set(emojiId, initialRot)
     }
   }
   
@@ -1365,11 +1507,11 @@ function startRotation(event: MouseEvent) {
   const handleMouseUp = () => {
     isRotating.value = false
     
-    // Save rotation change to database
-    if (selectedEmojiId.value) {
-      const emoji = getEmojiById(selectedEmojiId.value)
+    // Save rotation changes to database for all selected emojis
+    for (const emojiId of selectedItemIds.value) {
+      const emoji = getEmojiById(emojiId)
       if (emoji) {
-        updateEmoji(selectedEmojiId.value, { 
+        updateEmoji(emojiId, { 
           x: emoji.x, 
           y: emoji.y, 
           rotation: emoji.rotation 
@@ -1384,6 +1526,24 @@ function startRotation(event: MouseEvent) {
   
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
+}
+
+function startRotationTouch(event: TouchEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  if (event.touches.length === 1) {
+    const touch = event.touches[0]
+    if (touch) {
+      // Convert touch to mouse event for existing rotation logic
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        button: 0
+      })
+      startRotation(mouseEvent)
+    }
+  }
 }
 
 
@@ -1559,12 +1719,30 @@ onMounted(() => {
   
   /* Make rotation handles larger on mobile */
   .canvas-container :deep(.absolute.-top-8) {
-    width: 32px;
-    height: 32px;
-    top: -40px;
+    width: 44px;
+    height: 44px;
+    top: -50px;
+    min-width: 44px;
+    min-height: 44px;
   }
   
   .canvas-container :deep(.absolute.-top-8 .w-3) {
+    width: 20px;
+    height: 20px;
+  }
+  
+  /* Mobile delete button improvements */
+  .canvas-container :deep(.emoji-item .absolute.-top-2.-right-2) {
+    min-width: 32px;
+    min-height: 32px;
+  }
+  
+  .canvas-container :deep(.emoji-item .absolute.-top-2.-right-2 .w-6) {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .canvas-container :deep(.emoji-item .absolute.-top-2.-right-2 .w-3) {
     width: 16px;
     height: 16px;
   }

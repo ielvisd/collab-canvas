@@ -15,25 +15,24 @@
       <div class="flex-1 flex relative">
         
         <!-- Canvas Area -->
-        <div class="flex-1 canvas-container">
+        <div class="flex-1 canvas-container bg-white relative overflow-hidden">
+          <!-- Canvas Viewport - this handles the zoom and pan -->
           <div 
-            ref="canvasContainer"
+            ref="canvasViewport"
+            class="canvas-viewport"
             :class="[
-              'bg-white relative overflow-hidden',
               {
                 'cursor-grab': isSpacePressed && !isGrabbing,
                 'cursor-grabbing': isGrabbing,
                 'cursor-crosshair': !isSpacePressed && !isMobile
               }
             ]"
-            :style="{ 
-              width: canvasWidth + 'px', 
-              height: canvasHeight + 'px',
+            :style="{
               transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
-              transformOrigin: 'center center'
+              transformOrigin: 'center center',
+              width: '100%',
+              height: '100%'
             }"
-            data-tool="emoji"
-            data-testid="canvas-container"
             @mousedown="handleCanvasMouseDown"
             @mousemove="handleCanvasMouseMove"
             @mouseup="handleCanvasMouseUp"
@@ -43,6 +42,16 @@
             @touchend="handleCanvasTouchEnd"
             @wheel="handleCanvasWheel"
           >
+            <div 
+              ref="canvasContainer"
+              class="bg-white relative"
+              :style="{ 
+                width: canvasWidth + 'px', 
+                height: canvasHeight + 'px'
+              }"
+              data-tool="emoji"
+              data-testid="canvas-container"
+            >
             <!-- Grid Overlay -->
             <div 
               v-if="snapToGridEnabled"
@@ -71,20 +80,18 @@
                 fontSize: Math.min(emoji.size || 32, 32) + 'px',
                 zIndex: emoji.layer || 1,
                 transform: `rotate(${emoji.rotation || 0}deg)`,
-                boxShadow: isItemSelected(emoji.id) ? '0 0 0 3px #ff0000' : 'none',
-                outline: isItemSelected(emoji.id) ? '2px solid #00ff00' : 'none',
-                outlineOffset: '2px',
-                backgroundColor: isItemSelected(emoji.id) ? 'rgba(255, 0, 0, 0.2)' : 'transparent',
+                boxShadow: isItemSelected(emoji.id) ? '0 0 0 2px #3b82f6' : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }"
               @mousedown.stop="startEmojiDrag($event, emoji.id)"
               @touchstart.stop="startEmojiTouch($event, emoji.id)"
+              @touchmove.stop="handleEmojiTouchMove($event, emoji.id)"
+              @touchend.stop="handleEmojiTouchEnd($event, emoji.id)"
               @dblclick="editEmoji(emoji.id)"
             >
               {{ emoji.emoji }}
-              <div v-if="isItemSelected(emoji.id)" style="position: absolute; top: -5px; left: -5px; background: red; color: white; font-size: 10px; padding: 2px; border-radius: 3px;">SEL</div>
             </div>
 
             <!-- Selection Box -->
@@ -192,6 +199,7 @@
               <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full border border-white"/>
             </div>
 
+            </div>
           </div>
           
           <!-- Cursor Overlay for Real-time Collaboration -->
@@ -377,6 +385,7 @@ const selectedItemIds = ref<Set<string>>(new Set())
 
 // Canvas refs
 const canvasContainer = ref<HTMLElement | null>(null)
+const canvasViewport = ref<HTMLElement | null>(null)
 const _textInput = ref<HTMLInputElement | null>(null)
 
 // Drag state
@@ -489,7 +498,7 @@ function handleCanvasTouchStart(event: TouchEvent) {
         if (isMobile.value) {
           // Long press detected - start selection box
           isSelecting.value = true
-          const rect = canvasContainer.value!.getBoundingClientRect()
+          const rect = canvasViewport.value!.getBoundingClientRect()
           selectionStart.value = {
             x: touch.clientX - rect.left,
             y: touch.clientY - rect.top
@@ -503,8 +512,14 @@ function handleCanvasTouchStart(event: TouchEvent) {
         }
       }, 500) // 500ms long press threshold
       
-      // Start panning on mobile
+      // Only start panning on mobile if not interacting with an emoji
       if (isMobile.value) {
+        // Check if touch is on an emoji - if so, don't start panning
+        const target = event.target as HTMLElement
+        if (target && target.closest('.emoji-item')) {
+          // Touch is on an emoji, don't start panning
+          return
+        }
         startPan(event)
       } else {
         const mouseEvent = new MouseEvent('mousedown', {
@@ -554,7 +569,7 @@ function handleCanvasTouchMove(event: TouchEvent) {
       if (isMobile.value) {
         if (isSelecting.value) {
           // Update selection box
-          const rect = canvasContainer.value!.getBoundingClientRect()
+          const rect = canvasViewport.value!.getBoundingClientRect()
           const currentX = touch.clientX - rect.left
           const currentY = touch.clientY - rect.top
           
@@ -564,7 +579,8 @@ function handleCanvasTouchMove(event: TouchEvent) {
             width: Math.abs(currentX - selectionStart.value.x),
             height: Math.abs(currentY - selectionStart.value.y)
           }
-        } else {
+        } else if (isPanning.value) {
+          // Only pan if we're already in panning mode
           handlePan(event)
         }
       } else {
@@ -592,7 +608,7 @@ function handleCanvasTouchMove(event: TouchEvent) {
       // Calculate center point for zoom
       const centerX = (touch1.clientX + touch2.clientX) / 2
       const centerY = (touch1.clientY + touch2.clientY) / 2
-      const rect = canvasContainer.value?.getBoundingClientRect()
+      const rect = canvasViewport.value?.getBoundingClientRect()
       
       if (rect) {
         const mouseX = centerX - rect.left
@@ -662,6 +678,31 @@ function startEmojiTouch(event: TouchEvent, emojiId: string) {
   }
 }
 
+function handleEmojiTouchMove(event: TouchEvent, _emojiId: string) {
+  if (event.touches.length === 1) {
+    const touch = event.touches[0]
+    if (touch) {
+      // Prevent default to avoid scrolling
+      event.preventDefault()
+      event.stopPropagation()
+      
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      })
+      handleCanvasMouseMove(mouseEvent)
+    }
+  }
+}
+
+function handleEmojiTouchEnd(event: TouchEvent, _emojiId: string) {
+  // Prevent default to avoid scrolling
+  event.preventDefault()
+  event.stopPropagation()
+  
+  handleCanvasMouseUp()
+}
+
 // Pan and zoom handlers
 function handleCanvasWheel(event: WheelEvent) {
   event.preventDefault()
@@ -673,7 +714,7 @@ function handleCanvasWheel(event: WheelEvent) {
   const newScale = Math.max(0.5, Math.min(2, canvasScale.value * delta))
   
   // Zoom towards mouse position
-  const rect = canvasContainer.value?.getBoundingClientRect()
+  const rect = canvasViewport.value?.getBoundingClientRect()
   if (rect) {
     const mouseX = event.clientX - rect.left
     const mouseY = event.clientY - rect.top
@@ -1007,20 +1048,20 @@ async function endResize() {
 function handleCanvasClick(event: MouseEvent) {
   // Only deselect if clicking on empty canvas space
   // and not during a selection box operation or just after completing one
-  if (event.target === canvasContainer.value && !isSelecting.value && !justCompletedSelection.value) {
+  if (event.target === canvasViewport.value && !isSelecting.value && !justCompletedSelection.value) {
     clearSelection()
   }
 }
 
 function handleCanvasMouseDown(event: MouseEvent) {
   // Start panning on mobile if clicking on empty canvas
-  if (isMobile.value && event.target === canvasContainer.value) {
+  if (isMobile.value && event.target === canvasViewport.value) {
     startPan(event)
     return
   }
   
   // Desktop behavior: check if Space is pressed for pan mode
-  if (event.target === canvasContainer.value) {
+  if (event.target === canvasViewport.value) {
     if (isSpacePressed.value) {
       // Space+drag = pan mode
       startPan(event)
@@ -1028,7 +1069,7 @@ function handleCanvasMouseDown(event: MouseEvent) {
     } else if (!event.ctrlKey && !event.metaKey) {
       // Default: start selection box
       isSelecting.value = true
-      const rect = canvasContainer.value!.getBoundingClientRect()
+      const rect = canvasViewport.value!.getBoundingClientRect()
       selectionStart.value = {
         x: event.clientX - rect.left,
         y: event.clientY - rect.top
@@ -1053,7 +1094,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
     handleDrag(event)
   } else if (isSelecting.value) {
     // Update selection box
-    const rect = canvasContainer.value!.getBoundingClientRect()
+    const rect = canvasViewport.value!.getBoundingClientRect()
     const currentX = event.clientX - rect.left
     const currentY = event.clientY - rect.top
     
@@ -1451,13 +1492,12 @@ onMounted(() => {
   user-select: none; /* Disable text selection */
 }
 
-.emoji-item:hover {
-  transform: scale(1.1);
+.emoji-item:hover:not(.selected) {
+  transform: scale(1.05);
 }
 
 .emoji-item.selected {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+  /* Selection styling handled by inline boxShadow */
 }
 
 
@@ -1471,6 +1511,22 @@ onMounted(() => {
   -webkit-user-select: none; /* Disable text selection on iOS */
   user-select: none; /* Disable text selection */
   transition: cursor 0.1s ease; /* Smooth cursor transitions */
+  /* Ensure canvas fills entire available space */
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+/* Canvas viewport for zoom and pan */
+.canvas-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Cursor states for different interaction modes */
@@ -1521,10 +1577,7 @@ onMounted(() => {
   will-change: transform;
 }
 
-/* Selection styles - ultra high specificity to override Nuxt UI */
-.canvas-container .emoji-item.selected {
-  position: relative !important;
-}
+/* Selection styles handled by inline styles */
 
 /* Grid overlay styles */
 .grid-overlay {

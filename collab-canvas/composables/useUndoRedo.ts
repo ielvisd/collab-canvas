@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import { nextTick } from 'vue'
+import { generateId } from '~/utils/shapeUtils'
 import type { ActionHistory, ActionHistoryInsert, ActionType, ObjectType } from '~/types/database'
 
 export interface UndoRedoState {
@@ -64,7 +65,9 @@ export const useUndoRedo = (canvasId: string = '550e8400-e29b-41d4-a716-44665544
         return
       }
       
-      const actionData: ActionHistoryInsert = {
+      // Create local action data for undo stack
+      const localActionData = {
+        id: generateId('action'),
         user_id: userId,
         canvas_id: canvasId,
         action_type: actionType,
@@ -72,45 +75,50 @@ export const useUndoRedo = (canvasId: string = '550e8400-e29b-41d4-a716-44665544
         object_id: objectId,
         before_state: beforeState,
         after_state: afterState,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        undone_at: null
       }
       
-      // Save to database
-      const { data, error: dbError } = await $supabase
-        .from('action_history')
-        .insert(actionData)
-        .select()
-        .single()
-      
-      if (dbError) {
-        console.error('Error saving action to database:', dbError)
-        console.error('Database error details:', {
-          message: dbError.message,
-          details: dbError.details,
-          hint: dbError.hint,
-          code: dbError.code
-        })
-        error.value = `Failed to save action: ${dbError.message}`
-        return
-      }
-      
-      // Add to local undo stack
-      if (data) {
-        // Create new array to ensure reactivity
-        const newUndoStack = [data, ...undoStack.value]
-        
-        // Limit stack size
-        if (newUndoStack.length > MAX_STACK_SIZE) {
-          undoStack.value = newUndoStack.slice(0, MAX_STACK_SIZE)
-        } else {
-          undoStack.value = newUndoStack
+      // Try to save to database (optional - don't fail if it doesn't work)
+      try {
+        const actionData: ActionHistoryInsert = {
+          user_id: userId,
+          canvas_id: canvasId,
+          action_type: actionType,
+          object_type: objectType,
+          object_id: objectId,
+          before_state: beforeState,
+          after_state: afterState,
+          timestamp: new Date().toISOString()
         }
         
-        // Clear redo stack when new action is recorded
-        redoStack.value = []
+        const { data, error: dbError } = await $supabase
+          .from('action_history')
+          .insert(actionData)
+          .select()
+          .single()
         
-        console.log(`📝 Recorded ${actionType} action for ${objectType}:`, objectId)
+        if (dbError) {
+          console.warn('Could not save action to database (continuing with local only):', dbError.message)
+        }
+      } catch (dbErr) {
+        console.warn('Database save failed (continuing with local only):', dbErr)
       }
+      
+      // Add to local undo stack regardless of database success
+      const newUndoStack = [localActionData, ...undoStack.value]
+      
+      // Limit stack size
+      if (newUndoStack.length > MAX_STACK_SIZE) {
+        undoStack.value = newUndoStack.slice(0, MAX_STACK_SIZE)
+      } else {
+        undoStack.value = newUndoStack
+      }
+      
+      // Clear redo stack when new action is recorded
+      redoStack.value = []
+      
+      console.log(`📝 Recorded ${actionType} action for ${objectType}:`, objectId)
     } catch (err) {
       console.error('Error recording action:', err)
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
@@ -302,9 +310,8 @@ export const useUndoRedo = (canvasId: string = '550e8400-e29b-41d4-a716-44665544
         const { deleteEmoji } = useEmojis()
         return await deleteEmoji(objectId)
       } else {
-        // Use shapes composable
-        const { deleteShape } = useShapesWithPersistence()
-        return await deleteShape(objectId)
+        console.warn('⚠️ Only emoji objects are supported')
+        return false
       }
     } catch (err) {
       console.error('Error deleting object:', err)
@@ -329,17 +336,8 @@ export const useUndoRedo = (canvasId: string = '550e8400-e29b-41d4-a716-44665544
         
         return await updateEmoji(objectId, state)
       } else {
-        // Use shapes composable
-        const { updateShape, getShapeById } = useShapesWithPersistence()
-        
-        // Check if shape exists before trying to update
-        const existingShape = getShapeById(objectId)
-        if (!existingShape) {
-          console.warn('⚠️ Shape not found for state restoration - may have been deleted by another user:', objectId)
-          return false
-        }
-        
-        return await updateShape(objectId, state)
+        console.warn('⚠️ Only emoji objects are supported')
+        return false
       }
     } catch (err) {
       console.error('Error restoring object state:', err)
@@ -357,23 +355,8 @@ export const useUndoRedo = (canvasId: string = '550e8400-e29b-41d4-a716-44665544
         const result = await addEmoji(state)
         return result !== null
       } else {
-        // Use shapes composable
-        const { addRectangle, addCircle, addText } = useShapesWithPersistence()
-        
-        switch (objectType) {
-          case 'rectangle':
-            const rectResult = await addRectangle(state)
-            return rectResult !== null
-          case 'circle':
-            const circleResult = await addCircle(state)
-            return circleResult !== null
-          case 'text':
-            const textResult = await addText(state)
-            return textResult !== null
-          default:
-            console.warn('Unknown object type for recreation:', objectType)
-            return false
-        }
+        console.warn('⚠️ Only emoji objects are supported')
+        return false
       }
     } catch (err) {
       console.error('Error recreating object:', err)

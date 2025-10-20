@@ -8,13 +8,13 @@ export interface CanvasDatabaseState {
 }
 
 export interface CanvasDatabaseActions {
-  saveShape: (shape: any, canvasId?: string) => Promise<CanvasObject | null>
-  updateShape: (shapeId: string, updates: any, canvasId?: string) => Promise<boolean>
-  deleteShape: (shapeId: string, canvasId?: string) => Promise<boolean>
-  loadShapes: (canvasId?: string) => Promise<CanvasObject[]>
-  loadShapesForUser: () => Promise<CanvasObject[]>
-  softDeleteShape: (shapeId: string, canvasId?: string) => Promise<boolean>
-  deleteAllShapes: (canvasId?: string) => Promise<boolean>
+  saveEmoji: (emoji: any, canvasId?: string) => Promise<CanvasObject | null>
+  updateEmoji: (emojiId: string, updates: any, canvasId?: string) => Promise<boolean>
+  deleteEmoji: (emojiId: string, canvasId?: string) => Promise<boolean>
+  loadEmojis: (canvasId?: string) => Promise<CanvasObject[]>
+  loadEmojisForUser: () => Promise<CanvasObject[]>
+  softDeleteEmoji: (emojiId: string, canvasId?: string) => Promise<boolean>
+  deleteAllEmojis: (canvasId?: string) => Promise<boolean>
 }
 
 export const useCanvasDatabase = () => {
@@ -40,185 +40,242 @@ export const useCanvasDatabase = () => {
     return canvasId || defaultCanvasId
   }
 
-  // Helper function to convert shape to database format
-  const shapeToDbFormat = (shape: any, canvasId: string, userId: string | null): CanvasObjectInsert => {
-    // Convert local shape type to database type
-    let dbType: 'rect' | 'circle' | 'text' | 'line' | 'star'
-    if (shape.type === 'rectangle') {
-      dbType = 'rect'
-    } else if (shape.type === 'circle') {
-      dbType = 'circle'
-    } else if (shape.type === 'text' || shape.type === 'emoji') {
-      dbType = 'text' // Emojis are stored as text type in database
-    } else if (shape.type === 'line') {
-      dbType = 'line'
-    } else if (shape.type === 'star') {
-      dbType = 'star'
-    } else {
-      console.warn('Unknown shape type for database conversion:', shape.type)
-      dbType = 'rect' // fallback
-    }
-
+  // Helper function to convert emoji to database format
+  const emojiToDbFormat = (emoji: any, canvasId: string, userId: string | null): CanvasObjectInsert => {
     return {
       canvas_id: canvasId,
       user_id: userId || null,
-      type: dbType,
+      type: 'text', // Emojis are stored as text type in database
       data: {
-        x: shape.x,
-        y: shape.y,
-        fill: shape.fill,
-        stroke: shape.stroke || '#000',
-        strokeWidth: shape.strokeWidth || 2,
-        draggable: shape.draggable ?? true,
-        rotation: shape.rotation || 0,
-        // Shape-specific properties
-        ...(shape.type === 'rectangle' && {
-          width: shape.width,
-          height: shape.height
-        }),
-        ...(shape.type === 'circle' && {
-          radius: shape.radius
-        }),
-        ...(shape.type === 'text' && {
-          text: shape.text,
-          fontSize: shape.fontSize
-        }),
-        ...(shape.type === 'emoji' && {
-          text: shape.emoji, // Store emoji as text
-          fontSize: shape.size, // Store size as fontSize
-          emoji: shape.emoji, // Store emoji property for identification
-          emojiSize: shape.size, // Store emoji size
-          layer: shape.layer || 1 // Store layer
-        }),
-        ...(shape.type === 'line' && {
-          points: shape.points
-        }),
-        ...(shape.type === 'star' && {
-          outerRadius: shape.outerRadius,
-          innerRadius: shape.innerRadius,
-          numPoints: shape.numPoints
-        })
+        x: emoji.x,
+        y: emoji.y,
+        text: emoji.emoji, // Store emoji character as 'text'
+        emoji: emoji.emoji, // Also store in 'emoji' field for easy filtering
+        fontSize: emoji.size,
+        emojiSize: emoji.size,
+        layer: emoji.layer || 1,
+        rotation: emoji.rotation || 0,
+        fill: 'transparent',
+        stroke: 'transparent',
+        draggable: true
       }
     }
   }
 
-
-  // Save a shape to the database
-  const saveShape = async (shape: any, canvasId?: string): Promise<CanvasObject | null> => {
+  // Save emoji to database
+  const saveEmoji = async (emoji: any, canvasId?: string): Promise<CanvasObject | null> => {
     try {
       saving.value = true
       error.value = null
 
-      const userId = getCurrentUserId()
       const canvas = getCanvasId(canvasId)
+      const userId = getCurrentUserId()
       
-      const dbShape = shapeToDbFormat(shape, canvas, userId)
-      // console.log('Saving shape to database:', { originalShape: shape, dbShape })
-      // console.log('User ID being used:', userId)
-      // console.log('Canvas ID being used:', canvas)
+      const dbEmoji = emojiToDbFormat(emoji, canvas, userId)
+      
+      console.log('💾 Saving emoji to database:', { emoji, dbEmoji, canvas, userId })
       
       const { data, error: dbError } = await $supabase
         .from('canvas_objects')
-        .insert(dbShape)
+        .insert(dbEmoji)
         .select()
         .single()
 
       if (dbError) {
-        console.error('Database error:', dbError)
-        console.error('Database error details:', dbError.details)
-        console.error('Database error hint:', dbError.hint)
-        throw new Error(`Failed to save shape: ${dbError.message}`)
+        console.error('Database save error:', dbError)
+        throw new Error(`Failed to save emoji: ${dbError.message}`)
       }
 
-      // console.log('Shape saved successfully:', data)
-      // console.log('Shape ID in response:', data?.id)
-      // console.log('Shape position in response:', { x: data?.data?.x, y: data?.data?.y })
+      console.log('✅ Successfully saved emoji to database:', data)
       return data
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error saving shape:', err)
+      console.error('Error saving emoji:', err)
       return null
     } finally {
       saving.value = false
     }
   }
 
-  // Update a shape in the database
-  const updateShape = async (shapeId: string, updates: any, canvasId?: string): Promise<boolean> => {
+  // Update emoji in database
+  const updateEmoji = async (emojiId: string, updates: any, canvasId?: string): Promise<boolean> => {
     try {
       saving.value = true
       error.value = null
 
       const canvas = getCanvasId(canvasId)
       
-      console.log('🔄 Updating shape in database:', { shapeId, updates, canvas })
-      console.log('🔄 Complete shape data being saved:', JSON.stringify(updates, null, 2))
-
-      // Since we're now passing the complete shape data, we don't need to merge
-      // Just save the complete data directly
+      // First, let's check if the emoji exists in the database
+      const { data: existingData, error: checkError } = await $supabase
+        .from('canvas_objects')
+        .select('id, type, data')
+        .eq('id', emojiId)
+        .eq('canvas_id', canvas)
+      
+      if (checkError) {
+        console.error('Error checking existing emoji:', checkError)
+        return false
+      }
+      
+      if (!existingData || existingData.length === 0) {
+        console.error('❌ Emoji not found in database for update:', { emojiId, canvas })
+        return false
+      }
+      
+      console.log('✅ Found existing emoji in database:', existingData[0])
+      
+      // Convert the emoji updates to the proper database format
+      const emojiData = {
+        x: updates.x,
+        y: updates.y,
+        text: updates.emoji, // Store emoji character as 'text'
+        emoji: updates.emoji, // Also store in 'emoji' field for easy filtering
+        fontSize: updates.size,
+        emojiSize: updates.size,
+        layer: updates.layer || 1,
+        rotation: updates.rotation || 0,
+        fill: 'transparent',
+        stroke: 'transparent',
+        draggable: true
+      }
+      
       const dbUpdates: CanvasObjectUpdate = {
-        data: updates
+        data: emojiData,
+        updated_at: new Date().toISOString() // Ensure real-time events are triggered
       }
 
-      const { error: dbError } = await $supabase
+      console.log('🔄 Updating emoji with data:', { emojiId, canvas, dbUpdates })
+
+      const { data, error: dbError } = await $supabase
         .from('canvas_objects')
         .update(dbUpdates)
-        .eq('id', shapeId)
+        .eq('id', emojiId)
         .eq('canvas_id', canvas)
+        .select()
 
       if (dbError) {
         console.error('Database update error:', dbError)
-        throw new Error(`Failed to update shape: ${dbError.message}`)
+        throw new Error(`Failed to update emoji: ${dbError.message}`)
       }
 
-      console.log('🔄 Shape updated successfully in database')
-      console.log('🔄 Final saved data:', JSON.stringify(updates, null, 2))
+      if (!data || data.length === 0) {
+        console.error('No rows were updated! This means the UPDATE operation failed silently.')
+        return false
+      }
+
+      console.log('✅ Successfully updated emoji in database:', data[0])
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error updating shape:', err)
+      console.error('Error updating emoji:', err)
       return false
     } finally {
       saving.value = false
     }
   }
 
-  // Delete a shape from the database (hard delete)
-  const deleteShape = async (shapeId: string, canvasId?: string): Promise<boolean> => {
+  // Delete emoji from database
+  const deleteEmoji = async (emojiId: string, canvasId?: string): Promise<boolean> => {
     try {
       loading.value = true
       error.value = null
 
       const canvas = getCanvasId(canvasId)
       
-      console.log('Deleting shape from database:', { shapeId, canvas })
+      console.log('🗑️ Deleting emoji from database:', { emojiId, canvas })
       
-      const { error: dbError } = await $supabase
+      const { data, error: dbError } = await $supabase
         .from('canvas_objects')
         .delete()
-        .eq('id', shapeId)
+        .eq('id', emojiId)
         .eq('canvas_id', canvas)
+        .select()
 
       if (dbError) {
         console.error('Database delete error:', dbError)
-        throw new Error(`Failed to delete shape: ${dbError.message}`)
+        throw new Error(`Failed to delete emoji: ${dbError.message}`)
       }
 
-      console.log('Shape deleted successfully from database:', shapeId)
+      console.log('✅ Successfully deleted emoji from database:', data)
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error deleting shape:', err)
+      console.error('Error deleting emoji:', err)
       return false
     } finally {
       loading.value = false
     }
   }
 
-  // Soft delete a shape (mark as deleted)
-  const softDeleteShape = async (shapeId: string, canvasId?: string): Promise<boolean> => {
+  // Load emojis from database
+  const loadEmojis = async (canvasId?: string): Promise<CanvasObject[]> => {
     try {
       loading.value = true
+      error.value = null
+
+      const canvas = getCanvasId(canvasId)
+      
+      const { data, error: dbError } = await $supabase
+        .from('canvas_objects')
+        .select('*')
+        .eq('canvas_id', canvas)
+        .eq('type', 'text') // Only load emojis (stored as text type)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+
+      if (dbError) {
+        console.error('Database load error:', dbError)
+        throw new Error(`Failed to load emojis: ${dbError.message}`)
+      }
+
+      return data || []
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error occurred'
+      console.error('Error loading emojis:', err)
+      return []
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Load emojis for current user
+  const loadEmojisForUser = async (): Promise<CanvasObject[]> => {
+    try {
+      loading.value = true
+      error.value = null
+
+      const userId = getCurrentUserId()
+      if (!userId) {
+        return []
+      }
+
+      const { data, error: dbError } = await $supabase
+        .from('canvas_objects')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'text') // Only load emojis (stored as text type)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+
+      if (dbError) {
+        console.error('Database load error:', dbError)
+        throw new Error(`Failed to load user emojis: ${dbError.message}`)
+      }
+
+      return data || []
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Unknown error occurred'
+      console.error('Error loading user emojis:', err)
+      return []
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Soft delete emoji (mark as deleted)
+  const softDeleteEmoji = async (emojiId: string, canvasId?: string): Promise<boolean> => {
+    try {
+      saving.value = true
       error.value = null
 
       const canvas = getCanvasId(canvasId)
@@ -226,138 +283,66 @@ export const useCanvasDatabase = () => {
       const { error: dbError } = await $supabase
         .from('canvas_objects')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', shapeId)
+        .eq('id', emojiId)
         .eq('canvas_id', canvas)
 
       if (dbError) {
-        throw new Error(`Failed to soft delete shape: ${dbError.message}`)
+        console.error('Database soft delete error:', dbError)
+        throw new Error(`Failed to soft delete emoji: ${dbError.message}`)
       }
 
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error soft deleting shape:', err)
+      console.error('Error soft deleting emoji:', err)
       return false
     } finally {
-      loading.value = false
+      saving.value = false
     }
   }
 
-  // Delete all shapes for a canvas (bulk delete)
-  const deleteAllShapes = async (canvasId?: string): Promise<boolean> => {
+  // Delete all emojis for canvas
+  const deleteAllEmojis = async (canvasId?: string): Promise<boolean> => {
     try {
-      saving.value = true
       loading.value = true
       error.value = null
 
       const canvas = getCanvasId(canvasId)
-      
-      console.log('Deleting all shapes for canvas:', canvas)
       
       const { error: dbError } = await $supabase
         .from('canvas_objects')
         .delete()
         .eq('canvas_id', canvas)
+        .eq('type', 'text') // Only delete emojis
 
       if (dbError) {
-        throw new Error(`Failed to delete all shapes: ${dbError.message}`)
+        console.error('Database delete all error:', dbError)
+        throw new Error(`Failed to delete all emojis: ${dbError.message}`)
       }
 
-      console.log('All shapes deleted successfully from database')
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error deleting all shapes:', err)
+      console.error('Error deleting all emojis:', err)
       return false
     } finally {
-      saving.value = false
       loading.value = false
     }
-  }
-
-  // Load all shapes for a canvas with caching optimization
-  const loadShapes = async (canvasId?: string): Promise<CanvasObject[]> => {
-    try {
-      loading.value = true
-      error.value = null
-
-      const canvas = getCanvasId(canvasId)
-      
-      const { data, error: dbError } = await $supabase
-        .from('canvas_objects')
-        .select('*')
-        .eq('canvas_id', canvas)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: true })
-
-      if (dbError) {
-        throw new Error(`Failed to load shapes: ${dbError.message}`)
-      }
-
-      return data || []
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      return []
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Load all shapes for the current user
-  const loadShapesForUser = async (): Promise<CanvasObject[]> => {
-    try {
-      loading.value = true
-      error.value = null
-
-      const userId = getCurrentUserId()
-      
-      const { data, error: dbError } = await $supabase
-        .from('canvas_objects')
-        .select('*')
-        .eq('user_id', userId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: true })
-
-      if (dbError) {
-        throw new Error(`Failed to load user shapes: ${dbError.message}`)
-      }
-
-      return data || []
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error occurred'
-      console.error('Error loading user shapes:', err)
-      return []
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Clear error state
-  const clearError = () => {
-    error.value = null
-  }
-
-  // State
-  const state: CanvasDatabaseState = {
-    loading,
-    error,
-    saving
-  }
-
-  // Actions
-  const actions: CanvasDatabaseActions = {
-    saveShape,
-    updateShape,
-    deleteShape,
-    loadShapes,
-    loadShapesForUser,
-    softDeleteShape,
-    deleteAllShapes
   }
 
   return {
-    ...state,
-    ...actions,
-    clearError
+    // State
+    loading: readonly(loading),
+    error: readonly(error),
+    saving: readonly(saving),
+    
+    // Actions
+    saveEmoji,
+    updateEmoji,
+    deleteEmoji,
+    loadEmojis,
+    loadEmojisForUser,
+    softDeleteEmoji,
+    deleteAllEmojis
   }
 }

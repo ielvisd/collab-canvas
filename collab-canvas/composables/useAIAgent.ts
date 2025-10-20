@@ -14,42 +14,12 @@ import {
 } from '~/utils/aiHelpers'
 import { generateWordPositions, generateVerticalWordPositions } from '~/utils/letterPatterns'
 import { generateShapePattern, convertAsciiToEmojiPositions, type EmojiPosition } from '~/utils/shapePatterns'
+import { calculateViewportBounds, getViewportCenterPosition, clampToViewport } from '~/utils/viewportUtils'
 
   // Utility function for random colors (currently unused)
   const _getRandomColor = () => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
     return colors[Math.floor(Math.random() * colors.length)]
-  }
-
-  // Generate warm, conversational responses
-  const generateWarmResponse = (originalMessage: string, commandCount: number): string => {
-    const warmResponses = [
-      "✨ Your creation is complete! I've brought your vision to life on the canvas.",
-      "🎨 Perfect! I've crafted something beautiful just for you.",
-      "🌟 Ta-da! Your emoji masterpiece is ready to admire.",
-      "💫 Wonderful! I've painted your imagination onto the canvas.",
-      "🎭 Amazing! Your creative request has been brought to life.",
-      "🌈 Fantastic! I've created something special just for you.",
-      "✨ Your artistic vision is now a reality on the canvas!",
-      "🎨 Beautiful! I've made your emoji dreams come true.",
-      "🌟 Excellent! Your creation is ready for you to enjoy.",
-      "💫 Perfect! I've transformed your idea into emoji art."
-    ]
-    
-    // If there are multiple commands, make it more specific
-    if (commandCount > 1) {
-      const multiCommandResponses = [
-        "🎨 Wonderful! I've created a complex scene with multiple elements just for you.",
-        "✨ Amazing! I've built something intricate and beautiful on your canvas.",
-        "🌟 Fantastic! I've crafted a detailed emoji composition for you.",
-        "💫 Perfect! I've created a multi-layered masterpiece on your canvas.",
-        "🎭 Excellent! I've brought together several elements to create something special."
-      ]
-      return multiCommandResponses[Math.floor(Math.random() * multiCommandResponses.length)]
-    }
-    
-    // For single commands or fallback
-    return warmResponses[Math.floor(Math.random() * warmResponses.length)]
   }
 
 export interface AICommand {
@@ -71,7 +41,7 @@ export interface AIAgentActions {
   reset: () => void
 }
 
-export const useAIAgent = () => {
+export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offsetY: number; canvasWidth: number; canvasHeight: number }, viewportElement?: HTMLElement | null) => {
   // Custom chat implementation since @ai-sdk/vue useChat has import issues
   const messages = ref<Array<{ id: string; role: string; content: string }>>([])
   const input = ref('')
@@ -80,6 +50,7 @@ export const useAIAgent = () => {
   const error = ref<string | null>(null)
   const isConnected = ref(true)
   const lastCommand = ref<AICommand | null>(null)
+
 
   // We only use emojis now, no shapes needed
 
@@ -754,13 +725,29 @@ export const useAIAgent = () => {
       const { addEmoji } = useEmojis()
       let emojiPositions: EmojiPosition[] = []
 
+      // Calculate viewport bounds for positioning
+      let shapePosition = position || { x: 400, y: 300 }
+      
+      if (canvasState && viewportElement) {
+        const viewportBounds = calculateViewportBounds(canvasState, viewportElement)
+        if (viewportBounds) {
+          // Use viewport center if no specific position provided
+          if (!position) {
+            shapePosition = getViewportCenterPosition(viewportBounds)
+          } else {
+            // Clamp provided position to viewport bounds
+            shapePosition = clampToViewport(position, viewportBounds, size || 50)
+          }
+        }
+      }
+
       // Check if we have an AI-generated ASCII pattern
       if (asciiPattern && Array.isArray(asciiPattern) && asciiPattern.length > 0) {
         console.log('🎨 Using AI-generated ASCII pattern:', asciiPattern)
         emojiPositions = convertAsciiToEmojiPositions(
           asciiPattern,
           emoji,
-          position || { x: 400, y: 300 },
+          shapePosition,
           size ? size / 5 : 1 // Scale based on size
         )
       } else {
@@ -769,7 +756,7 @@ export const useAIAgent = () => {
         emojiPositions = generateShapePattern(shape, {
           emoji,
           size: size || 5,
-          position: position || { x: 400, y: 300 },
+          position: shapePosition,
           fillStyle: fillStyle || 'filled',
           scale: size ? size / 5 : 1
         })
@@ -778,6 +765,17 @@ export const useAIAgent = () => {
       if (emojiPositions.length === 0) {
         console.warn('⚠️ No emoji positions generated for shape:', shape)
         return false
+      }
+
+      // Clamp all emoji positions to viewport bounds if available
+      if (canvasState && viewportElement) {
+        const viewportBounds = calculateViewportBounds(canvasState, viewportElement)
+        if (viewportBounds) {
+          emojiPositions = emojiPositions.map(pos => ({
+            ...pos,
+            ...clampToViewport({ x: pos.x, y: pos.y }, viewportBounds, pos.size || 30)
+          }))
+        }
       }
 
       console.log('🎨 Generated emoji positions:', emojiPositions.length, 'positions')
@@ -879,8 +877,28 @@ export const useAIAgent = () => {
   // Generate emojis for multiple items (e.g., "one big pumpkin and two small hearts")
   const generateMultipleItemsEmojis = (multipleItems: MultipleItemsResult): Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> => {
     const emojis: Array<{ emoji: string; x: number; y: number; size: number; layer: number; rotation: number }> = []
-    const centerX = multipleItems.position?.x || 400
-    const centerY = multipleItems.position?.y || 300
+    
+    // Calculate viewport bounds for positioning
+    let centerX = multipleItems.position?.x || 400
+    let centerY = multipleItems.position?.y || 300
+    
+    if (canvasState && viewportElement) {
+      const viewportBounds = calculateViewportBounds(canvasState, viewportElement)
+      if (viewportBounds) {
+        // Use viewport center if no specific position provided
+        if (!multipleItems.position) {
+          const viewportCenter = getViewportCenterPosition(viewportBounds)
+          centerX = viewportCenter.x
+          centerY = viewportCenter.y
+        } else {
+          // Clamp provided position to viewport bounds
+          const clampedPos = clampToViewport(multipleItems.position, viewportBounds, 50)
+          centerX = clampedPos.x
+          centerY = clampedPos.y
+        }
+      }
+    }
+    
     const arrangement = multipleItems.arrangement || 'row'
     
     let currentIndex = 0
@@ -927,6 +945,17 @@ export const useAIAgent = () => {
         })
         
         currentIndex++
+      }
+    }
+    
+    // Clamp all emoji positions to viewport bounds if available
+    if (canvasState && viewportElement) {
+      const viewportBounds = calculateViewportBounds(canvasState, viewportElement)
+      if (viewportBounds) {
+        return emojis.map(emoji => ({
+          ...emoji,
+          ...clampToViewport({ x: emoji.x, y: emoji.y }, viewportBounds, emoji.size || 30)
+        }))
       }
     }
     
@@ -1208,6 +1237,37 @@ export const useAIAgent = () => {
       console.error('❌ Failed to create emoji story:', err)
       return false
     }
+  }
+
+  // Generate warm, conversational responses
+  const generateWarmResponse = (originalMessage: string, commandCount: number): string => {
+    const warmResponses = [
+      "✨ Your creation is complete! I've brought your vision to life on the canvas.",
+      "🎨 Perfect! I've crafted something beautiful just for you.",
+      "🌟 Ta-da! Your emoji masterpiece is ready to admire.",
+      "💫 Wonderful! I've painted your imagination onto the canvas.",
+      "🎭 Amazing! Your creative request has been brought to life.",
+      "🌈 Fantastic! I've created something special just for you.",
+      "✨ Your artistic vision is now a reality on the canvas!",
+      "🎨 Beautiful! I've made your emoji dreams come true.",
+      "🌟 Excellent! Your creation is ready for you to enjoy.",
+      "💫 Perfect! I've transformed your idea into emoji art."
+    ]
+    
+    // If there are multiple commands, make it more specific
+    if (commandCount > 1) {
+      const multiCommandResponses = [
+        "🎨 Wonderful! I've created a complex scene with multiple elements just for you.",
+        "✨ Amazing! I've built something intricate and beautiful on your canvas.",
+        "🌟 Fantastic! I've crafted a detailed emoji composition for you.",
+        "💫 Perfect! I've created a multi-layered masterpiece on your canvas.",
+        "🎭 Excellent! I've brought together several elements to create something special."
+      ]
+      return multiCommandResponses[Math.floor(Math.random() * multiCommandResponses.length)]!
+    }
+    
+    // For single commands or fallback
+    return warmResponses[Math.floor(Math.random() * warmResponses.length)]!
   }
 
   // Optimized sendMessage implementation with better error handling

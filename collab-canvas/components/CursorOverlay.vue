@@ -50,7 +50,7 @@ const { remoteCursors } = useCursorTracking()
 .remote-cursor {
   position: absolute;
   transform: translate(-2px, -2px);
-  transition: all 0.1s ease-out;
+  transition: all 0.05s linear;
 }
 
 .cursor-pointer {

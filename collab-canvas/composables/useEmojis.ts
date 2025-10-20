@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { calculateViewportBounds, getRandomViewportPosition, getViewportCenterPosition, clampToViewport } from '~/utils/viewportUtils'
 
 export interface Emoji {
   id: string
@@ -32,26 +33,21 @@ export interface EmojiState {
   totalEmojis: Ref<number>
 }
 
-export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600) => {
+export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600, canvasState?: { scale: number; offsetX: number; offsetY: number; canvasWidth: number; canvasHeight: number }, viewportElement?: HTMLElement | null) => {
   // Database composable
   const {
     loading: dbLoading,
     saving: dbSaving,
     error: dbError,
-    saveShape: saveShapeToDb,
-    updateShape: updateShapeInDb,
-    deleteShape: deleteShapeFromDb,
-    loadShapes: loadShapesFromDb,
-    deleteAllShapes,
-    clearError: clearDbError
+    saveEmoji: saveEmojiToDb,
+    updateEmoji: updateEmojiInDb,
+    deleteEmoji: deleteEmojiFromDb,
+    loadEmojis: loadEmojisFromDb,
+    deleteAllEmojis
   } = useCanvasDatabase()
 
   // Undo/Redo composable
   const { recordAction, isUndoRedoInProgress } = useUndoRedo()
-
-  // Real-time sync - we'll handle this differently for emojis
-  const isRealtimeConnected = ref(false)
-  const lastSyncTime = ref<Date | null>(null)
 
   // State - Use useState for shared state across components
   const emojis = useState<Emoji[]>('canvas-emojis', () => [])
@@ -60,6 +56,15 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   
   // Flag to prevent update loops during real-time sync
   const isUpdatingFromRealtime = ref(false)
+
+  // Real-time sync for emojis
+  const {
+    isConnected: isRealtimeConnected,
+    lastSyncTime,
+    error: realtimeError,
+    startSync: startEmojiSync,
+    stopSync: stopEmojiSync
+  } = useEmojiRealtimeSync(emojis, isUpdatingFromRealtime)
 
   // Computed
   const totalEmojis = computed(() => emojis.value.length)
@@ -73,69 +78,61 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     })
   }
   
-  const getRandomPosition = (maxX: number, maxY: number) => ({
-    x: Math.random() * (maxX - 50),
-    y: Math.random() * (maxY - 50)
-  })
+  const getRandomPosition = (maxX: number, maxY: number) => {
+    // Try to use viewport bounds if available
+    if (canvasState && viewportElement) {
+      const viewportBounds = calculateViewportBounds(canvasState, viewportElement)
+      if (viewportBounds) {
+        return getRandomViewportPosition(viewportBounds, 50)
+      }
+    }
+    
+    // Fallback to original behavior
+    return {
+      x: Math.random() * (maxX - 50),
+      y: Math.random() * (maxY - 50)
+    }
+  }
 
   // Convert emoji to database format
   const emojiToDbFormat = (emoji: Emoji) => {
     return {
-      type: 'emoji' as const,
       x: emoji.x,
       y: emoji.y,
-      emoji: emoji.emoji,
-      size: emoji.size,
+      text: emoji.emoji,  // Store emoji character as 'text'
+      emoji: emoji.emoji, // Also store in 'emoji' field for easy filtering
+      fontSize: emoji.size,
+      emojiSize: emoji.size,
       layer: emoji.layer || 1,
       rotation: emoji.rotation || 0,
       fill: 'transparent',
-      stroke: 'transparent'
+      stroke: 'transparent',
+      draggable: true
     }
   }
 
   // Convert database shape to emoji
   const dbShapeToEmoji = (dbShape: any): Emoji | null => {
     try {
-      // Check if this is an emoji shape (new format with type: 'text' and emoji in data)
-      if (dbShape.type === 'text' && dbShape.data && dbShape.data.emoji) {
-        return {
-          id: dbShape.id,
-          emoji: dbShape.data.emoji,
-          x: dbShape.data.x ?? 0,
-          y: dbShape.data.y ?? 0,
-          size: dbShape.data.emojiSize ?? 32,
-          layer: dbShape.data.layer ?? 1,
-          rotation: dbShape.data.rotation ?? 0,
-          user_id: dbShape.user_id,
-          created_at: dbShape.created_at,
-          updated_at: dbShape.updated_at
-        }
+      // Only handle type='text' with emoji data
+      if (dbShape.type !== 'text' || !dbShape.data?.emoji) {
+        return null
       }
       
-      // Check if this is an emoji shape (legacy format with type: 'text' and emoji in data)
-      if (dbShape.type === 'text' && dbShape.data && dbShape.data.text) {
-        const text = dbShape.data.text
-        // Check if the text is a single emoji character
-        if (text.length === 1 && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(text)) {
-          console.log('✅ Found emoji in text field (legacy):', text)
-          return {
-            id: dbShape.id,
-            emoji: text,
-            x: dbShape.data.x ?? 0,
-            y: dbShape.data.y ?? 0,
-            size: dbShape.data.fontSize ?? 32,
-            layer: dbShape.data.layer ?? 1,
-            rotation: dbShape.data.rotation ?? 0,
-            user_id: dbShape.user_id,
-            created_at: dbShape.created_at,
-            updated_at: dbShape.updated_at
-          }
-        }
+      return {
+        id: dbShape.id,
+        emoji: dbShape.data.emoji,
+        x: dbShape.data.x ?? 0,
+        y: dbShape.data.y ?? 0,
+        size: dbShape.data.emojiSize ?? 48,
+        layer: dbShape.data.layer ?? 1,
+        rotation: dbShape.data.rotation ?? 0,
+        user_id: dbShape.user_id,
+        created_at: dbShape.created_at,
+        updated_at: dbShape.updated_at
       }
-      
-      return null
     } catch (err) {
-      console.error('Error converting database shape to emoji:', err)
+      console.error('Error converting dbShape to emoji:', err)
       return null
     }
   }
@@ -151,8 +148,10 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       }
 
       // Save to database
-      const dbShape = await saveShapeToDb(emojiToDbFormat(emoji))
+      const dbShape = await saveEmojiToDb(emoji)
       if (dbShape) {
+        // Update the emoji with the database ID
+        emoji.id = dbShape.id
         // Update local state
         emojis.value.push(emoji)
         
@@ -203,7 +202,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       console.log('🔄 Updated emoji object:', updatedEmoji)
       
       // Update in database
-      const success = await updateShapeInDb(id, emojiToDbFormat(updatedEmoji))
+      const success = await updateEmojiInDb(id, updatedEmoji)
       if (success) {
         emojis.value[emojiIndex] = updatedEmoji
         
@@ -229,7 +228,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       // Get emoji before deletion for undo/redo
       const emojiToDelete = emojis.value.find(e => e.id === id)
       
-      const success = await deleteShapeFromDb(id)
+      const success = await deleteEmojiFromDb(id)
       if (success) {
         emojis.value = emojis.value.filter(e => e.id !== id)
         if (selectedEmojiId.value === id) {
@@ -269,11 +268,11 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
       }
       
       // Delete from database in parallel for better performance
-      const deletePromises = ids.map(id => deleteShapeFromDb(id))
+      const deletePromises = ids.map(id => deleteEmojiFromDb(id))
       const results = await Promise.all(deletePromises)
       
       // Check if all deletions succeeded
-      const allSuccessful = results.every(success => success)
+      const allSuccessful = results.every((success: boolean) => success)
       
       if (allSuccessful) {
         // Record action for undo/redo (only if not from real-time sync or undo/redo)
@@ -298,13 +297,25 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Clear all emojis
   const clearAllEmojis = async (): Promise<boolean> => {
     try {
-      const success = await deleteAllShapes()
-      if (success) {
+      // Delete each emoji individually to trigger real-time sync
+      const emojiIds = emojis.value.map(e => e.id)
+      let successCount = 0
+      
+      for (const emojiId of emojiIds) {
+        const success = await deleteEmojiFromDb(emojiId)
+        if (success) {
+          successCount++
+        }
+      }
+      
+      if (successCount === emojiIds.length) {
         emojis.value = []
         selectedEmojiId.value = null
         console.log('✅ All emojis cleared')
         return true
       }
+      
+      console.log(`⚠️ Cleared ${successCount}/${emojiIds.length} emojis`)
       return false
     } catch (err) {
       console.error('Error clearing all emojis:', err)
@@ -320,7 +331,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Load emojis from database
   const loadEmojis = async (): Promise<void> => {
     try {
-      const shapes = await loadShapesFromDb()
+      const shapes = await loadEmojisFromDb()
       console.log('📦 Raw shapes from DB:', shapes.length)
       
       const emojiShapes = shapes
@@ -336,7 +347,8 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Initialize emojis - call this from component onMounted instead
   const initializeEmojis = async () => {
     await loadEmojis()
-    isRealtimeConnected.value = true
+    // Start real-time sync for emojis
+    await startEmojiSync()
   }
 
   // State
@@ -365,6 +377,8 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     ...actions,
     isRealtimeConnected,
     lastSyncTime,
-    initializeEmojis
+    realtimeError,
+    initializeEmojis,
+    stopEmojiSync
   }
 }

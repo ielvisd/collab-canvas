@@ -68,7 +68,7 @@ export const useCursorTracking = () => {
         }
       })
     }
-  }, 16)
+  }, 50)
   
   // Start cursor tracking
   const startTracking = () => {

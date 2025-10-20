@@ -363,11 +363,11 @@ import EmojiPicker from '~/components/EmojiPicker.vue'
 // Composables
 import { useEmojis } from '~/composables/useEmojis'
 import { useCursorTracking } from '~/composables/useCursorTracking'
-import { useRealtimeSync } from '~/composables/useRealtimeSync'
 import { useUndoRedo } from '~/composables/useUndoRedo'
 import { useClipboard } from '~/composables/useClipboard'
 import { usePresence } from '~/composables/usePresence'
 import { useToast } from '#imports'
+import { calculateViewportBounds, getRandomViewportPosition } from '~/utils/viewportUtils'
 
 // Utility function for random colors (currently unused)
 const _getRandomColor = () => {
@@ -490,24 +490,20 @@ const {
   getEmojiById,
   deleteEmoji,
   deleteMultipleEmojis,
-  initializeEmojis
-} = useEmojis(canvasWidth, canvasHeight)
+  initializeEmojis,
+  stopEmojiSync
+} = useEmojis(canvasWidth, canvasHeight, {
+  scale: canvasScale.value,
+  offsetX: canvasOffset.value.x,
+  offsetY: canvasOffset.value.y,
+  canvasWidth,
+  canvasHeight
+}, canvasViewport.value)
 
 // Cursor tracking for real-time collaboration
 const { startTracking: startCursorTracking, stopTracking: stopCursorTracking } = useCursorTracking()
 
-// Real-time sync for emoji changes
-const emptyRectangles = ref([])
-const emptyCircles = ref([])
-const emptyTexts = ref([])
-const { startSync: startRealtimeSync, cleanup: cleanupRealtimeSync } = useRealtimeSync(
-  emptyRectangles,
-  emptyCircles, 
-  emptyTexts,
-  (_type, _shape) => {
-    // Handle real-time updates silently
-  }
-)
+// Legacy shape sync removed - emojis now handle their own real-time sync
 
 // Undo/Redo functionality
 const { canUndo, canRedo, undo: undoAction, redo: redoAction, loadHistory } = useUndoRedo()
@@ -912,7 +908,6 @@ function constrainPanOffset() {
           await loadHistory()
           
           // Start real-time collaboration features
-          await startRealtimeSync()
           startCursorTracking()
           
           // Start presence tracking for live users
@@ -949,20 +944,38 @@ function selectItem(itemId: string) {
 
 // Emoji functions
 async function addEmoji(emojiChar: string) {
-  let x = Math.random() * (canvasWidth - 100)
-  let y = Math.random() * (canvasHeight - 100)
+  // Calculate current viewport bounds
+  const canvasState = {
+    scale: canvasScale.value,
+    offsetX: canvasOffset.value.x,
+    offsetY: canvasOffset.value.y,
+    canvasWidth,
+    canvasHeight
+  }
+  
+  const viewportBounds = calculateViewportBounds(canvasState, canvasViewport.value)
+  
+  let position: { x: number; y: number }
+  
+  if (viewportBounds) {
+    // Use viewport bounds for positioning
+    position = getRandomViewportPosition(viewportBounds, 48)
+  } else {
+    // Fallback to center of canvas if viewport calculation fails
+    position = { x: canvasWidth / 2, y: canvasHeight / 2 }
+  }
   
   // Apply grid snapping if enabled
   if (snapToGridEnabled.value) {
-    const snapped = snapToGrid(x, y)
-    x = snapped.x
-    y = snapped.y
+    const snapped = snapToGrid(position.x, position.y)
+    position.x = snapped.x
+    position.y = snapped.y
   }
   
   const emojiData = {
     emoji: emojiChar,
-    x,
-    y,
+    x: position.x,
+    y: position.y,
     size: 48,
     layer: 1,
     rotation: 0
@@ -1048,13 +1061,17 @@ function handleDrag(event: MouseEvent) {
     const deltaX = event.clientX - dragStart.value.x
     const deltaY = event.clientY - dragStart.value.y
     
+    // Convert screen delta to canvas delta by accounting for viewport scale
+    const canvasDeltaX = deltaX / canvasScale.value
+    const canvasDeltaY = deltaY / canvasScale.value
+    
     // Move all selected items maintaining their relative positions
     for (const emojiId of selectedItemIds.value) {
       const emoji = getEmojiById(emojiId)
       if (emoji && dragStart.value?.selectedPositions?.[emojiId]) {
-        // Calculate new position from INITIAL emoji position + delta
-        let newX = dragStart.value.selectedPositions[emojiId]!.x + deltaX
-        let newY = dragStart.value.selectedPositions[emojiId]!.y + deltaY
+        // Calculate new position from INITIAL emoji position + canvas delta
+        let newX = dragStart.value.selectedPositions[emojiId]!.x + canvasDeltaX
+        let newY = dragStart.value.selectedPositions[emojiId]!.y + canvasDeltaY
         
         // Add bounds checking to prevent going off-screen
         newX = Math.max(0, Math.min(newX, canvasWidth - 32))
@@ -1535,13 +1552,19 @@ async function handleSizeChange(size: number | undefined) {
 async function deleteSelectedItem() {
   if (selectedItemIds.value.size > 0) {
     try {
-      // Convert Set to Array for bulk delete
+      // Convert Set to Array for individual deletes
       const selectedIds = Array.from(selectedItemIds.value)
       
-      // Use bulk delete for instant removal (like clear all)
-      const success = await deleteMultipleEmojis(selectedIds)
+      // Delete each emoji individually to trigger real-time sync
+      let successCount = 0
+      for (const emojiId of selectedIds) {
+        const success = await deleteEmoji(emojiId)
+        if (success) {
+          successCount++
+        }
+      }
       
-      if (success) {
+      if (successCount === selectedIds.length) {
         clearSelection()
         toast.add({
           title: 'Items deleted',
@@ -1860,7 +1883,7 @@ onMounted(() => {
         // Cleanup real-time features on unmount
         onScopeDispose(() => {
           stopCursorTracking()
-          cleanupRealtimeSync()
+          stopEmojiSync()
           stopPresence()
           window.removeEventListener('resize', checkMobile)
         })

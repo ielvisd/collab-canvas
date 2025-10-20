@@ -173,7 +173,6 @@ export const usePresence = () => {
       // Subscribe to channel
       const response = await presenceChannel.subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Presence connected')
           isConnected.value = true
           error.value = null
           isConnecting = false

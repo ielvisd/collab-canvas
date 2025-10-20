@@ -190,7 +190,6 @@ export const useRealtimeSync = (
       //   return
       // }
       
-      console.log('🔄 Starting real-time sync...')
       error.value = null
       
       const canvasId = getCanvasId()
@@ -270,7 +269,7 @@ export const useRealtimeSync = (
             error.value = 'Failed to connect to real-time updates'
             console.error('❌ Real-time sync connection failed')
           } else if (status === 'SUBSCRIBED') {
-            console.log('✅ Real-time sync connected')
+            // Real-time sync connected successfully
           } else if (status === 'TIMED_OUT') {
             console.error('❌ Real-time sync timed out')
             error.value = 'Real-time subscription timed out'

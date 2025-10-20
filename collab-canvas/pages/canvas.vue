@@ -179,7 +179,15 @@
               </div>
             </div>
 
-            <!-- Selection Handles (Rotation + Resize) -->
+            <!-- Selection Count Indicator -->
+            <div v-if="!isMobile && selectedItemIds.size > 0" class="absolute top-2 right-2 z-50">
+              <div class="bg-green-500/90 text-white px-3 py-1 rounded-lg text-sm font-medium">
+                {{ selectedItemIds.size }} selected
+              </div>
+            </div>
+
+
+            <!-- Selection Handles (Resize only) -->
             <div
               v-if="selectedEmojiId || (isMobile && selectedItemIds.size > 0)"
               class="absolute pointer-events-none"
@@ -193,14 +201,6 @@
                 background: 'transparent'
               }"
             >
-              <!-- Rotation Handle -->
-              <div
-                class="absolute -top-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg cursor-pointer pointer-events-auto flex items-center justify-center"
-                @mousedown.stop="startRotation"
-                @touchstart.stop="startRotationTouch"
-              >
-                <UIcon name="i-lucide-rotate-3d" class="w-3 h-3 text-white" />
-              </div>
               
               <!-- Resize Handles -->
               <!-- Corner handles -->
@@ -257,20 +257,11 @@
         <!-- Tool Palette Popover -->
         <ToolPalette
           v-model:open="showToolPalette"
-          :selected-emoji-id="selectedEmojiId"
-          :selected-item-count="selectedItemCount"
-          :rotation-angle="rotationAngle"
           :can-undo="canUndo"
           :can-redo="canRedo"
           :snap-to-grid-enabled="snapToGridEnabled"
-          :clipboard-has-data="clipboardHasData"
-          @rotation-change="handleRotationChange"
-          @reset-rotation="resetRotation"
           @undo="undo"
           @redo="redo"
-          @copy="handleCopy"
-          @paste="handlePaste"
-          @delete-selected="deleteSelectedItem"
           @clear-all="showClearAllModal = true"
           @reset-view="resetView"
           @toggle-grid="toggleSnapToGrid"
@@ -278,11 +269,41 @@
           @zoom-out="canvasScale = Math.max(0.5, canvasScale - 0.2)"
           @reset-zoom="resetCanvasView"
         />
+
+        <!-- Selection Controls -->
+        <SelectionControls
+          :selected-item-count="selectedItemCount"
+          :rotation-angle="rotationAngle"
+          :clipboard-has-data="clipboardHasData"
+          @rotation-change="handleRotationChange"
+          @reset-rotation="resetRotation"
+          @copy="handleCopy"
+          @paste="handlePaste"
+          @delete-selected="deleteSelectedItem"
+          @clear-selection="clearSelection"
+        />
       </div>
       
       
       <!-- AI Chat Interface -->
       <AIChatInterface v-if="showAIChat" :show-chat="showAIChat" @update:show-chat="showAIChat = $event" />
+      
+      <!-- Command Palette -->
+      <CanvasCommandPalette
+        ref="commandPaletteRef"
+        :selected-item-count="selectedItemIds.size"
+        :clipboard-has-data="clipboardHasData"
+        :can-undo="canUndo"
+        :can-redo="canRedo"
+        @copy="handleCopy"
+        @paste="handlePaste"
+        @delete-selected="deleteSelectedItem"
+        @clear-selection="clearSelection"
+        @undo="undo"
+        @redo="redo"
+        @select-all="selectAllItems"
+        @duplicate="duplicateSelectedItems"
+      />
 
       <!-- Users Modal -->
       <UsersModal 
@@ -344,6 +365,7 @@ import { ref, onMounted, onUnmounted, computed, onScopeDispose } from 'vue'
 import AppLayout from '~/components/AppLayout.vue'
 import CursorOverlay from '~/components/CursorOverlay.vue'
 import ToolPalette from '~/components/ToolPalette.vue'
+import SelectionControls from '~/components/SelectionControls.vue'
 import AIChatInterface from '~/components/AIChatInterface.vue'
 import UsersModal from '~/components/UsersModal.vue'
 import EmojiPicker from '~/components/EmojiPicker.vue'
@@ -404,7 +426,6 @@ const canvasHeight = computed(() => {
         const showToolPalette = ref(false)
         const selectedEmojiId = ref<string | null>(null)
         const rotationAngle = ref(0)
-        const isRotating = ref(false)
         
         // Real-time presence tracking
         const { 
@@ -462,9 +483,6 @@ const resizeStart = ref({
   itemY: 0
 })
 
-// Rotation state
-const initialRotations = ref<Map<string, number>>(new Map())
-const rotationStartAngle = ref(0)
 
 // Selection box state
 const isSelecting = ref(false)
@@ -499,8 +517,8 @@ const { startSync: startRealtimeSync, cleanup: cleanupRealtimeSync } = useRealti
   emptyRectangles,
   emptyCircles, 
   emptyTexts,
-  (type, shape) => {
-    console.log(`🔄 Real-time ${type}:`, shape)
+  (_type, _shape) => {
+    // Handle real-time updates silently
   }
 )
 
@@ -509,6 +527,8 @@ const { canUndo, canRedo, undo: undoAction, redo: redoAction, loadHistory } = us
 
 // Clipboard functionality
 const { hasData: clipboardHasData, copyItems, pasteItems } = useClipboard()
+
+// Nuxt UI composables (toast already declared above)
 
 // Grid functionality (simplified)
 const gridSize = ref(20)
@@ -904,7 +924,7 @@ function clearSelection() {
 function selectItem(itemId: string) {
   // Clear existing selection and select only this item
   selectedItemIds.value = new Set([itemId])
-    selectedEmojiId.value = itemId
+  selectedEmojiId.value = itemId
   updateRotationFromSelection()
 }
 
@@ -947,18 +967,19 @@ function startEmojiDrag(event: MouseEvent, emojiId: string) {
   
   if (isMultiSelect) {
     // Toggle item in selection
-    if (selectedItemIds.value.has(emojiId)) {
-      selectedItemIds.value.delete(emojiId)
+    const newSelection = new Set(selectedItemIds.value)
+    if (newSelection.has(emojiId)) {
+      newSelection.delete(emojiId)
       if (selectedEmojiId.value === emojiId) {
-        selectedEmojiId.value = selectedItemIds.value.size > 0 
-          ? Array.from(selectedItemIds.value)[0] ?? null
+        selectedEmojiId.value = newSelection.size > 0 
+          ? Array.from(newSelection)[0] ?? null
           : null
       }
     } else {
-      selectedItemIds.value.add(emojiId)
+      newSelection.add(emojiId)
       selectedEmojiId.value = emojiId
     }
-    selectedItemIds.value = new Set(selectedItemIds.value) // Trigger reactivity
+    selectedItemIds.value = newSelection
   } else {
     // If clicking on an already selected item, maintain selection and drag all
     if (selectedItemIds.value.has(emojiId)) {
@@ -988,6 +1009,10 @@ function startEmojiDrag(event: MouseEvent, emojiId: string) {
       }, {} as Record<string, { x: number, y: number }>)
     }
     pendingDragEmojiId.value = emojiId
+    
+    // Add document-level event listeners for drag
+    document.addEventListener('mousemove', handleDocumentMouseMove)
+    document.addEventListener('mouseup', handleDocumentMouseUp)
   }
 }
 
@@ -1042,6 +1067,69 @@ async function endDrag() {
     
     isDragging.value = false
   }
+  
+  // Clean up document event listeners
+  document.removeEventListener('mousemove', handleDocumentMouseMove)
+  document.removeEventListener('mouseup', handleDocumentMouseUp)
+}
+
+// Document-level event handlers for drag
+function handleDocumentMouseMove(event: MouseEvent) {
+  if (isDragging.value) {
+    handleDrag(event)
+  } else if (isSelecting.value) {
+    // Handle selection box updates at document level
+    const rect = canvasViewport.value!.getBoundingClientRect()
+    const currentX = event.clientX - rect.left
+    const currentY = event.clientY - rect.top
+    
+    selectionBox.value = {
+      x: Math.min(selectionStart.value.x, currentX),
+      y: Math.min(selectionStart.value.y, currentY),
+      width: Math.abs(currentX - selectionStart.value.x),
+      height: Math.abs(currentY - selectionStart.value.y)
+    }
+  } else if (pendingDragEmojiId.value) {
+    // Start dragging when mouse actually moves
+    const distance = Math.sqrt(
+      Math.pow(event.clientX - dragStart.value.x, 2) + 
+      Math.pow(event.clientY - dragStart.value.y, 2)
+    )
+    
+    if (distance > 5) { // Minimum distance threshold to start dragging
+      isDragging.value = true
+      pendingDragEmojiId.value = null
+    }
+  }
+}
+
+async function handleDocumentMouseUp(_event: MouseEvent) {
+  if (isDragging.value) {
+    await endDrag()
+  } else if (isSelecting.value) {
+    // End selection box
+    selectEmojisInBox()
+    isSelecting.value = false
+    justCompletedSelection.value = true
+    selectionBox.value = { x: 0, y: 0, width: 0, height: 0 }
+    
+    // If no items were selected, clear the selection
+    if (selectedItemIds.value.size === 0) {
+      clearSelection()
+    }
+    
+    // Reset the flag after a short delay to allow click event to be ignored
+    setTimeout(() => {
+      justCompletedSelection.value = false
+    }, 100)
+  }
+  
+  // Clear pending drag state
+  pendingDragEmojiId.value = null
+  
+  // Clean up document event listeners
+  document.removeEventListener('mousemove', handleDocumentMouseMove)
+  document.removeEventListener('mouseup', handleDocumentMouseUp)
 }
 
 // Resize functions
@@ -1166,8 +1254,8 @@ function handleCanvasMouseDown(event: MouseEvent) {
       // Space+drag = pan mode
       startPan(event)
       isGrabbing.value = true
-    } else if (!event.ctrlKey && !event.metaKey) {
-      // Default: start selection box
+    } else {
+      // Default: start selection box (works with or without Ctrl/Cmd)
       isSelecting.value = true
       const rect = canvasViewport.value!.getBoundingClientRect()
       selectionStart.value = {
@@ -1180,6 +1268,10 @@ function handleCanvasMouseDown(event: MouseEvent) {
         width: 0,
         height: 0
       }
+      
+      // Add document-level event listeners for selection
+      document.addEventListener('mousemove', handleDocumentMouseMove)
+      document.addEventListener('mouseup', handleDocumentMouseUp)
     }
   }
 }
@@ -1318,7 +1410,7 @@ function editEmoji(id: string) {
 
 
 // Rotation functions
-function handleRotationChange(angle: number | undefined) {
+async function handleRotationChange(angle: number | undefined) {
   if (angle === undefined) return
   
   // Ensure angle is a number, not an array
@@ -1335,7 +1427,22 @@ function handleRotationChange(angle: number | undefined) {
     const emoji = getEmojiById(emojiId)
     if (emoji) {
       emoji.rotation = numericAngle
-      // Don't update database during rotation - only update visual state
+    }
+  }
+  
+  // Save rotation changes to database for all selected emojis
+  for (const emojiId of selectedItemIds.value) {
+    const emoji = getEmojiById(emojiId)
+    if (emoji) {
+      try {
+        await updateEmoji(emojiId, { 
+          x: emoji.x, 
+          y: emoji.y, 
+          rotation: emoji.rotation 
+        })
+      } catch (error) {
+        console.error('❌ Error updating emoji rotation:', error)
+      }
     }
   }
 }
@@ -1364,13 +1471,14 @@ async function deleteSingleEmoji(emojiId: string) {
     await deleteEmoji(emojiId)
     // Remove from selection if it was selected
     if (selectedItemIds.value.has(emojiId)) {
-      selectedItemIds.value.delete(emojiId)
+      const newSelection = new Set(selectedItemIds.value)
+      newSelection.delete(emojiId)
       if (selectedEmojiId.value === emojiId) {
-        selectedEmojiId.value = selectedItemIds.value.size > 0 
-          ? Array.from(selectedItemIds.value)[0] ?? null
+        selectedEmojiId.value = newSelection.size > 0 
+          ? Array.from(newSelection)[0] ?? null
           : null
       }
-      selectedItemIds.value = new Set(selectedItemIds.value) // Trigger reactivity
+      selectedItemIds.value = newSelection
     }
   } catch (error) {
     console.error('❌ Error deleting emoji:', error)
@@ -1474,78 +1582,63 @@ async function handlePaste() {
   }
 }
 
-function startRotation(event: MouseEvent) {
-  isRotating.value = true
-  
-  // Store initial rotation values for all selected emojis
-  for (const emojiId of selectedItemIds.value) {
-    const emoji = getEmojiById(emojiId)
-    if (emoji) {
-      const initialRot = emoji.rotation || 0
-      initialRotations.value.set(emojiId, initialRot)
-    }
+
+
+// Additional functions for command palette
+const selectAllItems = () => {
+  const allEmojiIds = emojis.value.map(emoji => emoji.id)
+  selectedItemIds.value = new Set(allEmojiIds)
+  if (allEmojiIds.length > 0) {
+    selectedEmojiId.value = allEmojiIds[0]
   }
-  
-  // Calculate center point for rotation
-  const rect = (event.target as HTMLElement).getBoundingClientRect()
-  const centerX = rect.left + rect.width / 2
-  const centerY = rect.top + rect.height / 2
-  
-  // Calculate initial angle
-  const initialAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI)
-  rotationStartAngle.value = initialAngle
-  
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isRotating.value) {
-      const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI)
-      const deltaAngle = currentAngle - initialAngle
-      const normalizedAngle = (deltaAngle + 360) % 360
-      handleRotationChange(Math.round(normalizedAngle))
-    }
-  }
-  
-  const handleMouseUp = () => {
-    isRotating.value = false
-    
-    // Save rotation changes to database for all selected emojis
-    for (const emojiId of selectedItemIds.value) {
-      const emoji = getEmojiById(emojiId)
-      if (emoji) {
-        updateEmoji(emojiId, { 
-          x: emoji.x, 
-          y: emoji.y, 
-          rotation: emoji.rotation 
-        })
-      }
-    }
-    
-    initialRotations.value.clear()
-    document.removeEventListener('mousemove', handleMouseMove)
-    document.removeEventListener('mouseup', handleMouseUp)
-  }
-  
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('mouseup', handleMouseUp)
+  toast.add({
+    title: 'All items selected',
+    description: `${allEmojiIds.length} items selected`,
+    icon: 'i-lucide-mouse-pointer-click',
+    color: 'success'
+  })
 }
 
-function startRotationTouch(event: TouchEvent) {
-  event.preventDefault()
-  event.stopPropagation()
+const duplicateSelectedItems = async () => {
+  if (selectedItemIds.value.size === 0) return
   
-  if (event.touches.length === 1) {
-    const touch = event.touches[0]
-    if (touch) {
-      // Convert touch to mouse event for existing rotation logic
-      const mouseEvent = new MouseEvent('mousedown', {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        button: 0
-      })
-      startRotation(mouseEvent)
+  const selectedEmojis = Array.from(selectedItemIds.value)
+    .map(id => getEmojiById(id))
+    .filter(emoji => emoji !== null)
+    .map(emoji => ({
+      emoji: emoji!.emoji,
+      x: emoji!.x + 20, // Offset slightly
+      y: emoji!.y + 20,
+      size: emoji!.size,
+      layer: emoji!.layer,
+      rotation: emoji!.rotation
+    }))
+  
+  const newEmojiIds: string[] = []
+  
+  for (const emojiData of selectedEmojis) {
+    const newEmoji = await addEmojiToCanvas(emojiData)
+    if (newEmoji) {
+      newEmojiIds.push(newEmoji.id)
     }
+  }
+  
+  if (newEmojiIds.length > 0) {
+    // Select the newly duplicated emojis
+    selectedItemIds.value = new Set(newEmojiIds)
+    selectedEmojiId.value = newEmojiIds[0] || null
+    
+    toast.add({
+      title: 'Items duplicated',
+      description: `${newEmojiIds.length} item${newEmojiIds.length > 1 ? 's' : ''} duplicated`,
+      icon: 'i-lucide-copy-plus',
+      color: 'success'
+    })
   }
 }
 
+// Command palette ref
+const commandPaletteRef = ref()
 
 // Keyboard shortcuts
 onMounted(() => {
@@ -1563,10 +1656,16 @@ onMounted(() => {
       return
     }
     
-    // AI chat toggle (Cmd/Ctrl + K) - allow this even when typing
-    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+    // AI chat toggle (Cmd/Ctrl + J) - allow this even when typing
+    if ((event.metaKey || event.ctrlKey) && event.key === 'j') {
       event.preventDefault()
       showAIChat.value = !showAIChat.value
+    }
+    
+    // Command palette (Cmd/Ctrl + K) - allow this even when typing
+    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+      event.preventDefault()
+      commandPaletteRef.value?.open()
     }
     
     // Skip other shortcuts if typing in input field
@@ -1595,6 +1694,18 @@ onMounted(() => {
     if (event.key === 'Escape') {
       event.preventDefault()
       clearSelection()
+    }
+    
+    // Select all items (Cmd/Ctrl + A)
+    if ((event.metaKey || event.ctrlKey) && event.key === 'a') {
+      event.preventDefault()
+      selectAllItems()
+    }
+    
+    // Duplicate selected items (Cmd/Ctrl + D)
+    if ((event.metaKey || event.ctrlKey) && event.key === 'd') {
+      event.preventDefault()
+      await duplicateSelectedItems()
     }
     
     // Delete selected items (Delete or Backspace key)

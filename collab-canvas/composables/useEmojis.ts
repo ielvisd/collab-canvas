@@ -95,11 +95,8 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
   // Convert database shape to emoji
   const dbShapeToEmoji = (dbShape: any): Emoji | null => {
     try {
-      console.log('🔍 Checking shape for emoji conversion:', dbShape)
-      
       // Check if this is an emoji shape (new format with type: 'text' and emoji in data)
       if (dbShape.type === 'text' && dbShape.data && dbShape.data.emoji) {
-        console.log('✅ Found emoji shape (new format):', dbShape.data.emoji)
         return {
           id: dbShape.id,
           emoji: dbShape.data.emoji,
@@ -286,7 +283,6 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
         .filter((emoji): emoji is Emoji => emoji !== null)
       
       emojis.value = emojiShapes
-      console.log('✅ Loaded emojis:', emojiShapes.length)
     } catch (err) {
       console.error('Error loading emojis:', err)
     }

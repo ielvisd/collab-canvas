@@ -397,8 +397,6 @@ export const useUndoRedo = (canvasId: string = '550e8400-e29b-41d4-a716-44665544
       // In a production app, you might want to implement session-based tracking
       undoStack.value = []
       redoStack.value = []
-      
-      console.log(`📚 Starting with empty undo/redo stack for fresh session`)
     } catch (err) {
       console.error('Error loading action history:', err)
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'

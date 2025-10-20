@@ -72,36 +72,6 @@
         </div>
       </div>
 
-      <!-- Contextual Controls -->
-      <div v-if="(selectedEmojiId || selectedItemCount > 0)" class="space-y-3 pt-2 border-t border-pink-400/30">
-        <!-- Rotation Controls -->
-        <div class="space-y-2">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-rotate-3d" class="w-4 h-4 text-pink-300" />
-            <span class="text-sm text-pink-300">Rotation</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <USlider
-              :model-value="rotationAngle"
-              :min="0"
-              :max="360"
-              :step="5"
-              size="sm"
-              class="flex-1"
-              tooltip
-              @update:model-value="$emit('rotation-change', $event)"
-            />
-            <UButton
-              icon="i-lucide-rotate-ccw"
-              size="sm"
-              color="neutral"
-              variant="outline"
-              class="font-body"
-              @click="$emit('reset-rotation')"
-            />
-          </div>
-        </div>
-      </div>
 
       <!-- Action Buttons -->
       <div class="grid grid-cols-2 gap-2 pt-2 border-t border-pink-400/30">
@@ -126,41 +96,6 @@
           @click="$emit('redo')"
         />
         
-        <UButton 
-          v-if="selectedItemCount > 0"
-          icon="i-lucide-copy"
-          color="neutral" 
-          variant="outline" 
-          size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-          @click="$emit('copy')"
-        >
-          Copy
-        </UButton>
-        
-        <UButton 
-          v-if="clipboardHasData"
-          icon="i-lucide-clipboard"
-          color="neutral" 
-          variant="outline" 
-          size="sm"
-          class="font-body text-white border-pink-400 hover:bg-pink-500/20"
-          @click="$emit('paste')"
-        >
-          Paste
-        </UButton>
-        
-        <UButton 
-          v-if="selectedItemCount > 0"
-          icon="i-lucide-trash-2"
-          color="error" 
-          variant="solid" 
-          size="sm"
-          class="font-body text-white bg-red-500 hover:bg-red-600"
-          @click="$emit('delete-selected')"
-        >
-          {{ selectedItemCount > 1 ? `Delete ${selectedItemCount}` : 'Delete' }}
-        </UButton>
         
         <UButton 
           icon="i-lucide-trash-2"
@@ -193,13 +128,9 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 
 // Props
 interface Props {
-  selectedEmojiId: string | null
-  selectedItemCount: number
-  rotationAngle: number
   canUndo: boolean
   canRedo: boolean
   snapToGridEnabled: boolean
-  clipboardHasData: boolean
   open: boolean
 }
 
@@ -208,13 +139,8 @@ const props = defineProps<Props>()
 // Emits
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'rotation-change': [angle: number | undefined]
-  'reset-rotation': []
   'undo': []
   'redo': []
-  'copy': []
-  'paste': []
-  'delete-selected': []
   'clear-all': []
   'reset-view': []
   'toggle-grid': []

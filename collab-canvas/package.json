@@ -36,7 +36,7 @@
     "@googlemaps/markerclusterer": "^2.6.2",
     "@nuxt/eslint": "1.9.0",
     "@nuxt/image": "1.11.0",
-    "@nuxt/scripts": "0.12.2",
+    "@nuxt/scripts": "0.13.0",
     "@nuxt/ui": "4.0.1",
     "@nuxthub/core": "^0.9.0",
     "@supabase/supabase-js": "^2.75.0",

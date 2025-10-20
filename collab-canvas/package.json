@@ -41,7 +41,7 @@
     "@nuxthub/core": "^0.9.0",
     "@supabase/supabase-js": "^2.75.0",
     "@unhead/vue": "^2.0.19",
-    "ai": "^5.0.72",
+    "ai": "^5.0.76",
     "eslint": "^9.37.0",
     "konva": "^10.0.2",
     "nuxt": "^4.1.3",

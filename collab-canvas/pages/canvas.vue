@@ -802,6 +802,9 @@ function handleGestureEnd(_event: Event, _emojiId: string) {
         updateEmoji(selectedId, { 
           x: emoji.x, 
           y: emoji.y, 
+          emoji: emoji.emoji,
+          size: emoji.size,
+          layer: emoji.layer,
           rotation: emoji.rotation 
         })
       }
@@ -1262,7 +1265,12 @@ async function endResize() {
     const emoji = getEmojiById(resizingItemId.value)
     if (emoji) {
       await updateEmoji(resizingItemId.value, {
-        size: emoji.size
+        x: emoji.x,
+        y: emoji.y,
+        emoji: emoji.emoji,
+        size: emoji.size,
+        layer: emoji.layer,
+        rotation: emoji.rotation
       })
     }
   } catch (error) {
@@ -1495,6 +1503,9 @@ async function handleRotationChange(angle: number | undefined) {
         await updateEmoji(emojiId, { 
           x: emoji.x, 
           y: emoji.y, 
+          emoji: emoji.emoji,
+          size: emoji.size,
+          layer: emoji.layer,
           rotation: emoji.rotation 
         })
       } catch (error) {
@@ -1540,7 +1551,10 @@ async function handleSizeChange(size: number | undefined) {
         await updateEmoji(emojiId, { 
           x: emoji.x, 
           y: emoji.y, 
-          size: emoji.size 
+          emoji: emoji.emoji,
+          size: emoji.size,
+          layer: emoji.layer,
+          rotation: emoji.rotation 
         })
       } catch (error) {
         console.error('❌ Error updating emoji size:', error)

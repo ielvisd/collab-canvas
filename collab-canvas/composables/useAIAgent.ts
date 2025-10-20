@@ -469,7 +469,7 @@ export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offse
   // Handle moving specific emojis
   const handleMoveEmojis = async (command: AICommand): Promise<boolean> => {
     const { emojiType, deltaX, deltaY, trailEmoji, createTrail } = command as unknown as { 
-      emojiType: string; 
+      emojiType?: string; 
       deltaX: number; 
       deltaY: number;
       trailEmoji?: string;
@@ -479,14 +479,31 @@ export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offse
     try {
       const { emojis, updateEmoji, addEmoji } = useEmojis()
       
-      // Filter emojis by type if specified
-      const targetEmojis = emojiType 
+      // Filter emojis by type if specified, otherwise move all emojis
+      const targetEmojis = emojiType && emojiType.trim() !== '' 
         ? emojis.value.filter(emoji => emoji.emoji === emojiType)
         : emojis.value
 
       if (targetEmojis.length === 0) {
-        console.log(`⚠️ No emojis found with type: ${emojiType}`)
+        const targetDescription = emojiType ? `with type: ${emojiType}` : 'on canvas'
+        console.log(`⚠️ No emojis found ${targetDescription}`)
         return false
+      }
+
+      // Handle "move to right side" - use large deltaX to move to right edge
+      let actualDeltaX = deltaX
+      let actualDeltaY = deltaY
+      
+      // If deltaX is very large (like 1000+), interpret as "move to right side"
+      if (Math.abs(deltaX) > 500) {
+        // Move to right edge of canvas (800px width)
+        actualDeltaX = 700 - Math.min(...targetEmojis.map(e => e.x))
+      }
+      
+      // If deltaY is very large (like 1000+), interpret as "move to bottom"
+      if (Math.abs(deltaY) > 500) {
+        // Move to bottom edge of canvas (600px height)
+        actualDeltaY = 500 - Math.min(...targetEmojis.map(e => e.y))
       }
 
       // Update each emoji and create trails if requested
@@ -494,8 +511,8 @@ export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offse
       for (const emoji of targetEmojis) {
         const oldX = emoji.x
         const oldY = emoji.y
-        const newX = emoji.x + deltaX
-        const newY = emoji.y + deltaY
+        const newX = emoji.x + actualDeltaX
+        const newY = emoji.y + actualDeltaY
         
         const success = await updateEmoji(emoji.id, { x: newX, y: newY })
         if (success) {
@@ -515,7 +532,8 @@ export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offse
         }
       }
 
-      console.log(`✅ Moved ${successCount}/${targetEmojis.length} emojis by (${deltaX}, ${deltaY})`)
+      const targetDescription = emojiType ? `emojis of type ${emojiType}` : 'all emojis'
+      console.log(`✅ Moved ${successCount}/${targetEmojis.length} ${targetDescription} by (${actualDeltaX}, ${actualDeltaY})`)
       return successCount > 0
     } catch (err) {
       console.error('❌ Failed to move emojis:', err)
@@ -526,20 +544,20 @@ export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offse
   // Handle rotating specific emojis
   const handleRotateEmojis = async (command: AICommand): Promise<boolean> => {
     const { emojiType, degrees } = command as unknown as { 
-      emojiType: string; 
+      emojiType?: string; 
       degrees: number 
     }
 
     try {
       const { emojis, updateEmoji } = useEmojis()
       
-      // Filter emojis by type if specified
-      const targetEmojis = emojiType 
+      // Filter emojis by type if specified, otherwise rotate all emojis
+      const targetEmojis = emojiType && emojiType.trim() !== '' 
         ? emojis.value.filter(emoji => emoji.emoji === emojiType)
         : emojis.value
 
       if (targetEmojis.length === 0) {
-        console.log(`⚠️ No emojis found with type: ${emojiType}`)
+        console.log(`⚠️ No emojis found${emojiType ? ` with type: ${emojiType}` : ' on canvas'}`)
         return false
       }
 
@@ -554,7 +572,8 @@ export const useAIAgent = (canvasState?: { scale: number; offsetX: number; offse
         }
       }
 
-      console.log(`✅ Rotated ${successCount}/${targetEmojis.length} emojis by ${degrees} degrees`)
+      const targetDescription = emojiType ? `emojis of type ${emojiType}` : 'all emojis'
+      console.log(`✅ Rotated ${successCount}/${targetEmojis.length} ${targetDescription} by ${degrees} degrees`)
       return successCount > 0
     } catch (err) {
       console.error('❌ Failed to rotate emojis:', err)

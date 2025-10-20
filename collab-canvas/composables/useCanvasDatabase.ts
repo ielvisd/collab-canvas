@@ -124,19 +124,22 @@ export const useCanvasDatabase = () => {
       
       console.log('✅ Found existing emoji in database:', existingData[0])
       
-      // Convert the emoji updates to the proper database format
+      // Get existing data to merge with updates
+      const existingEmoji = existingData[0]?.data
+
+      // Merge updates with existing data to preserve all properties
       const emojiData = {
-        x: updates.x,
-        y: updates.y,
-        text: updates.emoji, // Store emoji character as 'text'
-        emoji: updates.emoji, // Also store in 'emoji' field for easy filtering
-        fontSize: updates.size,
-        emojiSize: updates.size,
-        layer: updates.layer || 1,
-        rotation: updates.rotation || 0,
-        fill: 'transparent',
-        stroke: 'transparent',
-        draggable: true
+        x: updates.x ?? existingEmoji.x,
+        y: updates.y ?? existingEmoji.y,
+        text: updates.emoji ?? existingEmoji.emoji ?? existingEmoji.text,
+        emoji: updates.emoji ?? existingEmoji.emoji ?? existingEmoji.text,
+        fontSize: updates.size ?? existingEmoji.emojiSize ?? existingEmoji.fontSize,
+        emojiSize: updates.size ?? existingEmoji.emojiSize ?? existingEmoji.fontSize,
+        layer: updates.layer ?? existingEmoji.layer ?? 1,
+        rotation: updates.rotation ?? existingEmoji.rotation ?? 0,
+        fill: existingEmoji.fill ?? 'transparent',
+        stroke: existingEmoji.stroke ?? 'transparent',
+        draggable: existingEmoji.draggable ?? true
       }
       
       const dbUpdates: CanvasObjectUpdate = {

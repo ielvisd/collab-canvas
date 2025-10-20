@@ -222,10 +222,10 @@ function createSystemPrompt() {
 ### Emoji Operations
 - Create emoji stories: "Create a story with three little pigs on an island"
 - Arrange emojis in shapes: circles, triangles, squares, lines, diamonds, hearts
-- Move specific emojis: "move all pizza emojis by 50px right"
-- Move everything: "move everything 10px up" 
-- Rotate emojis: "rotate the hearts 45 degrees"
-- Clear canvas: "delete all emojis"
+- Move specific emojis: "move all pizza emojis by 50px right", "move heart emoji to the right side", "move heart emoji to the right by 50px"
+- Move everything: "move everything 10px up", "move all emojis 20px left"
+- Rotate emojis: "rotate the hearts 45 degrees", "rotate all emojis by 90 degrees", "rotate everything 180 degrees"
+- Clear canvas: "delete all emojis", "delete all emojis from screen", "clear canvas", "remove all emojis"
 
 ### Advanced Emoji Features
 - Spell words with emojis: "Spell PIZZA with pizza emojis" → Use spellWord tool
@@ -236,11 +236,12 @@ function createSystemPrompt() {
 - Mirror arrangements: "Mirror the left side to the right" → Use mirrorScene tool
 
 ### Shape Drawing (ASCII-Art Style)
-- Draw geometric shapes: "draw a triangle with pizzas", "draw a square outline with hearts" → Use drawShape tool
+- Draw geometric shapes: "draw a triangle with pizzas", "draw a square outline with hearts", "draw a rectangle with given emoji" → Use drawShape tool
 - Creative shapes: "draw a cat with cat emojis", "draw a dinosaur with bones" → AI generates ASCII patterns
 - Filled vs outline: "draw a filled circle with stars" vs "draw a circle outline with hearts"
 - Size control: "draw a big triangle with gems" (size parameter)
 - Position control: "draw a diamond in the top-left corner"
+- Rectangle drawing: "draw a rectangle with hearts", "draw a filled rectangle with stars"
 
 ### AI Pattern Generation for Creative Shapes
 When generating ASCII patterns for creative shapes, use simple but recognizable designs:
@@ -268,6 +269,11 @@ Always output patterns as arrays of strings where each string represents a row o
 - "Put a rocket in the bottom-right corner, then fill the top row with alternating star and moon" → Rocket + alternating pattern
 - "Create a border of cheese wedges around the canvas, place a central pizza emoji, and shift the whole scene slightly to the right" → Border + pizza + shift
 - "Spell 'FUN' vertically on the left edge with fruit emojis, then mirror it to the right with veggie emojis" → Vertical spelling + mirror
+- "Delete all emojis from screen" → Use clearAllShapes tool
+- "Move heart emoji to the right side" → Use moveEmojis with deltaX to move to right edge
+- "Move heart emoji to the right by 50px" → Use moveEmojis with deltaX: 50
+- "Rotate all emojis by 90 degrees" → Use rotateEmojis with empty emojiType
+- "Draw a rectangle with given emoji" → Use drawShape with shape: "rectangle"
 
 ### Shape Operations
 - Create basic shapes: rectangles, circles, text
@@ -421,34 +427,34 @@ function buildToolSpecs() {
     },
     {
       name: 'clearAllShapes',
-      description: 'Clear canvas',
+      description: 'Clear canvas - delete all emojis from screen. Use for commands like "delete all emojis", "clear canvas", "remove all emojis"',
       parameters: { type: 'object', properties: {}, required: [] },
       function: async () => ({ name: 'clearAllShapes', arguments: {} })
     },
     {
       name: 'moveEmojis',
-      description: 'Move specific emoji type by delta amount',
+      description: 'Move specific emoji type by delta amount. For "move to right side", use large deltaX. For "move by 50px right", use deltaX: 50. Leave emojiType empty to move all emojis.',
       parameters: {
         type: 'object',
         properties: {
-          emojiType: { type: 'string', description: 'Emoji character to move (e.g., "🍕", "❤️")' },
-          deltaX: { type: 'number', description: 'Horizontal movement in pixels' },
-          deltaY: { type: 'number', description: 'Vertical movement in pixels' }
+          emojiType: { type: 'string', description: 'Emoji character to move (e.g., "🍕", "❤️"). Leave empty or null to move all emojis.' },
+          deltaX: { type: 'number', description: 'Horizontal movement in pixels. Positive = right, negative = left' },
+          deltaY: { type: 'number', description: 'Vertical movement in pixels. Positive = down, negative = up' }
         },
-        required: ['emojiType', 'deltaX', 'deltaY']
+        required: ['deltaX', 'deltaY']
       },
       function: async (args: Record<string, unknown>) => ({ name: 'moveEmojis', arguments: args })
     },
     {
       name: 'rotateEmojis',
-      description: 'Rotate specific emoji type by degrees',
+      description: 'Rotate specific emoji type by degrees. Leave emojiType empty to rotate all emojis. Use for "rotate all emojis by 90 degrees" or "rotate everything 180 degrees"',
       parameters: {
         type: 'object',
         properties: {
-          emojiType: { type: 'string', description: 'Emoji character to rotate (e.g., "🍕", "❤️")' },
+          emojiType: { type: 'string', description: 'Emoji character to rotate (e.g., "🍕", "❤️"). Leave empty or null to rotate all emojis.' },
           degrees: { type: 'number', description: 'Rotation amount in degrees' }
         },
-        required: ['emojiType', 'degrees']
+        required: ['degrees']
       },
       function: async (args: Record<string, unknown>) => ({ name: 'rotateEmojis', arguments: args })
     },
@@ -755,7 +761,7 @@ function buildFallbackCommand(userMessage: string) {
     return { action: 'arrange-shapes', shapeIds: ['all'], layout: 'horizontal', spacing: 20 }
   }
 
-  if (m.includes('clear') || m.includes('delete all') || m.includes('remove all') || m.includes('delete all emojis') || m.includes('delete all shapes')) {
+  if (m.includes('clear') || m.includes('delete all') || m.includes('remove all') || m.includes('delete all emojis') || m.includes('delete all shapes') || m.includes('clear canvas') || m.includes('delete all emojis from screen')) {
     return { action: 'clear-all' }
   }
 
@@ -872,6 +878,79 @@ function buildFallbackCommand(userMessage: string) {
   // generic emoji request
   if (m.includes('emoji') || m.includes('smile') || m.includes('😊')) {
     return { action: 'create-shape', shapeType: 'emoji', x: 200, y: 200, emoji: '😊', emojiSize: 48, layer: 1 }
+  }
+
+  // Handle movement patterns
+  if (m.includes('move') && (m.includes('right') || m.includes('left') || m.includes('up') || m.includes('down'))) {
+    const emojiType = extractEmojiType(m) || '❤️' // Default to heart if not specified
+    let deltaX = 0
+    let deltaY = 0
+    
+    // Handle "move by Xpx right/left/up/down" - check this first
+    if (m.includes('by') && m.includes('px')) {
+      const amountMatch = m.match(/(\d+)\s*px/)
+      const amount = amountMatch ? parseInt(amountMatch[1]!) : 50
+      
+      if (m.includes('right')) deltaX = amount
+      else if (m.includes('left')) deltaX = -amount
+      else if (m.includes('up')) deltaY = -amount
+      else if (m.includes('down')) deltaY = amount
+    }
+    // Handle "move to right side" - use large deltaX
+    else if (m.includes('right side') || m.includes('to the right')) {
+      deltaX = 1000 // Will be interpreted as "move to right edge"
+    }
+    // Handle "move X right/left/up/down"
+    else {
+      const amount = 50 // Default movement
+      if (m.includes('right')) deltaX = amount
+      else if (m.includes('left')) deltaX = -amount
+      else if (m.includes('up')) deltaY = -amount
+      else if (m.includes('down')) deltaY = amount
+    }
+    
+    return {
+      action: 'move-emojis',
+      emojiType: emojiType,
+      deltaX: deltaX,
+      deltaY: deltaY
+    }
+  }
+
+  // Handle rotation patterns
+  if (m.includes('rotate') && (m.includes('all') || m.includes('everything'))) {
+    const degreesMatch = m.match(/(\d+)\s*(?:degrees?|°)?/)
+    const degrees = degreesMatch ? parseInt(degreesMatch[1]!) : 90
+    
+    return {
+      action: 'rotate-emojis',
+      emojiType: '', // Empty means all emojis
+      degrees: degrees
+    }
+  }
+
+  // Handle specific emoji rotation
+  if (m.includes('rotate') && !m.includes('all') && !m.includes('everything')) {
+    const emojiType = extractEmojiType(m) || '❤️'
+    const degreesMatch = m.match(/(\d+)\s*(?:degrees?|°)?/)
+    const degrees = degreesMatch ? parseInt(degreesMatch[1]!) : 45
+    
+    return {
+      action: 'rotate-emojis',
+      emojiType: emojiType,
+      degrees: degrees
+    }
+  }
+
+  // Handle rectangle drawing
+  if (m.includes('draw') && (m.includes('rectangle') || m.includes('rect'))) {
+    const emoji = extractEmojiType(m) || '❤️'
+    return {
+      action: 'draw-shape',
+      shape: 'rectangle',
+      emoji: emoji,
+      fillStyle: 'filled'
+    }
   }
 
   // Handle specific prompt patterns from the test cases

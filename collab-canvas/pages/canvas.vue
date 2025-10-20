@@ -17,7 +17,7 @@
         <!-- Canvas Area -->
         <div class="flex-1 canvas-container bg-gray-900 relative overflow-hidden flex items-center justify-center">
           <!-- Fixed-size canvas with border -->
-          <div class="canvas-wrapper" style="width: 1920px; height: 1080px; border: 3px solid #ff1493;">
+          <div class="canvas-wrapper" style="width: 1440px; height: 810px; border: 3px solid #ff1493;">
             <!-- Canvas Viewport - this handles the zoom and pan -->
             <div 
               ref="canvasViewport"
@@ -389,8 +389,8 @@ const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
 }
 
-// Pan and zoom state
-const canvasScale = ref(1)
+// Pan and zoom state - start zoomed out to fit canvas in viewport
+const canvasScale = ref(0.5)
 const canvasOffset = ref({ x: 0, y: 0 })
 const isPanning = ref(false)
 const panStart = ref({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
@@ -399,9 +399,9 @@ const panStart = ref({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
 const isSpacePressed = ref(false)
 const isGrabbing = ref(false)
 
-// Fixed canvas dimensions - industry standard Full HD
-const canvasWidth = 1920
-const canvasHeight = 1080
+// Fixed canvas dimensions - smaller but still standard (16:9 aspect ratio)
+const canvasWidth = 1440
+const canvasHeight = 810
 
         // State
         const showAIChat = ref(false)
@@ -1464,7 +1464,7 @@ function resetView() {
 }
 
 function resetCanvasView() {
-  canvasScale.value = 1
+  canvasScale.value = 0.5
   canvasOffset.value = { x: 0, y: 0 }
 }
 
@@ -1566,19 +1566,21 @@ async function handleSizeChange(size: number | undefined) {
 async function deleteSelectedItem() {
   if (selectedItemIds.value.size > 0) {
     try {
-      // Convert Set to Array for individual deletes
+      // Convert Set to Array
       const selectedIds = Array.from(selectedItemIds.value)
       
-      // Delete each emoji individually to trigger real-time sync
-      let successCount = 0
-      for (const emojiId of selectedIds) {
-        const success = await deleteEmoji(emojiId)
-        if (success) {
-          successCount++
+      // Use bulk delete for multiple items, individual delete for single item
+      let success = false
+      if (selectedIds.length === 1) {
+        const emojiId = selectedIds[0]
+        if (emojiId) {
+          success = await deleteEmoji(emojiId)
         }
+      } else {
+        success = await deleteMultipleEmojis(selectedIds)
       }
       
-      if (successCount === selectedIds.length) {
+      if (success) {
         clearSelection()
         toast.add({
           title: 'Items deleted',

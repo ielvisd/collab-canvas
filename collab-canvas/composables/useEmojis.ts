@@ -139,33 +139,46 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600,
 
   // Add emoji
   const addEmoji = async (emojiData: Omit<Emoji, 'id' | 'created_at' | 'updated_at'>): Promise<Emoji | null> => {
+    let emoji: Emoji | null = null
+    
     try {
-      const emoji: Emoji = {
+      emoji = {
         id: generateId('emoji'),
         ...emojiData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
 
-      // Save to database
+      // OPTIMISTIC UPDATE: Add to local state immediately for instant feedback
+      emojis.value.push(emoji)
+      
+      // Record action for undo/redo (only if not from real-time sync or undo/redo)
+      if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
+        await recordAction('add', 'emoji', emoji.id, null, emoji)
+      }
+
+      // Save to database in the background
       const dbShape = await saveEmojiToDb(emoji)
       if (dbShape) {
         // Update the emoji with the database ID
-        emoji.id = dbShape.id
-        // Update local state
-        emojis.value.push(emoji)
-        
-        // Record action for undo/redo (only if not from real-time sync or undo/redo)
-        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value) {
-          await recordAction('add', 'emoji', emoji.id, null, emoji)
+        const emojiIndex = emojis.value.findIndex(e => e.id === emoji!.id)
+        if (emojiIndex !== -1) {
+          emojis.value[emojiIndex] = { ...emoji, id: dbShape.id }
         }
         
         // console.log('✅ Emoji added:', emoji)
-        return emoji
+        return { ...emoji, id: dbShape.id }
+      } else {
+        // If database save failed, remove from local state
+        emojis.value = emojis.value.filter(e => e.id !== emoji!.id)
+        return null
       }
-      return null
     } catch (err) {
       console.error('Error adding emoji:', err)
+      // If there was an error, remove from local state
+      if (emoji) {
+        emojis.value = emojis.value.filter(e => e.id !== emoji!.id)
+      }
       return null
     }
   }
@@ -228,24 +241,36 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600,
       // Get emoji before deletion for undo/redo
       const emojiToDelete = emojis.value.find(e => e.id === id)
       
-      const success = await deleteEmojiFromDb(id)
-      if (success) {
-        emojis.value = emojis.value.filter(e => e.id !== id)
-        if (selectedEmojiId.value === id) {
-          selectedEmojiId.value = null
-        }
-        
-        // Record action for undo/redo (only if not from real-time sync or undo/redo)
-        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value && emojiToDelete) {
-          await recordAction('delete', 'emoji', id, emojiToDelete, null)
-        }
-        
-        console.log('✅ Emoji deleted:', id)
-        return true
+      // OPTIMISTIC UPDATE: Remove from local state immediately for instant feedback
+      emojis.value = emojis.value.filter(e => e.id !== id)
+      if (selectedEmojiId.value === id) {
+        selectedEmojiId.value = null
       }
-      return false
+      
+      // Record action for undo/redo (only if not from real-time sync or undo/redo)
+      if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value && emojiToDelete) {
+        await recordAction('delete', 'emoji', id, emojiToDelete, null)
+      }
+      
+      // Delete from database in the background
+      const success = await deleteEmojiFromDb(id)
+      if (!success) {
+        // If database delete failed, restore the emoji to local state
+        if (emojiToDelete) {
+          emojis.value.push(emojiToDelete)
+        }
+        return false
+      }
+      
+      console.log('✅ Emoji deleted:', id)
+      return true
     } catch (err) {
       console.error('Error deleting emoji:', err)
+      // If there was an error, restore the emoji to local state
+      const emojiToDelete = emojis.value.find(e => e.id === id)
+      if (emojiToDelete) {
+        emojis.value.push(emojiToDelete)
+      }
       return false
     }
   }

@@ -177,7 +177,7 @@ export const useCanvasDatabase = () => {
     }
   }
 
-  // Delete emoji from database
+  // Delete emoji from database (soft delete using UPDATE instead of DELETE)
   const deleteEmoji = async (emojiId: string, canvasId?: string): Promise<boolean> => {
     try {
       loading.value = true
@@ -185,13 +185,15 @@ export const useCanvasDatabase = () => {
 
       const canvas = getCanvasId(canvasId)
       
-      console.log('🗑️ Deleting emoji from database:', { emojiId, canvas })
+      console.log('🗑️ Soft deleting emoji from database:', { emojiId, canvas, canvasId })
       
+      // Use UPDATE with deleted_at instead of DELETE for better real-time sync
       const { data, error: dbError } = await $supabase
         .from('canvas_objects')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', emojiId)
         .eq('canvas_id', canvas)
+        .is('deleted_at', null) // Only delete if not already deleted
         .select()
 
       if (dbError) {
@@ -199,7 +201,12 @@ export const useCanvasDatabase = () => {
         throw new Error(`Failed to delete emoji: ${dbError.message}`)
       }
 
-      console.log('✅ Successfully deleted emoji from database:', data)
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No emoji was deleted (might already be deleted)')
+        return true // Still return true as it's effectively deleted
+      }
+
+      console.log('✅ Successfully soft deleted emoji from database:', data)
       return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error occurred'

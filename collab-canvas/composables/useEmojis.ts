@@ -17,6 +17,7 @@ export interface EmojiActions {
   addEmoji: (emoji: Omit<Emoji, 'id' | 'created_at' | 'updated_at'>) => Promise<Emoji | null>
   updateEmoji: (id: string, updates: Partial<Emoji>) => Promise<boolean>
   deleteEmoji: (id: string) => Promise<boolean>
+  deleteMultipleEmojis: (ids: string[]) => Promise<boolean>
   clearAllEmojis: () => Promise<boolean>
   getEmojiById: (id: string) => Emoji | null
   loadEmojis: () => Promise<void>
@@ -250,6 +251,50 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     }
   }
 
+  // Delete multiple emojis at once (bulk delete)
+  const deleteMultipleEmojis = async (ids: string[]): Promise<boolean> => {
+    try {
+      if (ids.length === 0) return true
+      
+      // Get emojis before deletion for undo/redo
+      const emojisToDelete = emojis.value.filter(e => ids.includes(e.id))
+      
+      // Remove from local state immediately for instant UI feedback
+      const originalEmojis = [...emojis.value]
+      emojis.value = emojis.value.filter(e => !ids.includes(e.id))
+      
+      // Clear selection if any of the deleted emojis were selected
+      if (selectedEmojiId.value && ids.includes(selectedEmojiId.value)) {
+        selectedEmojiId.value = null
+      }
+      
+      // Delete from database in parallel for better performance
+      const deletePromises = ids.map(id => deleteShapeFromDb(id))
+      const results = await Promise.all(deletePromises)
+      
+      // Check if all deletions succeeded
+      const allSuccessful = results.every(success => success)
+      
+      if (allSuccessful) {
+        // Record action for undo/redo (only if not from real-time sync or undo/redo)
+        if (!isUpdatingFromRealtime.value && !isUndoRedoInProgress.value && emojisToDelete.length > 0) {
+          await recordAction('delete-multiple', 'emoji', ids.join(','), emojisToDelete, null)
+        }
+        
+        console.log('✅ Multiple emojis deleted:', ids.length)
+        return true
+      } else {
+        // If database deletion failed, restore local state
+        emojis.value = originalEmojis
+        console.error('❌ Failed to delete some emojis from database')
+        return false
+      }
+    } catch (err) {
+      console.error('Error deleting multiple emojis:', err)
+      return false
+    }
+  }
+
   // Clear all emojis
   const clearAllEmojis = async (): Promise<boolean> => {
     try {
@@ -309,6 +354,7 @@ export const useEmojis = (canvasWidth: number = 800, canvasHeight: number = 600)
     addEmoji,
     updateEmoji,
     deleteEmoji,
+    deleteMultipleEmojis,
     clearAllEmojis,
     getEmojiById,
     loadEmojis

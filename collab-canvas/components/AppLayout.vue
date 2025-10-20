@@ -30,73 +30,79 @@
         </div>
         
         <!-- Right: Controls and User Menu -->
-        <div class="flex items-center gap-2">
-          <!-- Emoji Button -->
-          <UButton
-            icon="i-lucide-palette"
-            :label="isMobile ? '' : 'Emoji'"
-            color="primary"
-            variant="outline"
-            size="sm"
-            class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
-            @click="emit('open-emoji-picker')"
-          />
+        <div class="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+          <!-- First row: Emoji and AI buttons -->
+          <div class="flex items-center gap-2">
+            <!-- Emoji Button -->
+            <UButton
+              icon="i-lucide-palette"
+              :label="isMobile ? '' : 'Emoji'"
+              color="primary"
+              variant="outline"
+              size="sm"
+              class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+              @click="emit('open-emoji-picker')"
+            />
+            
+            <!-- AI Button -->
+            <UButton
+              icon="i-heroicons-sparkles"
+              :label="isMobile ? '' : 'AI'"
+              color="primary"
+              variant="outline"
+              size="sm"
+              class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+              @click="emit('open-ai-chat')"
+            />
+          </div>
           
-          <!-- AI Button -->
-          <UButton
-            icon="i-heroicons-sparkles"
-            :label="isMobile ? '' : 'AI'"
-            color="primary"
-            variant="outline"
-            size="sm"
-            class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
-            @click="emit('open-ai-chat')"
-          />
-          
-          <!-- Tools Button -->
-      <UButton
-        icon="i-lucide-wrench"
-        :label="isMobile ? '' : 'Tools'"
-        color="neutral"
-        variant="outline"
-        size="sm"
-        class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
-        @click="emit('open-tools')"
-      />
-          
-          <!-- Users Button with Count -->
-          <UButton
-            icon="i-lucide-users"
-            :label="isMobile ? '' : `Users (${userCount})`"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10 relative"
-            @click="emit('toggle-users')"
-          >
-            <template #trailing>
-              <UBadge 
-                v-if="userCount > 0"
-                :label="userCount.toString()"
-                color="primary"
-                variant="solid"
-                size="xs"
-                class="ml-1"
-              />
-            </template>
-          </UButton>
-          
-          <!-- User menu -->
-          <UDropdownMenu :items="userMenuItems" :ui="{ content: 'z-[9999] min-w-48' }">
-            <UButton variant="ghost" size="sm" class="p-1 sm:p-2 text-pink-300 hover:text-white">
-              <UAvatar
-                :src="userAvatarUrl"
-                :alt="userDisplayName"
-                size="sm"
-                class="cursor-pointer"
-              />
+          <!-- Second row: Tools, Users, and User menu -->
+          <div class="flex items-center gap-2">
+            <!-- Tools Button -->
+            <UButton
+              icon="i-lucide-wrench"
+              :label="isMobile ? '' : 'Tools'"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10"
+              @click="emit('open-tools')"
+            />
+            
+            <!-- Users Button with Count -->
+            <UButton
+              icon="i-lucide-users"
+              :label="isMobile ? '' : `Users (${userCount})`"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="font-body border-pink-400 text-pink-300 hover:bg-pink-500/10 relative"
+              @click="emit('toggle-users')"
+            >
+              <template #trailing>
+                <UBadge 
+                  v-if="userCount > 0"
+                  :label="userCount.toString()"
+                  color="primary"
+                  variant="solid"
+                  size="xs"
+                  class="ml-1"
+                />
+              </template>
             </UButton>
-          </UDropdownMenu>
+            
+            <!-- User menu -->
+            <UDropdownMenu :items="userMenuItems" :ui="{ content: 'z-[9999] min-w-48' }">
+              <UButton variant="ghost" size="sm" class="p-1 sm:p-2 text-pink-300 hover:text-white">
+                <UAvatar
+                  :src="userAvatarUrl"
+                  :alt="userDisplayName"
+                  size="sm"
+                  class="cursor-pointer"
+                />
+              </UButton>
+            </UDropdownMenu>
+          </div>
         </div>
       </div>
     </div>
@@ -122,7 +128,7 @@ interface Props {
   userCount?: number
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const _props = withDefaults(defineProps<Props>(), {
   isConnected: true,
   isMobile: false,
   userCount: 0
@@ -138,8 +144,8 @@ const emit = defineEmits<{
 }>()
 
 // Local state for UI controls
-const showPresence = ref(false)
-const showAIChat = ref(false)
+const _showPresence = ref(false)
+const _showAIChat = ref(false)
 
 // User menu items
 const userMenuItems = computed(() => [

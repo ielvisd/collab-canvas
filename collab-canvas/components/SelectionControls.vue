@@ -23,8 +23,8 @@
         color="neutral"
         variant="ghost"
         class="text-blue-300 hover:text-white hover:bg-blue-500/20"
-        @click="$emit('clear-selection')"
         title="Deselect items"
+        @click="$emit('clear-selection')"
       />
     </div>
     
@@ -56,6 +56,27 @@
             class="text-blue-300 border-blue-400 hover:bg-blue-500/20"
             @click="$emit('reset-rotation')"
           />
+        </div>
+      </div>
+
+      <!-- Size Controls -->
+      <div class="space-y-2">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-maximize-2" class="w-4 h-4 text-blue-300" />
+          <span class="text-xs text-blue-300">Size</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <USlider
+            :model-value="emojiSize"
+            :min="16"
+            :max="256"
+            :step="4"
+            size="sm"
+            class="flex-1"
+            tooltip
+            @update:model-value="$emit('size-change', $event)"
+          />
+          <span class="text-xs text-blue-300 w-12">{{ emojiSize }}px</span>
         </div>
       </div>
 
@@ -106,15 +127,17 @@ import { ref, onMounted, onUnmounted } from 'vue'
 interface Props {
   selectedItemCount: number
   rotationAngle: number
+  emojiSize: number
   clipboardHasData: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
   'rotation-change': [angle: number | undefined]
   'reset-rotation': []
+  'size-change': [size: number | undefined]
   'copy': []
   'paste': []
   'delete-selected': []
@@ -131,9 +154,7 @@ const controlsRef = ref<HTMLElement | null>(null)
 const initializePosition = () => {
   // Position controls in the top-right area of the screen
   const controlsWidth = 280
-  const controlsHeight = 200
   const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
   
   // Position in top-right with some margin
   const x = viewportWidth - controlsWidth - 20

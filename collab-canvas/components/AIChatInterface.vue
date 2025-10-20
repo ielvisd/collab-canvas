@@ -30,20 +30,28 @@
               <div>
                 <p class="font-medium text-pink-300 mb-1">✨ Positioning:</p>
                 <p>• "Pizza in top-left corner"</p>
+                <p>• "Place a cat in the center"</p>
+                <p>• "Put a star in bottom-right"</p>
               </div>
               <div>
                 <p class="font-medium text-pink-300 mb-1">🔤 Spelling:</p>
                 <p>• "Spell 'PIZZA' with pizza"</p>
+                <p>• "Write 'HELLO' with hearts"</p>
+                <p>• "Create 'LOVE' using roses"</p>
               </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-pink-200">
               <div>
-                <p class="font-medium text-pink-300 mb-1">🎭 Effects:</p>
-                <p>• "Move cats with heart trails"</p>
+                <p class="font-medium text-pink-300 mb-1">🔷 Shapes:</p>
+                <p>• "Draw a rectangle with hearts"</p>
+                <p>• "Create a circle of stars"</p>
+                <p>• "Make a triangle with cats"</p>
               </div>
               <div>
                 <p class="font-medium text-pink-300 mb-1">🌟 Complex:</p>
                 <p>• "Rocket + star patterns"</p>
+                <p>• "Sunset scene with clouds"</p>
+                <p>• "Garden with flowers and bees"</p>
               </div>
             </div>
           </div>
@@ -154,15 +162,29 @@ const {
   reset
 } = useAIAgent()
 
-// Quick action commands - showcasing new capabilities
-const quickActions = [
+// All available quick action commands
+const allQuickActions = [
   { label: '🍕 Pizza Corner', command: 'Place a pizza emoji in the top-left corner' },
-  { label: '🔤 Spell PIZZA', command: 'Spell PIZZA with pizza emojis' },
-  { label: '🐱 Cat Trail', command: 'Move cats leaving paw-print hearts behind' },
-  { label: '⭐ Star Border', command: 'Create a border of stars around the canvas' },
-  { label: '🚀 Rocket Scene', command: 'Put a rocket in bottom-right, fill top with stars' },
+  { label: '🐱 Cat Center', command: 'Place a cat in the center' },
+  { label: '⭐ Star Bottom', command: 'Put a star in bottom-right' },
+  { label: '🔤 Spell HELLO', command: 'Write HELLO with hearts' },
+  { label: '🌹 Create LOVE', command: 'Create LOVE using roses' },
+  { label: '🔷 Heart Rectangle', command: 'Draw a rectangle with hearts' },
+  { label: '⭐ Star Circle', command: 'Create a circle of stars' },
+  { label: '🐱 Cat Triangle', command: 'Make a triangle with cats' },
+  { label: '🌅 Sunset Scene', command: 'Create a sunset scene with clouds' },
+  { label: '🌸 Garden Scene', command: 'Create a garden with flowers and bees' },
   { label: '🧹 Clear', command: 'Delete all emojis from the canvas' }
 ]
+
+// Function to get 6 random quick actions
+const getRandomQuickActions = () => {
+  const shuffled = [...allQuickActions].sort(() => 0.5 - Math.random())
+  return shuffled.slice(0, 6)
+}
+
+// Get 6 random quick actions
+const quickActions = getRandomQuickActions()
 
 // Handle form submission
 const handleSubmit = () => {

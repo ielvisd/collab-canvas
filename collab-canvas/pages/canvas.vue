@@ -15,43 +15,45 @@
       <div class="flex-1 flex relative">
         
         <!-- Canvas Area -->
-        <div class="flex-1 canvas-container bg-white relative overflow-hidden">
-          <!-- Canvas Viewport - this handles the zoom and pan -->
-          <div 
-            ref="canvasViewport"
-            class="canvas-viewport"
-            :class="[
-              {
-                'cursor-grab': isSpacePressed && !isGrabbing,
-                'cursor-grabbing': isGrabbing,
-                'cursor-crosshair': !isSpacePressed && !isMobile
-              }
-            ]"
-            :style="{
-              transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
-              transformOrigin: 'center center',
-              width: '100%',
-              height: '100%'
-            }"
-            @mousedown="handleCanvasMouseDown"
-            @mousemove="handleCanvasMouseMove"
-            @mouseup="handleCanvasMouseUp"
-            @click="handleCanvasClick"
-            @touchstart="handleCanvasTouchStart"
-            @touchmove="handleCanvasTouchMove"
-            @touchend="handleCanvasTouchEnd"
-            @wheel="handleCanvasWheel"
-          >
+        <div class="flex-1 canvas-container bg-gray-900 relative overflow-hidden flex items-center justify-center">
+          <!-- Fixed-size canvas with border -->
+          <div class="canvas-wrapper" style="width: 1920px; height: 1080px; border: 3px solid #ff1493;">
+            <!-- Canvas Viewport - this handles the zoom and pan -->
             <div 
-              ref="canvasContainer"
-              class="bg-white relative"
-              :style="{ 
-                width: canvasWidth + 'px', 
-                height: canvasHeight + 'px'
+              ref="canvasViewport"
+              class="canvas-viewport"
+              :class="[
+                {
+                  'cursor-grab': isSpacePressed && !isGrabbing,
+                  'cursor-grabbing': isGrabbing,
+                  'cursor-crosshair': !isSpacePressed && !isMobile
+                }
+              ]"
+              :style="{
+                transform: `scale(${canvasScale}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
+                transformOrigin: 'center center',
+                width: '100%',
+                height: '100%'
               }"
-              data-tool="emoji"
-              data-testid="canvas-container"
+              @mousedown="handleCanvasMouseDown"
+              @mousemove="handleCanvasMouseMove"
+              @mouseup="handleCanvasMouseUp"
+              @click="handleCanvasClick"
+              @touchstart="handleCanvasTouchStart"
+              @touchmove="handleCanvasTouchMove"
+              @touchend="handleCanvasTouchEnd"
+              @wheel="handleCanvasWheel"
             >
+              <div 
+                ref="canvasContainer"
+                class="bg-white relative"
+                :style="{ 
+                  width: canvasWidth + 'px', 
+                  height: canvasHeight + 'px'
+                }"
+                data-tool="emoji"
+                data-testid="canvas-container"
+              >
             <!-- Grid Overlay -->
             <div 
               v-if="snapToGridEnabled"
@@ -75,9 +77,9 @@
               :style="{
                 left: emoji.x + 'px',
                 top: emoji.y + 'px',
-                width: '32px',
-                height: '32px',
-                fontSize: Math.min(emoji.size || 32, 32) + 'px',
+                width: (emoji.size || 32) + 'px',
+                height: (emoji.size || 32) + 'px',
+                fontSize: (emoji.size || 32) + 'px',
                 zIndex: emoji.layer || 1,
                 transform: `rotate(${emoji.rotation || 0}deg)`,
                 boxShadow: isItemSelected(emoji.id) ? '0 0 0 2px #3b82f6' : 'none',
@@ -121,6 +123,7 @@
                 backgroundColor: 'rgba(59, 130, 246, 0.05)'
               }"
             />
+            
 
             <!-- Long Press Indicator for Touch -->
             <div
@@ -247,6 +250,7 @@
               <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full border border-white"/>
             </div>
 
+              </div>
             </div>
           </div>
           
@@ -274,9 +278,11 @@
         <SelectionControls
           :selected-item-count="selectedItemCount"
           :rotation-angle="rotationAngle"
+          :emoji-size="emojiSize"
           :clipboard-has-data="clipboardHasData"
           @rotation-change="handleRotationChange"
           @reset-rotation="resetRotation"
+          @size-change="handleSizeChange"
           @copy="handleCopy"
           @paste="handlePaste"
           @delete-selected="deleteSelectedItem"
@@ -288,22 +294,6 @@
       <!-- AI Chat Interface -->
       <AIChatInterface v-if="showAIChat" :show-chat="showAIChat" @update:show-chat="showAIChat = $event" />
       
-      <!-- Command Palette -->
-      <CanvasCommandPalette
-        ref="commandPaletteRef"
-        :selected-item-count="selectedItemIds.size"
-        :clipboard-has-data="clipboardHasData"
-        :can-undo="canUndo"
-        :can-redo="canRedo"
-        @copy="handleCopy"
-        @paste="handlePaste"
-        @delete-selected="deleteSelectedItem"
-        @clear-selection="clearSelection"
-        @undo="undo"
-        @redo="redo"
-        @select-all="selectAllItems"
-        @duplicate="duplicateSelectedItems"
-      />
 
       <!-- Users Modal -->
       <UsersModal 
@@ -409,14 +399,9 @@ const panStart = ref({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
 const isSpacePressed = ref(false)
 const isGrabbing = ref(false)
 
-// Responsive canvas dimensions - full viewport minus header
-const canvasWidth = computed(() => {
-  return window.innerWidth
-})
-
-const canvasHeight = computed(() => {
-  return window.innerHeight - 80 // Full height minus header height
-})
+// Fixed canvas dimensions - industry standard Full HD
+const canvasWidth = 1920
+const canvasHeight = 1080
 
         // State
         const showAIChat = ref(false)
@@ -426,6 +411,7 @@ const canvasHeight = computed(() => {
         const showToolPalette = ref(false)
         const selectedEmojiId = ref<string | null>(null)
         const rotationAngle = ref(0)
+        const emojiSize = ref(48)
         
         // Real-time presence tracking
         const { 
@@ -503,8 +489,9 @@ const {
   clearAllEmojis,
   getEmojiById,
   deleteEmoji,
+  deleteMultipleEmojis,
   initializeEmojis
-} = useEmojis(canvasWidth.value, canvasHeight.value)
+} = useEmojis(canvasWidth, canvasHeight)
 
 // Cursor tracking for real-time collaboration
 const { startTracking: startCursorTracking, stopTracking: stopCursorTracking } = useCursorTracking()
@@ -688,6 +675,9 @@ function handleCanvasTouchMove(event: TouchEvent) {
       }
       
       canvasScale.value = newScale
+      
+      // Apply constraints to prevent panning outside canvas bounds
+      constrainPanOffset()
     }
   }
 }
@@ -845,6 +835,9 @@ function handleCanvasWheel(event: WheelEvent) {
   }
   
   canvasScale.value = newScale
+  
+  // Apply constraints to prevent panning outside canvas bounds
+  constrainPanOffset()
 }
 
 function startPan(event: MouseEvent | TouchEvent) {
@@ -875,10 +868,34 @@ function handlePan(event: MouseEvent | TouchEvent) {
   
   canvasOffset.value.x = panStart.value.offsetX + deltaX
   canvasOffset.value.y = panStart.value.offsetY + deltaY
+  
+  // Apply constraints to prevent panning outside canvas bounds
+  constrainPanOffset()
 }
 
 function endPan() {
   isPanning.value = false
+}
+
+function constrainPanOffset() {
+  const viewport = canvasViewport.value
+  if (!viewport) return
+  
+  const viewportRect = viewport.getBoundingClientRect()
+  const viewportWidth = viewportRect.width
+  const viewportHeight = viewportRect.height
+  
+  // Calculate the scaled canvas dimensions
+  const scaledCanvasWidth = canvasWidth * canvasScale.value
+  const scaledCanvasHeight = canvasHeight * canvasScale.value
+  
+  // Calculate max pan offsets to keep canvas filling viewport
+  const maxOffsetX = Math.max(0, (scaledCanvasWidth - viewportWidth) / 2)
+  const maxOffsetY = Math.max(0, (scaledCanvasHeight - viewportHeight) / 2)
+  
+  // Constrain pan offset
+  canvasOffset.value.x = Math.max(-maxOffsetX, Math.min(maxOffsetX, canvasOffset.value.x))
+  canvasOffset.value.y = Math.max(-maxOffsetY, Math.min(maxOffsetY, canvasOffset.value.y))
 }
 
 
@@ -926,13 +943,14 @@ function selectItem(itemId: string) {
   selectedItemIds.value = new Set([itemId])
   selectedEmojiId.value = itemId
   updateRotationFromSelection()
+  updateSizeFromSelection()
 }
 
 
 // Emoji functions
 async function addEmoji(emojiChar: string) {
-  let x = Math.random() * (canvasWidth.value - 100)
-  let y = Math.random() * (canvasHeight.value - 100)
+  let x = Math.random() * (canvasWidth - 100)
+  let y = Math.random() * (canvasHeight - 100)
   
   // Apply grid snapping if enabled
   if (snapToGridEnabled.value) {
@@ -962,6 +980,14 @@ function handleEmojiSelect(emoji: string) {
 
 // Drag functions
 function startEmojiDrag(event: MouseEvent, emojiId: string) {
+  // Only proceed if we're actually clicking on an emoji element
+  const target = event.target as HTMLElement
+  const isOnEmoji = target?.closest('.emoji-item') || target?.classList.contains('emoji-item')
+  
+  if (!isOnEmoji) {
+    return
+  }
+  
   // Check for Ctrl/Cmd key for multi-select
   const isMultiSelect = event.ctrlKey || event.metaKey
   
@@ -1031,8 +1057,8 @@ function handleDrag(event: MouseEvent) {
         let newY = dragStart.value.selectedPositions[emojiId]!.y + deltaY
         
         // Add bounds checking to prevent going off-screen
-        newX = Math.max(0, Math.min(newX, canvasWidth.value - 32))
-        newY = Math.max(0, Math.min(newY, canvasHeight.value - 32))
+        newX = Math.max(0, Math.min(newX, canvasWidth - 32))
+        newY = Math.max(0, Math.min(newY, canvasHeight - 32))
         
         // Apply grid snapping if enabled
         if (snapToGridEnabled.value) {
@@ -1068,9 +1094,7 @@ async function endDrag() {
     isDragging.value = false
   }
   
-  // Clean up document event listeners
-  document.removeEventListener('mousemove', handleDocumentMouseMove)
-  document.removeEventListener('mouseup', handleDocumentMouseUp)
+  // Don't remove event listeners here - let handleDocumentMouseUp handle it
 }
 
 // Document-level event handlers for drag
@@ -1182,24 +1206,27 @@ function handleEmojiResize(deltaX: number, deltaY: number, emoji: { size: number
     case 'nw':
     case 'se':
       // Diagonal resize - use average of X and Y deltas
-      newSize = Math.max(16, baseSize + (deltaX + deltaY) / 2)
+      newSize = baseSize + (deltaX + deltaY) / 2
       break
     case 'ne':
     case 'sw':
       // Diagonal resize - use average of X and Y deltas (inverted for ne/sw)
-      newSize = Math.max(16, baseSize + (-deltaX + deltaY) / 2)
+      newSize = baseSize + (-deltaX + deltaY) / 2
       break
     case 'n':
     case 's':
       // Vertical resize
-      newSize = Math.max(16, baseSize + deltaY)
+      newSize = baseSize + deltaY
       break
     case 'e':
     case 'w':
       // Horizontal resize
-      newSize = Math.max(16, baseSize + deltaX)
+      newSize = baseSize + deltaX
       break
   }
+  
+  // Apply size constraints (16px minimum, 256px maximum)
+  newSize = Math.max(16, Math.min(256, newSize))
   
   // Apply grid snapping to size if enabled
   if (snapToGridEnabled.value) {
@@ -1236,42 +1263,55 @@ async function endResize() {
 function handleCanvasClick(event: MouseEvent) {
   // Only deselect if clicking on empty canvas space
   // and not during a selection box operation or just after completing one
-  if (event.target === canvasViewport.value && !isSelecting.value && !justCompletedSelection.value) {
+  const isInsideCanvas = canvasViewport.value?.contains(event.target as Node)
+  const target = event.target as HTMLElement
+  const isOnEmoji = target?.closest('.emoji-item') || target?.classList.contains('emoji-item')
+  
+  if (isInsideCanvas && !isOnEmoji && !isSelecting.value && !justCompletedSelection.value) {
     clearSelection()
   }
 }
 
 function handleCanvasMouseDown(event: MouseEvent) {
-  // Start panning on mobile if clicking on empty canvas
-  if (isMobile.value && event.target === canvasViewport.value) {
+  // Check if clicking inside canvas viewport (not just on the viewport itself)
+  const isInsideCanvas = canvasViewport.value?.contains(event.target as Node)
+  
+  // Start panning on mobile if clicking inside canvas
+  if (isMobile.value && isInsideCanvas) {
     startPan(event)
     return
   }
   
   // Desktop behavior: check if Space is pressed for pan mode
-  if (event.target === canvasViewport.value) {
+  if (isInsideCanvas) {
     if (isSpacePressed.value) {
       // Space+drag = pan mode
       startPan(event)
       isGrabbing.value = true
     } else {
-      // Default: start selection box (works with or without Ctrl/Cmd)
-      isSelecting.value = true
-      const rect = canvasViewport.value!.getBoundingClientRect()
-      selectionStart.value = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      }
-      selectionBox.value = {
-        x: selectionStart.value.x,
-        y: selectionStart.value.y,
-        width: 0,
-        height: 0
-      }
+      // Check if clicking on empty canvas space (not on emojis)
+      const target = event.target as HTMLElement
+      const isOnEmoji = target?.closest('.emoji-item') || target?.classList.contains('emoji-item')
       
-      // Add document-level event listeners for selection
-      document.addEventListener('mousemove', handleDocumentMouseMove)
-      document.addEventListener('mouseup', handleDocumentMouseUp)
+      if (!isOnEmoji) {
+        // Default: start selection box (works with or without Ctrl/Cmd)
+        isSelecting.value = true
+        const rect = canvasViewport.value!.getBoundingClientRect()
+        selectionStart.value = {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top
+        }
+        selectionBox.value = {
+          x: selectionStart.value.x,
+          y: selectionStart.value.y,
+          width: 0,
+          height: 0
+        }
+        
+        // Add document-level event listeners for selection
+        document.addEventListener('mousemove', handleDocumentMouseMove)
+        document.addEventListener('mouseup', handleDocumentMouseUp)
+      }
     }
   }
 }
@@ -1339,6 +1379,10 @@ async function handleCanvasMouseUp() {
   
   // Clear pending drag state
   pendingDragEmojiId.value = null
+  
+  // Clean up document event listeners
+  document.removeEventListener('mousemove', handleDocumentMouseMove)
+  document.removeEventListener('mouseup', handleDocumentMouseUp)
 }
 
 
@@ -1400,12 +1444,8 @@ function resetCanvasView() {
 }
 
 function editEmoji(id: string) {
-  // Cycle through sizes
-  const emoji = getEmojiById(id)
-  if (emoji) {
-    const newSize = emoji.size === 32 ? 48 : emoji.size === 48 ? 64 : 32
-    updateEmoji(id, { size: newSize })
-  }
+  // Double-click functionality removed - use resize handles or size slider instead
+  console.log('Double-click on emoji - use resize handles or size slider to change size')
 }
 
 
@@ -1452,16 +1492,80 @@ function resetRotation() {
   handleRotationChange(0)
 }
 
+// Size functions
+async function handleSizeChange(size: number | undefined) {
+  if (size === undefined) return
+  
+  // Ensure size is a number and within bounds
+  const numericSize = Array.isArray(size) ? size[0] : size
+  if (typeof numericSize !== 'number' || isNaN(numericSize)) {
+    console.warn('Invalid size received:', size)
+    return
+  }
+  
+  // Apply size constraints
+  const constrainedSize = Math.max(16, Math.min(256, numericSize))
+  emojiSize.value = constrainedSize
+  
+  // Resize all selected items
+  for (const emojiId of selectedItemIds.value) {
+    const emoji = getEmojiById(emojiId)
+    if (emoji) {
+      emoji.size = constrainedSize
+    }
+  }
+  
+  // Save size changes to database for all selected emojis
+  for (const emojiId of selectedItemIds.value) {
+    const emoji = getEmojiById(emojiId)
+    if (emoji) {
+      try {
+        await updateEmoji(emojiId, { 
+          x: emoji.x, 
+          y: emoji.y, 
+          size: emoji.size 
+        })
+      } catch (error) {
+        console.error('❌ Error updating emoji size:', error)
+      }
+    }
+  }
+}
+
 async function deleteSelectedItem() {
   if (selectedItemIds.value.size > 0) {
     try {
-      // Delete all selected items
-      for (const emojiId of selectedItemIds.value) {
-        await deleteEmoji(emojiId)
+      // Convert Set to Array for bulk delete
+      const selectedIds = Array.from(selectedItemIds.value)
+      
+      // Use bulk delete for instant removal (like clear all)
+      const success = await deleteMultipleEmojis(selectedIds)
+      
+      if (success) {
+        clearSelection()
+        toast.add({
+          title: 'Items deleted',
+          description: `${selectedIds.length} item${selectedIds.length > 1 ? 's' : ''} deleted`,
+          icon: 'i-lucide-trash-2',
+          color: 'success'
+        })
+      } else {
+        console.error('❌ Failed to delete selected items')
+        toast.add({
+          title: 'Delete failed',
+          description: 'Failed to delete selected items',
+          icon: 'i-lucide-alert-circle',
+          color: 'error'
+        })
       }
-      clearSelection()
     } catch (error) {
       console.error('❌ Error deleting emojis:', error)
+      toast.add({
+        title: 'Delete failed',
+        description: 'An error occurred while deleting items',
+        icon: 'i-lucide-alert-circle',
+        color: 'error'
+      })
     }
   }
 }
@@ -1498,6 +1602,22 @@ function updateRotationFromSelection() {
     }
   } else {
     rotationAngle.value = 0
+  }
+}
+
+function updateSizeFromSelection() {
+  // Update size slider when selection changes
+  if (selectedItemIds.value.size > 0) {
+    // Use the first selected item's size as the reference
+    const firstEmojiId = Array.from(selectedItemIds.value)[0]
+    if (firstEmojiId) {
+      const emoji = getEmojiById(firstEmojiId)
+      if (emoji) {
+        emojiSize.value = emoji.size || 48
+      }
+    }
+  } else {
+    emojiSize.value = 48
   }
 }
 
@@ -1637,8 +1757,6 @@ const duplicateSelectedItems = async () => {
   }
 }
 
-// Command palette ref
-const commandPaletteRef = ref()
 
 // Keyboard shortcuts
 onMounted(() => {
@@ -1662,11 +1780,6 @@ onMounted(() => {
       showAIChat.value = !showAIChat.value
     }
     
-    // Command palette (Cmd/Ctrl + K) - allow this even when typing
-    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-      event.preventDefault()
-      commandPaletteRef.value?.open()
-    }
     
     // Skip other shortcuts if typing in input field
     if (isTypingInInput) {
@@ -1767,9 +1880,7 @@ onMounted(() => {
   transform: scale(1.05);
 }
 
-.emoji-item.selected {
-  /* Selection styling handled by inline boxShadow */
-}
+/* Selection styling handled by inline boxShadow */
 
 
 /* Performance optimizations for canvas */

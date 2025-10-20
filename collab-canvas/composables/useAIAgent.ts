@@ -1,33 +1,56 @@
 import { ref } from 'vue'
-import { useShapesWithPersistence } from './useShapesWithPersistence'
 import { useEmojis } from './useEmojis'
 import { 
-  wordToNumber, 
-  parseSize, 
-  parseCanvasPosition, 
   parseMultipleItems, 
   extractCount, 
   extractSize, 
   extractPosition, 
   extractEmojiType,
-  parseMovementCommand,
-  parseRotationCommand,
-  generateRowPositions,
-  generateColumnPositions,
   generateBorderPositions,
   generateAlternatingPattern,
   generateTrail,
   type CanvasPosition,
-  type EmojiItem,
   type MultipleItemsResult
 } from '~/utils/aiHelpers'
 import { generateWordPositions, generateVerticalWordPositions } from '~/utils/letterPatterns'
+import { generateShapePattern, convertAsciiToEmojiPositions, type EmojiPosition } from '~/utils/shapePatterns'
 
-// Utility function for random colors
-const getRandomColor = () => {
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
-  return colors[Math.floor(Math.random() * colors.length)]
-}
+  // Utility function for random colors (currently unused)
+  const _getRandomColor = () => {
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
+    return colors[Math.floor(Math.random() * colors.length)]
+  }
+
+  // Generate warm, conversational responses
+  const generateWarmResponse = (originalMessage: string, commandCount: number): string => {
+    const warmResponses = [
+      "✨ Your creation is complete! I've brought your vision to life on the canvas.",
+      "🎨 Perfect! I've crafted something beautiful just for you.",
+      "🌟 Ta-da! Your emoji masterpiece is ready to admire.",
+      "💫 Wonderful! I've painted your imagination onto the canvas.",
+      "🎭 Amazing! Your creative request has been brought to life.",
+      "🌈 Fantastic! I've created something special just for you.",
+      "✨ Your artistic vision is now a reality on the canvas!",
+      "🎨 Beautiful! I've made your emoji dreams come true.",
+      "🌟 Excellent! Your creation is ready for you to enjoy.",
+      "💫 Perfect! I've transformed your idea into emoji art."
+    ]
+    
+    // If there are multiple commands, make it more specific
+    if (commandCount > 1) {
+      const multiCommandResponses = [
+        "🎨 Wonderful! I've created a complex scene with multiple elements just for you.",
+        "✨ Amazing! I've built something intricate and beautiful on your canvas.",
+        "🌟 Fantastic! I've crafted a detailed emoji composition for you.",
+        "💫 Perfect! I've created a multi-layered masterpiece on your canvas.",
+        "🎭 Excellent! I've brought together several elements to create something special."
+      ]
+      return multiCommandResponses[Math.floor(Math.random() * multiCommandResponses.length)]
+    }
+    
+    // For single commands or fallback
+    return warmResponses[Math.floor(Math.random() * warmResponses.length)]
+  }
 
 export interface AICommand {
   action: string
@@ -58,19 +81,7 @@ export const useAIAgent = () => {
   const isConnected = ref(true)
   const lastCommand = ref<AICommand | null>(null)
 
-  // Get shapes composable for canvas operations - now uses shared state
-  const {
-    rectangles,
-    circles,
-    texts,
-    addRectangle,
-    addCircle,
-    addText,
-    updateShape,
-    deleteShape,
-    clearAllShapes,
-    getShapeById
-  } = useShapesWithPersistence()
+  // We only use emojis now, no shapes needed
 
   // Extract commands from AI message content
   const extractCommandsFromMessage = (content: string): AICommand[] => {
@@ -217,22 +228,22 @@ export const useAIAgent = () => {
 
       switch (command.action) {
         case 'create-shape':
-          return await handleCreateShape(command)
+          return await handleCreateEmoji(command)
         
         case 'move-shape':
-          return await handleMoveShape(command)
+          return await handleMoveEmoji(command)
         
         case 'resize-shape':
-          return await handleResizeShape(command)
+          return await handleResizeEmoji(command)
         
         case 'delete-shape':
-          return await handleDeleteShape(command)
+          return await handleDeleteEmoji(command)
         
         case 'get-shapes':
-          return await handleGetShapes(command)
+          return await handleGetEmojis(command)
         
         case 'arrange-shapes':
-          return await handleArrangeShapes(command)
+          return await handleArrangeEmojis(command)
         
         case 'clear-all':
           return await handleClearAll(command)
@@ -259,6 +270,10 @@ export const useAIAgent = () => {
           console.log('🔤 Handling spell-word command:', command)
           return await handleSpellWord(command)
         
+        case 'draw-shape':
+          console.log('🎨 Handling draw-shape command:', command)
+          return await handleDrawShape(command)
+        
         case 'shift-scene':
           return await handleShiftScene(command)
         
@@ -278,222 +293,128 @@ export const useAIAgent = () => {
     }
   }
 
-  // Handle shape creation
-  const handleCreateShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeType, x, y, width, height, radius, text, fontSize, fill, stroke, emoji, emojiSize, layer } = command as unknown as {
-      shapeType: string;
+  // Handle emoji creation (since we only use emojis now)
+  const handleCreateEmoji = async (command: AICommand): Promise<boolean> => {
+    const { x, y, emoji, emojiSize, layer, rotation } = command as unknown as {
       x?: number;
       y?: number;
-      width?: number;
-      height?: number;
-      radius?: number;
-      text?: string;
-      fontSize?: number;
-      fill?: string;
-      stroke?: string;
       emoji?: string;
       emojiSize?: number;
       layer?: number;
+      rotation?: number;
     }
     
-    console.log('🔧 Raw command received in handleCreateShape:', JSON.stringify(command, null, 2))
-    console.log('🎨 Creating shape with command:', { shapeType, x, y, width, height, radius, fill, stroke, emoji, emojiSize })
+    console.log('🔧 Raw command received in handleCreateEmoji:', JSON.stringify(command, null, 2))
+    console.log('🎨 Creating emoji with command:', { x, y, emoji, emojiSize, layer, rotation })
 
-    // Validate that we have meaningful values for shape creation
-    const isEmptyCommand = !shapeType || 
-      (x === 0 && y === 0 && width === 0 && height === 0 && radius === 0) ||
-      (shapeType === 'emoji' && (!emoji || emojiSize === 0)) ||
-      (shapeType === 'text' && !text)
-
-    if (isEmptyCommand) {
-      console.warn('⚠️ Skipping empty or malformed shape creation command:', command)
+    // Validate that we have meaningful values for emoji creation
+    if (!emoji) {
+      console.warn('⚠️ Skipping emoji creation - no emoji provided:', command)
       return false
     }
 
     try {
-      switch (shapeType) {
-        case 'rectangle': {
-          const rectParams = {
-            x: x !== undefined ? x : 100,
-            y: y !== undefined ? y : 100,
-            width: width || 100,
-            height: height || 60,
-            fill: fill || getRandomColor(),
-            stroke: stroke || '#000'
-          }
-          console.log('🔧 Rectangle parameters:', rectParams)
-          await addRectangle(rectParams)
-          console.log('🔍 Current rectangles array after creation:', rectangles.value.length)
-          console.log('🔍 Rectangles data:', rectangles.value.map(r => ({ id: r.id, x: r.x, y: r.y, fill: r.fill })))
-          break
-        }
-        
-        case 'circle': {
-          await addCircle({
-            x: x !== undefined ? x : 100,
-            y: y !== undefined ? y : 100,
-            radius: radius || 50,
-            fill: fill || getRandomColor(),
-            stroke: stroke || '#000'
-          })
-          console.log('🔍 Current circles array after creation:', circles.value.length)
-          console.log('🔍 Circles data:', circles.value.map(c => ({ id: c.id, x: c.x, y: c.y, fill: c.fill })))
-          break
-        }
-        
-        case 'text': {
-          await addText({
-            x: x !== undefined ? x : 100,
-            y: y !== undefined ? y : 100,
-            text: text || 'AI Generated Text',
-            fontSize: fontSize || 24,
-            fill: fill || getRandomColor(),
-            stroke: stroke || '#000'
-          })
-          break
-        }
-        
-        case 'emoji': {
-          // Skip creating emoji if all values are empty/zero (likely a malformed command)
-          if (!emoji || emojiSize === 0 || (x === 0 && y === 0 && width === 0 && height === 0)) {
-            console.warn('⚠️ Skipping empty emoji shape creation - likely malformed command')
-            return false
-          }
-          
-          // For emoji shapes, we need to use the emoji composable
-          console.log('🎨 Creating emoji shape:', { emoji, x, y, size: emojiSize, layer })
-          const { addEmoji } = useEmojis()
-          await addEmoji({
-            x: x !== undefined ? x : 100,
-            y: y !== undefined ? y : 100,
-            emoji: emoji || '😊',
-            size: emojiSize || 48,
-            layer: layer || 1,
-            rotation: 0
-          })
-          console.log('✅ Emoji shape created successfully')
-          break
-        }
-        
-        default:
-          throw new Error(`Unknown shape type: ${shapeType}`)
-      }
-      
-      console.log(`✅ Created ${shapeType} at (${x}, ${y})`)
+      // Use the emoji composable to create emojis
+      console.log('🎨 Creating emoji:', { emoji, x, y, size: emojiSize, layer, rotation })
+      const { addEmoji } = useEmojis()
+      await addEmoji({
+        x: x !== undefined ? x : 100,
+        y: y !== undefined ? y : 100,
+        emoji: emoji,
+        size: emojiSize || 48,
+        layer: layer || 1,
+        rotation: rotation || 0
+      })
+      console.log('✅ Emoji created successfully')
       return true
     } catch (err) {
-      console.error(`❌ Failed to create ${shapeType}:`, err)
+      console.error(`❌ Failed to create emoji:`, err)
       return false
     }
   }
 
-  // Handle shape movement
-  const handleMoveShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeId, x, y } = command as unknown as { shapeId: string; x: number; y: number }
+  // Handle emoji movement
+  const handleMoveEmoji = async (command: AICommand): Promise<boolean> => {
+    const { emojiId, x, y } = command as unknown as { emojiId: string; x: number; y: number }
 
-    if (!shapeId) {
-      throw new Error('Shape ID is required for move command')
+    if (!emojiId) {
+      throw new Error('Emoji ID is required for move command')
     }
 
     try {
-      const success = await updateShape(shapeId, { x, y })
-      if (success) {
-        console.log(`✅ Moved shape ${shapeId} to (${x}, ${y})`)
-      }
-      return success
-    } catch (err) {
-      console.error(`❌ Failed to move shape ${shapeId}:`, err)
-      return false
-    }
-  }
-
-  // Handle shape resizing
-  const handleResizeShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeId, width, height, radius } = command as unknown as { shapeId: string; width?: number; height?: number; radius?: number }
-
-    if (!shapeId) {
-      throw new Error('Shape ID is required for resize command')
-    }
-
-    try {
-      const shape = getShapeById(shapeId)
-      if (!shape) {
-        throw new Error(`Shape ${shapeId} not found`)
-      }
-
-      const updates: Record<string, unknown> = {}
-      if (width !== undefined) updates.width = width
-      if (height !== undefined) updates.height = height
-      if (radius !== undefined) updates.radius = radius
-
-      const success = await updateShape(shapeId, updates)
-      if (success) {
-        console.log(`✅ Resized shape ${shapeId}`)
-      }
-      return success
-    } catch (err) {
-      console.error(`❌ Failed to resize shape ${shapeId}:`, err)
-      return false
-    }
-  }
-
-  // Handle shape deletion
-  const handleDeleteShape = async (command: AICommand): Promise<boolean> => {
-    const { shapeId } = command as unknown as { shapeId: string }
-
-    if (!shapeId) {
-      throw new Error('Shape ID is required for delete command')
-    }
-
-    try {
-      const success = await deleteShape(shapeId)
-      if (success) {
-        console.log(`✅ Deleted shape ${shapeId}`)
-      }
-      return success
-    } catch (err) {
-      console.error(`❌ Failed to delete shape ${shapeId}:`, err)
-      return false
-    }
-  }
-
-  // Handle getting shape information
-  const handleGetShapes = async (command: AICommand): Promise<boolean> => {
-    const { shapeType = 'all' } = command as unknown as { shapeType?: string }
-
-    try {
-      let shapes: Array<Record<string, unknown>> = []
-      
-      if (shapeType === 'all' || shapeType === 'rectangle') {
-        shapes = shapes.concat(rectangles.value.map(r => ({ ...r, type: 'rectangle' })))
-      }
-      if (shapeType === 'all' || shapeType === 'circle') {
-        shapes = shapes.concat(circles.value.map(c => ({ ...c, type: 'circle' })))
-      }
-      if (shapeType === 'all' || shapeType === 'text') {
-        shapes = shapes.concat(texts.value.map(t => ({ ...t, type: 'text' })))
-      }
-
-      console.log(`📊 Found ${shapes.length} shapes of type ${shapeType}:`, shapes)
+      const { updateEmoji } = useEmojis()
+      await updateEmoji(emojiId, { x, y })
+      console.log(`✅ Moved emoji ${emojiId} to (${x}, ${y})`)
       return true
     } catch (err) {
-      console.error(`❌ Failed to get shapes:`, err)
+      console.error(`❌ Failed to move emoji ${emojiId}:`, err)
       return false
     }
   }
 
-  // Handle shape arrangement
-  const handleArrangeShapes = async (command: AICommand): Promise<boolean> => {
-    const { shapeIds, layout, spacing = 20 } = command as unknown as { shapeIds: string[]; layout: string; spacing?: number }
+  // Handle emoji resizing
+  const handleResizeEmoji = async (command: AICommand): Promise<boolean> => {
+    const { emojiId, size } = command as unknown as { emojiId: string; size?: number }
 
-    if (!shapeIds || shapeIds.length === 0) {
-      throw new Error('Shape IDs are required for arrange command')
+    if (!emojiId) {
+      throw new Error('Emoji ID is required for resize command')
     }
 
     try {
-      const shapes = shapeIds.map((id: string) => getShapeById(id)).filter(Boolean) as unknown as Array<Record<string, unknown>>
-      if (shapes.length === 0) {
-        throw new Error('No valid shapes found for arrangement')
+      const { updateEmoji } = useEmojis()
+      await updateEmoji(emojiId, { size: size || 48 })
+      console.log(`✅ Resized emoji ${emojiId} to size ${size}`)
+      return true
+    } catch (err) {
+      console.error(`❌ Failed to resize emoji ${emojiId}:`, err)
+      return false
+    }
+  }
+
+  // Handle emoji deletion
+  const handleDeleteEmoji = async (command: AICommand): Promise<boolean> => {
+    const { emojiId } = command as unknown as { emojiId: string }
+
+    if (!emojiId) {
+      throw new Error('Emoji ID is required for delete command')
+    }
+
+    try {
+      const { deleteEmoji } = useEmojis()
+      await deleteEmoji(emojiId)
+      console.log(`✅ Deleted emoji ${emojiId}`)
+      return true
+    } catch (err) {
+      console.error(`❌ Failed to delete emoji ${emojiId}:`, err)
+      return false
+    }
+  }
+
+  // Handle getting emoji information
+  const handleGetEmojis = async (_command: AICommand): Promise<boolean> => {
+    try {
+      const { emojis } = useEmojis()
+      console.log(`📊 Found ${emojis.value.length} emojis:`, emojis.value)
+      return true
+    } catch (err) {
+      console.error(`❌ Failed to get emojis:`, err)
+      return false
+    }
+  }
+
+  // Handle emoji arrangement
+  const handleArrangeEmojis = async (command: AICommand): Promise<boolean> => {
+    const { emojiIds, layout, spacing = 20 } = command as unknown as { emojiIds: string[]; layout: string; spacing?: number }
+
+    if (!emojiIds || emojiIds.length === 0) {
+      throw new Error('Emoji IDs are required for arrange command')
+    }
+
+    try {
+      const { getEmojiById, updateEmoji } = useEmojis()
+      const emojis = emojiIds.map((id: string) => getEmojiById(id)).filter(Boolean)
+      if (emojis.length === 0) {
+        throw new Error('No valid emojis found for arrangement')
       }
 
       // Calculate positions based on layout
@@ -501,7 +422,7 @@ export const useAIAgent = () => {
 
       switch (layout) {
         case 'horizontal': {
-          positions = shapes.map((_, index: number) => ({
+          positions = emojis.map((_, index: number) => ({
             x: 100 + index * (200 + spacing),
             y: 100
           }))
@@ -509,7 +430,7 @@ export const useAIAgent = () => {
         }
         
         case 'vertical': {
-          positions = shapes.map((_, index: number) => ({
+          positions = emojis.map((_, index: number) => ({
             x: 100,
             y: 100 + index * (100 + spacing)
           }))
@@ -517,8 +438,8 @@ export const useAIAgent = () => {
         }
         
         case 'grid': {
-          const cols = Math.ceil(Math.sqrt(shapes.length))
-          positions = shapes.map((_, index: number) => ({
+          const cols = Math.ceil(Math.sqrt(emojis.length))
+          positions = emojis.map((_, index: number) => ({
             x: 100 + (index % cols) * (200 + spacing),
             y: 100 + Math.floor(index / cols) * (100 + spacing)
           }))
@@ -529,8 +450,8 @@ export const useAIAgent = () => {
           const centerX = 400
           const centerY = 300
           const radius = 150
-          positions = shapes.map((_, index: number) => {
-            const angle = (index / shapes.length) * 2 * Math.PI
+          positions = emojis.map((_, index: number) => {
+            const angle = (index / emojis.length) * 2 * Math.PI
             return {
               x: centerX + radius * Math.cos(angle),
               y: centerY + radius * Math.sin(angle)
@@ -543,37 +464,33 @@ export const useAIAgent = () => {
           throw new Error(`Unknown layout type: ${layout}`)
       }
 
-      // Update shape positions
-      for (let i = 0; i < shapes.length; i++) {
-        const shape = shapes[i]
+      // Update emoji positions
+      for (let i = 0; i < emojis.length; i++) {
+        const emoji = emojis[i]
         const position = positions[i]
-        if (position && shape && typeof shape === 'object' && 'id' in shape) {
-          await updateShape(shape.id as string, { x: position.x, y: position.y })
+        if (position && emoji) {
+          await updateEmoji(emoji.id, { x: position.x, y: position.y })
         }
       }
 
-      console.log(`✅ Arranged ${shapes.length} shapes in ${layout} layout`)
+      console.log(`✅ Arranged ${emojis.length} emojis in ${layout} layout`)
       return true
     } catch (err) {
-      console.error(`❌ Failed to arrange shapes:`, err)
+      console.error(`❌ Failed to arrange emojis:`, err)
       return false
     }
   }
 
-  // Handle clear all shapes command
+  // Handle clear all emojis command
   const handleClearAll = async (_command: AICommand): Promise<boolean> => {
     try {
-      // Clear regular shapes
-      await clearAllShapes()
-      
-      // Also clear emojis
       const { clearAllEmojis } = useEmojis()
       await clearAllEmojis()
       
-      console.log('✅ Cleared all shapes and emojis from canvas')
+      console.log('✅ Cleared all emojis from canvas')
       return true
     } catch (err) {
-      console.error('❌ Failed to clear all shapes and emojis:', err)
+      console.error('❌ Failed to clear all emojis:', err)
       return false
     }
   }
@@ -819,6 +736,67 @@ export const useAIAgent = () => {
     }
   }
 
+  // Handle drawing shapes
+  const handleDrawShape = async (command: AICommand): Promise<boolean> => {
+    console.log('🎨 handleDrawShape called with:', command)
+    const { shape, emoji, fillStyle, size, position, asciiPattern } = command as unknown as { 
+      shape: string; 
+      emoji: string; 
+      fillStyle?: 'filled' | 'outline';
+      size?: number;
+      position?: CanvasPosition;
+      asciiPattern?: string[]; // For AI-generated patterns
+    }
+
+    console.log('🎨 Parsed parameters:', { shape, emoji, fillStyle, size, position, asciiPattern })
+
+    try {
+      const { addEmoji } = useEmojis()
+      let emojiPositions: EmojiPosition[] = []
+
+      // Check if we have an AI-generated ASCII pattern
+      if (asciiPattern && Array.isArray(asciiPattern) && asciiPattern.length > 0) {
+        console.log('🎨 Using AI-generated ASCII pattern:', asciiPattern)
+        emojiPositions = convertAsciiToEmojiPositions(
+          asciiPattern,
+          emoji,
+          position || { x: 400, y: 300 },
+          size ? size / 5 : 1 // Scale based on size
+        )
+      } else {
+        // Use geometric pattern generation
+        console.log('🎨 Using geometric pattern generation for:', shape)
+        emojiPositions = generateShapePattern(shape, {
+          emoji,
+          size: size || 5,
+          position: position || { x: 400, y: 300 },
+          fillStyle: fillStyle || 'filled',
+          scale: size ? size / 5 : 1
+        })
+      }
+
+      if (emojiPositions.length === 0) {
+        console.warn('⚠️ No emoji positions generated for shape:', shape)
+        return false
+      }
+
+      console.log('🎨 Generated emoji positions:', emojiPositions.length, 'positions')
+
+      // Add each emoji to the canvas
+      for (const pos of emojiPositions) {
+        console.log('🎨 Adding emoji position:', pos)
+        await addEmoji(pos)
+        await new Promise(resolve => setTimeout(resolve, 5)) // Small delay
+      }
+
+      console.log(`✅ Drew ${shape} with ${emojiPositions.length} ${emoji} emojis`)
+      return true
+    } catch (err) {
+      console.error('❌ Failed to draw shape:', err)
+      return false
+    }
+  }
+
   // Handle shifting entire scene
   const handleShiftScene = async (command: AICommand): Promise<boolean> => {
     const { deltaX, deltaY } = command as unknown as { 
@@ -924,8 +902,8 @@ export const useAIAgent = () => {
           x = centerX + radius * Math.cos(angle)
           y = centerY + radius * Math.sin(angle)
         } else if (arrangement === 'square') {
-          const totalItems = multipleItems.items.reduce((sum, it) => sum + it.count, 0)
-          const side = Math.floor(currentIndex / 4)
+          const _totalItems = multipleItems.items.reduce((sum, it) => sum + it.count, 0)
+          const _side = Math.floor(currentIndex / 4)
           const pos = currentIndex % 4
           const radius = 100
           if (pos === 0) { x = centerX - radius; y = centerY - radius }
@@ -1285,11 +1263,12 @@ export const useAIAgent = () => {
         }
       }
       
-      // Add assistant message
+      // Add assistant message with warm, conversational response
+      const warmResponse = generateWarmResponse(assistantMessage, commands.length)
       messages.value.push({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: assistantMessage
+        content: warmResponse
       })
       
       // Execute commands from the response
@@ -1299,10 +1278,8 @@ export const useAIAgent = () => {
         console.log('🔧 Command keys:', Object.keys(command))
         
         // Skip malformed commands that might be causing issues
-        if (command.action === 'create-shape' && 
-            (!command.shapeType || 
-             (command.x === 0 && command.y === 0 && command.width === 0 && command.height === 0 && command.radius === 0))) {
-          console.warn('⚠️ Skipping malformed create-shape command:', command)
+        if (command.action === 'create-shape' && !command.emoji) {
+          console.warn('⚠️ Skipping malformed create-shape command - no emoji provided:', command)
           continue
         }
         

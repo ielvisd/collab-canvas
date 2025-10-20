@@ -6,7 +6,7 @@ export interface Database {
           id: string
           user_id: string | null
           canvas_id: string
-          action_type: 'add' | 'update' | 'delete'
+          action_type: 'add' | 'update' | 'delete' | 'delete-multiple'
           object_type: 'emoji' | 'rectangle' | 'circle' | 'text'
           object_id: string
           before_state: any | null
@@ -18,7 +18,7 @@ export interface Database {
           id?: string
           user_id: string | null
           canvas_id: string
-          action_type: 'add' | 'update' | 'delete'
+          action_type: 'add' | 'update' | 'delete' | 'delete-multiple'
           object_type: 'emoji' | 'rectangle' | 'circle' | 'text'
           object_id: string
           before_state?: any | null
@@ -157,6 +157,6 @@ export type CanvasObjectInsert = Database['public']['Tables']['canvas_objects'][
 export type CanvasObjectUpdate = Database['public']['Tables']['canvas_objects']['Update']
 
 // Action types for undo/redo
-export type ActionType = 'add' | 'update' | 'delete'
+export type ActionType = 'add' | 'update' | 'delete' | 'delete-multiple'
 export type ObjectType = 'emoji' | 'rectangle' | 'circle' | 'text'
 

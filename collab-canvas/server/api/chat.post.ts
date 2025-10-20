@@ -11,7 +11,7 @@ import {
 } from '~/utils/aiHelpers'
 
 const CANVAS = { width: 800, height: 600, centerX: 400, centerY: 300 }
-const POSITIONS: Record<string, { x: number; y: number }> = {
+const _POSITIONS: Record<string, { x: number; y: number }> = {
   'upper-left': { x: 100, y: 100 },
   'upper-right': { x: 600, y: 100 },
   'lower-left': { x: 100, y: 450 },
@@ -34,15 +34,15 @@ function clampY(y: number) {
 }
 
 function mapSize(keyword?: number | string) {
-  if (!keyword) return 40
-  if (typeof keyword === 'number') return keyword
+  if (!keyword) return 48 // Default medium size
+  if (typeof keyword === 'number') return Math.max(16, Math.min(256, keyword))
   const s = String(keyword).toLowerCase()
-  if (s.includes('tiny')) return 20
-  if (s.includes('small')) return 30
-  if (s.includes('medium')) return 50
+  if (s.includes('tiny') || s.includes('mini')) return 20
+  if (s.includes('small') || s.includes('little')) return 32
+  if (s.includes('medium') || s.includes('normal')) return 48
   if (s.includes('big') || s.includes('large')) return 80
-  if (s.includes('huge') || s.includes('giant')) return 100
-  return 40
+  if (s.includes('huge') || s.includes('giant') || s.includes('massive')) return 128
+  return 48
 }
 
 /* -----------------------
@@ -108,6 +108,7 @@ function generateEmojisFromStory(story = ''): Array<{ emoji: string; x: number; 
       { emoji: '⭐', x: 450, y: 120, size: 20, layer: 3 }
     ]
   }
+
 
   // final fallback
   return [
@@ -184,7 +185,7 @@ export default defineEventHandler(async (event) => {
     // Fallback-only path (concise response, same structure as AI path)
     const cmd = buildFallbackCommand(lastUserMessage)
     return {
-      content: `AI response (fallback)`,
+      content: `🎨 Perfect! I've crafted something beautiful just for you using my fallback creativity.`,
       commands: cmd ? [cmd] : []
     }
   }
@@ -204,7 +205,7 @@ export default defineEventHandler(async (event) => {
   // Normalize hubAI response
   const commands = await parseAIResponse(response)
   return {
-    content: (response as any).response || 'AI executed',
+    content: (response as any).response || '✨ Your creation is complete! I\'ve brought your vision to life on the canvas.',
     commands
   }
 })
@@ -234,6 +235,30 @@ function createSystemPrompt() {
 - Scene manipulation: "Shift the whole scene slightly to the right" → Use shiftScene tool
 - Mirror arrangements: "Mirror the left side to the right" → Use mirrorScene tool
 
+### Shape Drawing (ASCII-Art Style)
+- Draw geometric shapes: "draw a triangle with pizzas", "draw a square outline with hearts" → Use drawShape tool
+- Creative shapes: "draw a cat with cat emojis", "draw a dinosaur with bones" → AI generates ASCII patterns
+- Filled vs outline: "draw a filled circle with stars" vs "draw a circle outline with hearts"
+- Size control: "draw a big triangle with gems" (size parameter)
+- Position control: "draw a diamond in the top-left corner"
+
+### AI Pattern Generation for Creative Shapes
+When generating ASCII patterns for creative shapes, use simple but recognizable designs:
+- **Cat**: Simple face with ears, eyes, and whiskers
+- **Dog**: Similar to cat but with different ear shape
+- **Dinosaur**: Long body with tail, head, and legs
+- **House**: Square base with triangular roof
+- **Tree**: Trunk with branching canopy
+- **Car**: Rectangular body with wheels
+- **Heart**: Two rounded sections meeting at bottom point
+- **Star**: 5-pointed star shape
+- **Flower**: Center with radiating petals
+
+**IMPORTANT**: For creative shapes (not geometric), you MUST include an asciiPattern array in the drawShape command. Example:
+action: draw-shape, shape: cat, emoji: 🐱, asciiPattern: array of strings
+
+Always output patterns as arrays of strings where each string represents a row of the ASCII art.
+
 ### Specific Prompt Patterns
 - "Place a single pizza emoji in the top-left corner" → Create single emoji at (100,100)
 - "Nestle a pizza emoji in the top-left corner, but make it 'guarded' by two winking eyes" → Pizza + winking eyes
@@ -257,7 +282,8 @@ function createSystemPrompt() {
   - Centers: center (400,300), top-center (400,100), bottom-center (400,500)
   - Rows: top-row (y=100), middle-row (y=300), bottom-row (y=500)
   - Edges: left-edge (x=50), right-edge (x=750)
-- Size keywords: tiny (20), small (30), medium (50), big/large (80), huge (100)
+- Size keywords: tiny (20), small (32), medium/normal (48), big/large (80), huge/giant (128)
+- Examples: "add a tiny pizza", "create a huge moon", "place small hearts around the star"
 
 ## LIMITATIONS
 - Cannot create custom drawings or freeform shapes
@@ -283,6 +309,8 @@ function createSystemPrompt() {
 - "Create a border of cheese wedges" → Use createBorder tool with emoji "🧀"
 - "Fill the top row with alternating star and moon emojis" → Use createAlternatingPattern tool with emojis ["⭐","🌙"], count 10, arrangement "row", position {x: 400, y: 100}
 - "Move cats leaving paw-print hearts behind" → Use moveEmojis tool with emojiType "🐱", deltaX 200, createTrail true, trailEmoji "❤️"
+- "Draw a cat with cat emojis" → Use drawShape tool with shape "cat", emoji "🐱", asciiPattern array
+- "Draw a triangle with pizzas" → Use drawShape tool with shape "triangle", emoji "🍕", fillStyle "filled"
 
 IMPORTANT: Always use the specific tools (spellWord, createBorder, createAlternatingPattern, etc.) instead of createEmojiStory for these patterns!
 
@@ -459,6 +487,34 @@ function buildToolSpecs() {
       function: async (args: Record<string, unknown>) => ({ name: 'spellWord', arguments: args })
     },
     {
+      name: 'drawShape',
+      description: 'Draw ASCII-art style shapes using emojis as pixels',
+      parameters: {
+        type: 'object',
+        properties: {
+          shape: { type: 'string', description: 'Shape to draw (triangle, square, circle, diamond, or creative shapes like cat, dinosaur)' },
+          emoji: { type: 'string', description: 'Emoji to use as pixels' },
+          fillStyle: { type: 'string', enum: ['filled', 'outline'], description: 'Whether to draw filled or outline shape', default: 'filled' },
+          size: { type: 'number', description: 'Approximate size in emojis (default 5)' },
+          position: {
+            type: 'object',
+            properties: {
+              x: { type: 'number' },
+              y: { type: 'number' }
+            },
+            description: 'Position to place the shape (default center)'
+          },
+          asciiPattern: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'AI-generated ASCII pattern for creative shapes'
+          }
+        },
+        required: ['shape', 'emoji']
+      },
+      function: async (args: Record<string, unknown>) => ({ name: 'drawShape', arguments: args })
+    },
+    {
       name: 'createBorder',
       description: 'Create a border around canvas edges',
       parameters: {
@@ -549,6 +605,8 @@ async function parseAIResponse(response: any) {
         
         if (name === 'spellWord') {
           commands.push({ action: 'spell-word', ...args })
+        } else if (name === 'drawShape') {
+          commands.push({ action: 'draw-shape', ...args })
         } else if (name === 'createBorder') {
           commands.push({ action: 'create-border', ...args })
         } else if (name === 'createAlternatingPattern') {
@@ -611,6 +669,9 @@ async function parseAIResponse(response: any) {
       } else if (name === 'spellWord') {
         console.log('🔍 Converting spellWord to spell-word action:', args)
         commands.push({ action: 'spell-word', ...args })
+      } else if (name === 'drawShape') {
+        console.log('🔍 Converting drawShape to draw-shape action:', args)
+        commands.push({ action: 'draw-shape', ...args })
       } else if (name === 'createBorder') {
         commands.push({ action: 'create-border', ...args })
       } else if (name === 'createAlternatingPattern') {
@@ -895,6 +956,57 @@ function buildFallbackCommand(userMessage: string) {
       action: 'shift-scene',
       deltaX: 20,
       deltaY: 0
+    }
+  }
+
+  // Handle creative shape requests
+  if (m.includes('draw') && m.includes('cat')) {
+    return {
+      action: 'draw-shape',
+      shape: 'cat',
+      emoji: '🐱',
+      asciiPattern: [
+        '  🐱🐱🐱  ',
+        ' 🐱🐱🐱🐱🐱 ',
+        '🐱🐱🐱🐱🐱🐱🐱',
+        ' 🐱🐱🐱🐱🐱 ',
+        '  🐱🐱🐱  '
+      ],
+      position: { x: 400, y: 300 }
+    }
+  }
+
+  if (m.includes('draw') && m.includes('dog')) {
+    return {
+      action: 'draw-shape',
+      shape: 'dog',
+      emoji: '🐶',
+      asciiPattern: [
+        '  🐶🐶🐶  ',
+        ' 🐶🐶🐶🐶🐶 ',
+        '🐶🐶🐶🐶🐶🐶🐶',
+        ' 🐶🐶🐶🐶🐶 ',
+        '  🐶🐶🐶  '
+      ],
+      position: { x: 400, y: 300 }
+    }
+  }
+
+  if (m.includes('draw') && m.includes('dinosaur')) {
+    return {
+      action: 'draw-shape',
+      shape: 'dinosaur',
+      emoji: '🦕',
+      asciiPattern: [
+        '    🦕🦕    ',
+        '   🦕🦕🦕   ',
+        '  🦕🦕🦕🦕  ',
+        ' 🦕🦕🦕🦕🦕 ',
+        '🦕🦕🦕🦕🦕🦕🦕',
+        ' 🦕🦕🦕🦕🦕 ',
+        '  🦕🦕🦕🦕  '
+      ],
+      position: { x: 400, y: 300 }
     }
   }
 

@@ -1589,7 +1589,7 @@ const selectAllItems = () => {
   const allEmojiIds = emojis.value.map(emoji => emoji.id)
   selectedItemIds.value = new Set(allEmojiIds)
   if (allEmojiIds.length > 0) {
-    selectedEmojiId.value = allEmojiIds[0]
+    selectedEmojiId.value = allEmojiIds[0] ?? null
   }
   toast.add({
     title: 'All items selected',

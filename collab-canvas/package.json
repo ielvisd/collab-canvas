@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "@iconify-json/heroicons": "^1.2.3",
-    "@nuxt/test-utils": "3.19.2",
+    "@nuxt/test-utils": "3.20.1",
     "@tailwindcss/typography": "^0.5.19",
     "@vitest/browser": "^3.2.4",
     "@vitest/coverage-v8": "^3.2.4",
